@@ -1,0 +1,83 @@
+import express from 'express';
+import { register, login, getMe, authenticate } from '../auth.js';
+import { getChallenges, submitChallenge, getUserChallenges } from '../challengeController.js';
+import * as bridge from '../bridgeController.js';
+import { getChildren, getChildProgress } from '../parentController.js';
+import { getStudents, getStudentProgressForTeacher, getClassSummary } from '../teacherController.js';
+import { sendMessage, getMessages, getMessagesByConversation } from '../bridgeMessageController.js';
+import { getResources } from '../resourcesController.js';
+import { getPosts, createPost, likePost, getComments, addComment, deletePost } from '../feedController.js';
+import { getTodayChallenges, getFocusRemaining, completeFocusSession, getDashboardStats, getTodayTasks, completeTask } from '../dashboardController.js';
+import { getOpportunities, applyOpportunity, getUserApplications } from '../opportunityController.js';
+
+const router = express.Router();
+
+// Auth routes
+router.post('/auth/register', register);
+router.post('/auth/login', login);
+router.get('/auth/me', authenticate, getMe);
+
+// Challenge routes
+router.get('/challenges', authenticate, getChallenges);
+router.post('/challenges/submit', authenticate, submitChallenge);
+router.get('/my-challenges', authenticate, getUserChallenges);
+
+// Bridge routes (using namespace import for existing bridge features)
+router.get('/bridge/generate-code', authenticate, bridge.generateConnectionCode);
+router.post('/bridge/connect', authenticate, bridge.linkStudent);
+router.get('/bridge/my-students', authenticate, bridge.getTeacherStudents);
+router.get('/bridge/my-child', authenticate, bridge.getParentChild);
+router.get('/bridge/student/:id/progress', authenticate, bridge.getStudentProgressById);
+router.get('/bridge/announcements', authenticate, bridge.getAnnouncements);
+router.post('/bridge/announcements', authenticate, bridge.createAnnouncement);
+
+// Bridge messaging
+router.post('/bridge/messages', authenticate, sendMessage);
+router.get('/bridge/messages', authenticate, getMessages);
+router.get('/bridge/messages/:conversationId', authenticate, getMessagesByConversation);
+
+// Parent dashboard
+router.get('/parent/children', authenticate, getChildren);
+router.get('/parent/child/:id/progress', authenticate, getChildProgress);
+
+// Teacher dashboard
+router.get('/teacher/students', authenticate, getStudents);
+router.get('/teacher/student/:id/progress', authenticate, getStudentProgressForTeacher);
+router.get('/teacher/class-summary', authenticate, getClassSummary);
+
+// Dashboard stats and tasks
+router.get('/dashboard/stats', authenticate, getDashboardStats);
+router.get('/tasks', authenticate, getTodayTasks);
+router.patch('/tasks/:id/complete', authenticate, completeTask);
+router.get('/today-challenges', authenticate, getTodayChallenges);
+router.get('/focus/remaining', authenticate, getFocusRemaining);
+router.post('/focus/session', authenticate, completeFocusSession);
+
+// Feed
+router.get('/feed/posts', authenticate, getPosts);
+router.post('/feed/posts', authenticate, createPost);
+router.post('/feed/posts/:id/like', authenticate, likePost);
+router.get('/feed/posts/:id/comments', authenticate, getComments);
+router.post('/feed/posts/:id/comments', authenticate, addComment);
+router.delete('/feed/posts/:id', authenticate, deletePost);
+
+// StudySphere resources
+router.get('/resources', authenticate, getResources);
+
+// Placeholder routes (kept for compatibility)
+router.get('/goals', authenticate, (req, res) => res.json([]));
+router.get('/communities', authenticate, (req, res) => res.json([]));
+router.get('/badges', authenticate, (req, res) => res.json([]));
+router.get('/leaderboard', authenticate, (req, res) => res.json([]));
+router.post('/mood', authenticate, (req, res) => res.json({ success: true }));
+
+router.get('/', (req, res) => res.json({ message: 'API is working' }));
+
+export default router;
+
+router.get('/bridge/conversations', authenticate, getMessages);
+
+// Opportunities
+router.get('/opportunities', authenticate, getOpportunities);
+router.post('/opportunities/apply', authenticate, applyOpportunity);
+router.get('/my-applications', authenticate, getUserApplications);
