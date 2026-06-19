@@ -1,11 +1,11 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { AuthProvider, useAuth } from "./hooks/useAuth"
 import AppLayout from "./components/layout/AppLayout"
-import LandingPage from "./pages/LandingPage"
+import LandingPage from "./pages/Landingpage"
 import LoginPage from "./pages/LoginPage"
 import RegisterPage from "./pages/RegisterPage"
 import DashboardPage from "./pages/DashboardPage"
-import GoalsPage from "./pages/GoalsPage"
+import GoalsPage from "./pages/Goalspage"
 import CommunitiesPage from "./pages/CommunitiesPage"
 import CommunityPage from "./pages/CommunityPage"
 import BadgesPage from "./pages/BadgesPage"
@@ -55,9 +55,14 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Public routes (no authentication required) */}
           <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+          <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+          <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
+
+          {/* Protected routes (require authentication) */}
           <Route
             path="/"
             element={
@@ -66,17 +71,15 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
-            <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
             <Route index element={<RoleBasedRedirect />} />
             <Route
-  path="/dashboard"
-  element={
-    <RequireRole allowedRoles={['student']}>
-      <DashboardPage />
-    </RequireRole>
-  }
-/>
+              path="dashboard"
+              element={
+                <RequireRole allowedRoles={['student']}>
+                  <DashboardPage />
+                </RequireRole>
+              }
+            />
             <Route path="momentum" element={<MomentumFeedPage />} />
             <Route path="goals" element={<GoalsPage />} />
             <Route path="badges" element={<BadgesPage />} />
@@ -90,8 +93,10 @@ export default function App() {
             <Route path="bridge" element={<BridgePage />} />
             <Route path="parent-dashboard" element={<ParentDashboard />} />
             <Route path="teacher-dashboard" element={<TeacherDashboard />} />
-            <Route path="/community-chat/:id" element={<CommunityChatPage />} />
+            <Route path="community-chat/:id" element={<CommunityChatPage />} />
           </Route>
+
+          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

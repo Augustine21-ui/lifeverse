@@ -1,7 +1,7 @@
 // frontend/src/pages/LoginPage.jsx
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Zap, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Zap, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 export default function LoginPage() {
@@ -9,6 +9,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +19,6 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await login(email, password);
-      // Redirect based on role
       if (data.user.role === 'parent') {
         navigate('/parent-dashboard');
       } else if (data.user.role === 'teacher') {
@@ -35,6 +35,7 @@ export default function LoginPage() {
 
   return (
     <>
+      {/* Animated background for public pages */}
       <div className="animated-bg" />
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, position: 'relative', zIndex: 1 }}>
         <div style={{ width: '100%', maxWidth: 420 }}>
@@ -76,14 +77,21 @@ export default function LoginPage() {
                 <div style={{ position: 'relative' }}>
                   <Lock size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     className="input"
-                    style={{ paddingLeft: 38 }}
+                    style={{ paddingLeft: 38, paddingRight: 38 }}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    {showPassword ? <EyeOff size={16} color="rgba(255,255,255,0.5)" /> : <Eye size={16} color="rgba(255,255,255,0.5)" />}
+                  </button>
                 </div>
               </div>
               <div className="text-right">

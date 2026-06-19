@@ -323,6 +323,13 @@ resetPassword: (token, newPassword) => fetch(`${API_BASE}/auth/reset-password`, 
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ token, newPassword }),
 }).then(handleResponse),
+
+generateTaskQuiz(taskId, topic) {
+  return this.post('/tasks/quiz/generate', { taskId, topic });
+},
+submitTaskQuiz(quizId, answers, userId) {
+  return this.post('/tasks/quiz/submit', { quizId, answers, userId });
+},
 };
 
 

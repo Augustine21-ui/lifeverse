@@ -1,10 +1,10 @@
-// frontend/src/pages/DashboardPage.jsx
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
 import { Flame, Calendar, CheckCircle, Clock, Zap, Trophy, Loader2, Heart, MessageCircle, Send, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import MoodAvatar from '../components/MoodAvatar';
+import QuizModal from '../components/QuizModal';
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -27,6 +27,15 @@ export default function DashboardPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [greeting, setGreeting] = useState(getGreeting());
 
+  // Quiz states
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState([]);
+  const [currentTaskId, setCurrentTaskId] = useState(null);
+  const [currentQuizId, setCurrentQuizId] = useState(null);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const [quizResult, setQuizResult] = useState(null);
+
   // Focus timer states
   const [focusRemaining, setFocusRemaining] = useState(4);
   const [timerActive, setTimerActive] = useState(false);
@@ -48,18 +57,14 @@ export default function DashboardPage() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskXp, setNewTaskXp] = useState(30);
 
-  // Auto-scroll feed to bottom when new posts arrive
+  // Auto-scroll feed
   useEffect(() => {
-    if (feedEndRef.current) {
-      feedEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    if (feedEndRef.current) feedEndRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [feedPosts]);
 
-  // Poll for new posts every 5 seconds
+  // Poll feed every 5 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadFeed(true);
-    }, 5000);
+    const interval = setInterval(() => loadFeed(true), 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -70,6 +75,7 @@ export default function DashboardPage() {
         api.getTodayTasks(),
         api.getTodayChallenges(),
       ]);
+      console.log('✅ Tasks from API:', tasksData);
       setStats(statsData);
       setTasks(tasksData);
       setTodayChallenges(todayChallengesData.count);
@@ -112,30 +118,119 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // Task completion handler
-  const handleTaskComplete = async (task) => {
-    setActionLoading(true);
+  // --- Quiz generation and submission ---
+  const generateQuizForTask = async (task) => {
+    setGeneratingQuiz(true);
+    setQuizResult(null);
     try {
-      let response;
-      if (task.source === 'milestone') {
-        response = await api.completeTask(task.id, {
-          source: 'milestone',
-          goalId: task.goal_id,
-          milestoneId: task.milestone_id,
-          answers: null,
-        });
+      console.log('🔍 Generating quiz for task:', task.id, task.title);
+      const topic = task.title;
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/tasks/quiz/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ taskId: task.id, topic }),
+      });
+      const data = await res.json();
+      if (data.quizId && data.questions) {
+        setCurrentQuizId(data.quizId);
+        setQuizQuestions(data.questions);
+        setCurrentTaskId(task.id);
+        setShowQuizModal(true);
       } else {
-        response = await api.completeTask(task.id);
+        throw new Error(data.error || 'Failed to generate quiz');
       }
-      showToast(`+${response.xpAwarded} XP for completing task!`);
-      await loadDashboard();
-      await refreshUser();
     } catch (err) {
-      showToast(err.message, 'error');
+      console.error(err);
+      showToast('Could not generate quiz. Please try again.', 'error');
     } finally {
-      setActionLoading(false);
+      setGeneratingQuiz(false);
     }
   };
+
+  const handleQuizSubmit = async (answers) => {
+  setQuizLoading(true);
+  try {
+    console.log('📤 Submitting quiz:', { quizId: currentQuizId, taskId: currentTaskId, userId: user?.id });
+    const token = localStorage.getItem('token');
+    const res = await fetch('/api/tasks/quiz/submit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        quizId: currentQuizId,
+        answers,
+        userId: user?.id,
+      }),
+    });
+    const result = await res.json();
+    console.log('📥 Quiz result:', result);
+
+    // Show a toast notification with the result
+    if (result.passed) {
+      showToast(result.message || `✅ You passed! Earned ${result.xpEarned} XP!`);
+    } else {
+      showToast(result.message || `❌ You scored ${result.percentage}%. Need at least 50% to pass.`);
+    }
+
+    if (result.passed) {
+      await loadDashboard();
+      await refreshUser();
+      setShowQuizModal(false);
+      setQuizQuestions([]);
+      setCurrentQuizId(null);
+      setQuizResult(null);
+    } else {
+      // Keep modal open and display the result
+      setQuizResult(result);
+      setQuizLoading(false);
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Quiz submission failed', 'error');
+    setQuizLoading(false);
+  }
+};
+
+  const handleRetryQuiz = () => {
+    const task = tasks.find(t => t.id === currentTaskId);
+    if (task) {
+      generateQuizForTask(task);
+    } else {
+      showToast('Task not found. Please try again.', 'error');
+    }
+  };
+
+  // ---------- CRITICAL FIX: Handle milestone tasks with negative IDs ----------
+  const handleTaskComplete = async (task) => {
+    console.log('✅ Task completion requested:', task);
+    let taskId = task.id;
+    // If the task has a negative ID (milestone or placeholder), create a real task first
+    if (taskId < 0) {
+      try {
+        console.log('🔄 Creating real task for milestone:', task.title);
+        const newTask = await api.createTask({
+          title: task.title,
+          xp_reward: task.xp_reward || 30,
+        });
+        taskId = newTask.id;
+        // Update the task list with the new positive ID
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, id: taskId } : t));
+        console.log('✅ Real task created with ID:', taskId);
+      } catch (err) {
+        showToast('Failed to create task for milestone', 'error');
+        return;
+      }
+    }
+    // Now call quiz generation with the validated positive ID
+    await generateQuizForTask({ ...task, id: taskId });
+  };
+  // ------------------------------------------------------------------------
 
   // Add new task
   const handleAddTask = async (e) => {
@@ -144,6 +239,7 @@ export default function DashboardPage() {
     setActionLoading(true);
     try {
       const newTask = await api.createTask({ title: newTaskTitle, xp_reward: newTaskXp });
+      console.log('➕ Created new task:', newTask);
       setTasks(prev => [...prev, { ...newTask, is_completed: false }]);
       setNewTaskTitle('');
       setNewTaskXp(30);
@@ -200,10 +296,7 @@ export default function DashboardPage() {
   };
 
   const cancelTimer = () => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      setTimerInterval(null);
-    }
+    if (timerInterval) clearInterval(timerInterval);
     setTimerActive(false);
     setTimerSeconds(25 * 60);
   };
@@ -329,7 +422,7 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Header with avatar */}
+      {/* Header */}
       <div className="flex flex-wrap justify-between items-start mb-6 gap-4">
         <div>
           <p className="text-white/40 text-sm uppercase tracking-wide">{today}</p>
@@ -370,13 +463,12 @@ export default function DashboardPage() {
 
       {/* Two columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Today's Tasks with add/delete */}
+        {/* Left: Today's Tasks */}
         <div className="card p-5">
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
             <Calendar size={18} className="text-brand-400" />Today's Tasks
           </h2>
 
-          {/* Add Task Form */}
           <form onSubmit={handleAddTask} className="flex gap-2 mb-4">
             <input
               type="text"
@@ -403,7 +495,7 @@ export default function DashboardPage() {
                 <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
                   <button
                     onClick={() => !task.is_completed && handleTaskComplete(task)}
-                    disabled={task.is_completed || actionLoading}
+                    disabled={task.is_completed || generatingQuiz}
                     className={`w-5 h-5 rounded-full border ${task.is_completed ? 'bg-green-500 border-green-500' : 'border-white/30 hover:border-brand-400'} flex items-center justify-center`}
                   >
                     {task.is_completed && <CheckCircle size={12} className="text-white" />}
@@ -419,7 +511,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Right: Live Feed + Focus Timer */}
+        {/* Right column: Live Feed + Focus Timer */}
         <div className="space-y-6">
           {/* Live Momentum Feed Card */}
           <div className="card p-5">
@@ -528,6 +620,23 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Quiz Modal */}
+      {showQuizModal && (
+        <QuizModal
+          questions={quizQuestions}
+          onSubmit={handleQuizSubmit}
+          onClose={() => {
+            setShowQuizModal(false);
+            setQuizQuestions([]);
+            setCurrentQuizId(null);
+            setQuizResult(null);
+          }}
+          loading={quizLoading}
+          result={quizResult}
+          onRetry={handleRetryQuiz}
+        />
+      )}
     </div>
   );
 }

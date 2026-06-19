@@ -1,7 +1,7 @@
 ﻿// frontend/src/pages/ChallengesPage.jsx
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Loader2, CheckCircle, Clock, Zap, Send, X } from 'lucide-react';
+import { Loader2, CheckCircle, Clock, Zap, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
 export default function ChallengesPage() {
@@ -29,7 +29,9 @@ export default function ChallengesPage() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleSubmit = async (challengeId) => {
     const submission = submissionText[challengeId];
@@ -114,10 +116,19 @@ export default function ChallengesPage() {
               <h2 className="text-xl font-bold">Submit {modalChallenge.title}</h2>
               <button onClick={() => setModalChallenge(null)}><X size={20} /></button>
             </div>
-            <textarea className="w-full input resize-none h-32" placeholder="Describe your solution, share a link, or upload a file link..." value={submissionText[modalChallenge.id] || ''} onChange={(e) => setSubmissionText({ ...submissionText, [modalChallenge.id]: e.target.value })} />
+            <textarea
+              className="w-full input resize-none h-32"
+              placeholder="Describe your solution, share a link, or upload a file link..."
+              value={submissionText[modalChallenge.id] || ''}
+              onChange={(e) => setSubmissionText({ ...submissionText, [modalChallenge.id]: e.target.value })}
+            />
             <div className="mt-4 flex gap-3">
               <button onClick={() => setModalChallenge(null)} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={() => handleSubmit(modalChallenge.id)} disabled={submitting[modalChallenge.id] || !submissionText[modalChallenge.id]?.trim()} className="btn-primary flex-1">
+              <button
+                onClick={() => handleSubmit(modalChallenge.id)}
+                disabled={submitting[modalChallenge.id] || !submissionText[modalChallenge.id]?.trim()}
+                className="btn-primary flex-1"
+              >
                 {submitting[modalChallenge.id] ? <Loader2 size={16} className="animate-spin" /> : 'Submit'}
               </button>
             </div>
