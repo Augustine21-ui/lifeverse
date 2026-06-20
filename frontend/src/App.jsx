@@ -1,11 +1,11 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { AuthProvider, useAuth } from "./hooks/useAuth"
 import AppLayout from "./components/layout/AppLayout"
-import LandingPage from "./pages/Landingpage"
+import LandingPage from "./pages/LandingPage"        // ✅ Fixed: capital 'P'
 import LoginPage from "./pages/LoginPage"
 import RegisterPage from "./pages/RegisterPage"
 import DashboardPage from "./pages/DashboardPage"
-import GoalsPage from "./pages/Goalspage"
+import GoalsPage from "./pages/GoalsPage"            // ✅ Fixed: capital 'P'
 import CommunitiesPage from "./pages/CommunitiesPage"
 import CommunityPage from "./pages/CommunityPage"
 import BadgesPage from "./pages/BadgesPage"
