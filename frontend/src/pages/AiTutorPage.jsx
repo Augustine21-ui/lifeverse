@@ -1,6 +1,8 @@
-﻿import { useState, useEffect, useRef } from 'react';
+﻿// frontend/src/pages/AiTutorPage.jsx
+import { useState, useEffect, useRef } from 'react';
 import { Bot, Send, Loader2, X, Paperclip } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import PageBackground from '../components/PageBackground';
 
 export default function AiTutorPage() {
   const { user } = useAuth();
@@ -161,92 +163,98 @@ export default function AiTutorPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <Bot size={32} className="text-brand-400" />
-        <h1 className="text-3xl font-bold">AI Tutor</h1>
-      </div>
-      <div className="card p-4 h-[500px] flex flex-col">
-        <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-          {loadingHistory ? (
-            <div className="text-center text-white/40 mt-20">Loading history...</div>
-          ) : conversation.length === 0 ? (
-            <div className="text-center text-white/40 mt-20">
-              Ask me anything about your studies, challenges, or career path.
-            </div>
-          ) : (
-            conversation.map((msg, idx) => (
-              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] p-3 rounded-xl ${msg.role === 'user' ? 'bg-brand-500 text-white' : 'bg-white/10 text-white'}`}>
-                  {msg.content}
-                </div>
+    <PageBackground imageUrl="/ai-tutor-bg.jpg">
+      {/* ✅ Increased max-width to full-width with padding, taller height */}
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <div className="flex items-center gap-3 mb-6">
+          <Bot size={36} className="text-brand-400" />
+          <h1 className="text-3xl font-bold">AI Tutor</h1>
+        </div>
+
+        {/* ✅ Larger chat container – increased height and full width */}
+        <div className="card p-6 h-[600px] flex flex-col">
+          <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+            {loadingHistory ? (
+              <div className="text-center text-white/40 mt-20">Loading history...</div>
+            ) : conversation.length === 0 ? (
+              <div className="text-center text-white/40 mt-20">
+                Ask me anything about your studies, challenges, or career path.
               </div>
-            ))
-          )}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-white/10 p-3 rounded-xl">Thinking...</div>
+            ) : (
+              conversation.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] p-4 rounded-xl ${msg.role === 'user' ? 'bg-brand-500 text-white' : 'bg-white/10 text-white'}`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))
+            )}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-white/10 p-3 rounded-xl">Thinking...</div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* File preview */}
+          {filePreview && (
+            <div className="mb-2 p-2 bg-white/5 rounded flex items-center gap-2">
+              {filePreview.startsWith('data:image') ? (
+                <img src={filePreview} alt="preview" className="max-h-12 rounded" />
+              ) : (
+                <span className="text-sm">{filePreview}</span>
+              )}
+              <button
+                onClick={() => {
+                  setFilePreview(null);
+                  setUploadedFileUrl(null);
+                  setSelectedFile(null);
+                }}
+                className="text-red-400 hover:text-red-300"
+              >
+                <X size={16} />
+              </button>
+              {uploadingFile && <Loader2 size={16} className="animate-spin ml-auto" />}
             </div>
           )}
-          <div ref={messagesEndRef} />
-        </div>
 
-        {/* File preview */}
-        {filePreview && (
-          <div className="mb-2 p-2 bg-white/5 rounded flex items-center gap-2">
-            {filePreview.startsWith('data:image') ? (
-              <img src={filePreview} alt="preview" className="max-h-12 rounded" />
-            ) : (
-              <span className="text-sm">{filePreview}</span>
-            )}
+          {/* Input area – larger */}
+          <div className="flex gap-2 items-center">
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileChange}
+              accept="image/*,.pdf,.txt"
+            />
             <button
-              onClick={() => {
-                setFilePreview(null);
-                setUploadedFileUrl(null);
-                setSelectedFile(null);
-              }}
-              className="text-red-400 hover:text-red-300"
+              onClick={() => fileInputRef.current?.click()}
+              className="btn-secondary px-3 py-2"
+              disabled={uploadingFile}
+              title="Attach file"
             >
-              <X size={16} />
+              <Paperclip size={20} />
             </button>
-            {uploadingFile && <Loader2 size={16} className="animate-spin ml-auto" />}
+            <input
+              type="text"
+              className="flex-1 input py-3 text-base"
+              placeholder="Ask a question..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              disabled={loading || uploadingFile}
+            />
+            <button
+              onClick={handleSend}
+              disabled={loading || uploadingFile}
+              className="btn-primary px-5 py-3"
+            >
+              {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+            </button>
           </div>
-        )}
-
-        <div className="flex gap-2 items-center">
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileChange}
-            accept="image/*,.pdf,.txt"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="btn-secondary px-2 py-1"
-            disabled={uploadingFile}
-            title="Attach file"
-          >
-            <Paperclip size={18} />
-          </button>
-          <input
-            type="text"
-            className="flex-1 input"
-            placeholder="Ask a question..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            disabled={loading || uploadingFile}
-          />
-          <button
-            onClick={handleSend}
-            disabled={loading || uploadingFile}
-            className="btn-primary"
-          >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-          </button>
         </div>
       </div>
-    </div>
+    </PageBackground>
   );
 }

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Target, CheckCircle2, Circle, Trash2, Calendar, ChevronDown, ChevronUp, Zap, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
+import PageBackground from '../components/PageBackground';
 
 const CATEGORIES = ['study', 'fitness', 'personal', 'creative', 'social'];
 const CAT_COLORS = {
@@ -223,56 +224,58 @@ export default function GoalsPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto animate-fade-up relative">
-      {toast && (
-        <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`}>
-          {toast.msg}
-        </div>
-      )}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold">Goals</h1>
-          <p className="text-white/40 text-sm mt-1">Track your learning objectives</p>
-        </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary">
-          <Plus size={18} /> New goal
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-2 mb-6">
-        {['active', 'completed'].map(s => (
-          <button key={s} onClick={() => setFilter(s)}
-            className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all duration-150 capitalize
-              ${filter === s ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>
-            {s}
+    <PageBackground imageUrl="/goals-bg.jpg">
+      <div className="p-6 max-w-4xl mx-auto animate-fade-up relative">
+        {toast && (
+          <div className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`}>
+            {toast.msg}
+          </div>
+        )}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="font-display text-3xl font-bold">Goals</h1>
+            <p className="text-white/40 text-sm mt-1">Track your learning objectives</p>
+          </div>
+          <button onClick={() => setShowCreate(true)} className="btn-primary">
+            <Plus size={18} /> New goal
           </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-36 rounded-2xl glass shimmer" />)}
         </div>
-      ) : goals.length > 0 ? (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {goals.map(goal => (
-            <GoalCard key={goal.id} goal={goal} onUpdate={load} onDelete={handleDelete} />
+
+        {/* Filters */}
+        <div className="flex gap-2 mb-6">
+          {['active', 'completed'].map(s => (
+            <button key={s} onClick={() => setFilter(s)}
+              className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all duration-150 capitalize
+                ${filter === s ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30' : 'text-white/40 hover:text-white hover:bg-white/5'}`}>
+              {s}
+            </button>
           ))}
         </div>
-      ) : (
-        <div className="card flex flex-col items-center justify-center py-16 text-center">
-          <Target size={40} className="text-white/10 mb-4" />
-          <h3 className="font-display font-semibold mb-2">No {filter} goals</h3>
-          <p className="text-sm text-white/30 mb-5">Set your first goal and start earning XP</p>
-          <button onClick={() => setShowCreate(true)} className="btn-primary">
-            <Plus size={16} /> Create a goal
-          </button>
-        </div>
-      )}
 
-      {/* Modal */}
-      {showCreate && <CreateGoalModal onClose={() => setShowCreate(false)} onCreated={load} />}
-    </div>
+        {loading ? (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[...Array(4)].map((_, i) => <div key={i} className="h-36 rounded-2xl glass shimmer" />)}
+          </div>
+        ) : goals.length > 0 ? (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {goals.map(goal => (
+              <GoalCard key={goal.id} goal={goal} onUpdate={load} onDelete={handleDelete} />
+            ))}
+          </div>
+        ) : (
+          <div className="card flex flex-col items-center justify-center py-16 text-center">
+            <Target size={40} className="text-white/10 mb-4" />
+            <h3 className="font-display font-semibold mb-2">No {filter} goals</h3>
+            <p className="text-sm text-white/30 mb-5">Set your first goal and start earning XP</p>
+            <button onClick={() => setShowCreate(true)} className="btn-primary">
+              <Plus size={16} /> Create a goal
+            </button>
+          </div>
+        )}
+
+        {/* Modal */}
+        {showCreate && <CreateGoalModal onClose={() => setShowCreate(false)} onCreated={load} />}
+      </div>
+    </PageBackground>
   );
 }

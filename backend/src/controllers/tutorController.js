@@ -12,7 +12,6 @@ Keep responses concise and friendly.`;
 
 export const chat = async (req, res) => {
   try {
-    // Accept fileUrl from the request body
     const { message, conversationId, fileUrl } = req.body;
     const userId = req.user?.id;
 
@@ -20,7 +19,6 @@ export const chat = async (req, res) => {
       return res.status(400).json({ error: 'Message or file required' });
     }
 
-    // Build the full user message content
     let userMessageContent = message || '';
     if (fileUrl) {
       userMessageContent += `\n[File: ${fileUrl}]`;
@@ -29,34 +27,36 @@ export const chat = async (req, res) => {
     let convId = conversationId;
     if (!convId) {
       convId = Date.now().toString();
-      if (userId) {
+    }
+
+    // ✅ Check if conversation exists before inserting
+    if (userId) {
+      const check = await db.query(
+        `SELECT id FROM conversations WHERE id = $1`,
+        [convId]
+      );
+      
+      if (check.rows.length === 0) {
         await db.query(
           `INSERT INTO conversations (id, user_id, title) VALUES ($1, $2, $3)`,
           [convId, userId, userMessageContent.substring(0, 50)]
         );
-      }
-    } else {
-      if (userId) {
-        const check = await db.query(
-          `SELECT id FROM conversations WHERE id = $1 AND user_id = $2`,
-          [convId, userId]
+      } else {
+        // Update the user_id if it's different
+        await db.query(
+          `UPDATE conversations SET user_id = $1, updated_at = NOW() WHERE id = $2`,
+          [userId, convId]
         );
-        if (check.rows.length === 0) {
-          await db.query(
-            `INSERT INTO conversations (id, user_id, title) VALUES ($1, $2, $3)`,
-            [convId, userId, userMessageContent.substring(0, 50)]
-          );
-        }
       }
     }
 
+    // Fetch previous messages
     const messagesRes = await db.query(
       `SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC`,
       [convId]
     );
     const history = messagesRes.rows;
 
-    // Build messages for the AI: system + history + the new user message with file reference
     const messages = [
       { role: 'system', content: SYSTEM_PROMPT },
       ...history.map(row => ({ role: row.role, content: row.content })),
@@ -73,7 +73,6 @@ export const chat = async (req, res) => {
     const aiReply = completion.choices[0].message.content;
 
     if (userId) {
-      // Save the user message with the file reference
       await db.query(
         `INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)`,
         [convId, 'user', userMessageContent]
@@ -95,17 +94,20 @@ export const chat = async (req, res) => {
   }
 };
 
-// Get conversation history
 export const getConversationHistory = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user?.id;
 
-    // Verify the conversation belongs to this user
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const convCheck = await db.query(
       `SELECT id FROM conversations WHERE id = $1 AND user_id = $2`,
       [conversationId, userId]
     );
+    
     if (convCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Conversation not found' });
     }
@@ -116,9 +118,10 @@ export const getConversationHistory = async (req, res) => {
        ORDER BY created_at ASC`,
       [conversationId]
     );
+    
     res.json({ messages: messagesRes.rows });
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching history:', error);
     res.status(500).json({ error: 'Failed to fetch history' });
   }
 };

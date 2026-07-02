@@ -10,7 +10,7 @@ router.use(authenticate);
 // Chat endpoint
 router.post('/tutor/chat', chat);
 
-// Get conversation history
-router.get('/conversation/:conversationId', getConversationHistory);
+// ✅ FIX: Add '/tutor' prefix to match frontend URL
+router.get('/tutor/conversation/:conversationId', getConversationHistory);
 
 export default router;

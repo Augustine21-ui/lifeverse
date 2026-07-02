@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
-import { Flame, Calendar, CheckCircle, Clock, Zap, Trophy, Loader2, Heart, MessageCircle, Send, Plus, Trash2 } from 'lucide-react';
+import { Flame, Calendar, CheckCircle, Clock, Zap, Trophy, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import MoodAvatar from '../components/MoodAvatar';
 import QuizModal from '../components/QuizModal';
+import PersonalizedRecommendations from '../components/PersonalizedRecommendations';
+import PostCard from '../components/PostCard';
+import FeedSkeleton from '../components/FeedSkeleton';
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -16,6 +19,12 @@ const getGreeting = () => {
 
 const SkeletonCard = () => <div className="card p-4 h-24 animate-pulse bg-white/5" />;
 const SkeletonTask = () => <div className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10 animate-pulse h-12" />;
+
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
 
 export default function DashboardPage() {
   const { user, refreshUser } = useAuth();
@@ -42,6 +51,12 @@ export default function DashboardPage() {
   const [timerSeconds, setTimerSeconds] = useState(25 * 60);
   const [timerInterval, setTimerInterval] = useState(null);
 
+  // Focus mode states
+  const [focusTopic, setFocusTopic] = useState('');
+  const [focusMode, setFocusMode] = useState(false);
+  const [focusResources, setFocusResources] = useState([]);
+  const [focusCompleted, setFocusCompleted] = useState(false);
+
   // Feed states
   const [feedPosts, setFeedPosts] = useState([]);
   const [feedLoading, setFeedLoading] = useState(true);
@@ -52,20 +67,61 @@ export default function DashboardPage() {
   const [commentInputs, setCommentInputs] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
   const feedEndRef = useRef(null);
+  const feedContainerRef = useRef(null);
+  const prevFeedLength = useRef(0);
 
   // Task creation states
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskXp, setNewTaskXp] = useState(30);
 
-  // Auto-scroll feed
+  // Auto‑scroll only when new posts arrive
   useEffect(() => {
-    if (feedEndRef.current) feedEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (feedPosts.length > prevFeedLength.current && feedContainerRef.current) {
+      feedContainerRef.current.scrollTop = feedContainerRef.current.scrollHeight;
+    }
+    prevFeedLength.current = feedPosts.length;
   }, [feedPosts]);
 
   // Poll feed every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => loadFeed(true), 5000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Restore focus state from localStorage on mount
+  useEffect(() => {
+    const storedFocus = localStorage.getItem('focusMode');
+    if (storedFocus === 'true') {
+      const topic = localStorage.getItem('focusTopic') || 'Focus';
+      const startTime = parseInt(localStorage.getItem('focusTimerStart'));
+      if (startTime) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const remaining = 25 * 60 - elapsed;
+        if (remaining > 0) {
+          setFocusMode(true);
+          setFocusTopic(topic);
+          setTimerSeconds(remaining);
+          setTimerActive(true);
+          const interval = setInterval(() => {
+            setTimerSeconds(prev => {
+              if (prev <= 1) {
+                clearInterval(interval);
+                setTimerActive(false);
+                fetchFocusResources(topic);
+                setFocusCompleted(true);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+          setTimerInterval(interval);
+        } else {
+          localStorage.removeItem('focusMode');
+          localStorage.removeItem('focusTopic');
+          localStorage.removeItem('focusTimerStart');
+        }
+      }
+    }
   }, []);
 
   const loadDashboard = async () => {
@@ -75,7 +131,6 @@ export default function DashboardPage() {
         api.getTodayTasks(),
         api.getTodayChallenges(),
       ]);
-      console.log('✅ Tasks from API:', tasksData);
       setStats(statsData);
       setTasks(tasksData);
       setTodayChallenges(todayChallengesData.count);
@@ -123,7 +178,6 @@ export default function DashboardPage() {
     setGeneratingQuiz(true);
     setQuizResult(null);
     try {
-      console.log('🔍 Generating quiz for task:', task.id, task.title);
       const topic = task.title;
       const token = localStorage.getItem('token');
       const res = await fetch('/api/tasks/quiz/generate', {
@@ -152,50 +206,44 @@ export default function DashboardPage() {
   };
 
   const handleQuizSubmit = async (answers) => {
-  setQuizLoading(true);
-  try {
-    console.log('📤 Submitting quiz:', { quizId: currentQuizId, taskId: currentTaskId, userId: user?.id });
-    const token = localStorage.getItem('token');
-    const res = await fetch('/api/tasks/quiz/submit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        quizId: currentQuizId,
-        answers,
-        userId: user?.id,
-      }),
-    });
-    const result = await res.json();
-    console.log('📥 Quiz result:', result);
-
-    // Show a toast notification with the result
-    if (result.passed) {
-      showToast(result.message || `✅ You passed! Earned ${result.xpEarned} XP!`);
-    } else {
-      showToast(result.message || `❌ You scored ${result.percentage}%. Need at least 50% to pass.`);
-    }
-
-    if (result.passed) {
-      await loadDashboard();
-      await refreshUser();
-      setShowQuizModal(false);
-      setQuizQuestions([]);
-      setCurrentQuizId(null);
-      setQuizResult(null);
-    } else {
-      // Keep modal open and display the result
-      setQuizResult(result);
+    setQuizLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/tasks/quiz/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          quizId: currentQuizId,
+          answers,
+          userId: user?.id,
+        }),
+      });
+      const result = await res.json();
+      if (result.passed) {
+        showToast(result.message || `✅ You passed! Earned ${result.xpEarned} XP!`);
+      } else {
+        showToast(result.message || `❌ You scored ${result.percentage}%. Need at least 50% to pass.`);
+      }
+      if (result.passed) {
+        await loadDashboard();
+        await refreshUser();
+        setShowQuizModal(false);
+        setQuizQuestions([]);
+        setCurrentQuizId(null);
+        setQuizResult(null);
+      } else {
+        setQuizResult(result);
+        setQuizLoading(false);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Quiz submission failed', 'error');
       setQuizLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    showToast('Quiz submission failed', 'error');
-    setQuizLoading(false);
-  }
-};
+  };
 
   const handleRetryQuiz = () => {
     const task = tasks.find(t => t.id === currentTaskId);
@@ -206,31 +254,24 @@ export default function DashboardPage() {
     }
   };
 
-  // ---------- CRITICAL FIX: Handle milestone tasks with negative IDs ----------
+  // ---------- Handle milestone tasks with negative IDs ----------
   const handleTaskComplete = async (task) => {
-    console.log('✅ Task completion requested:', task);
     let taskId = task.id;
-    // If the task has a negative ID (milestone or placeholder), create a real task first
     if (taskId < 0) {
       try {
-        console.log('🔄 Creating real task for milestone:', task.title);
         const newTask = await api.createTask({
           title: task.title,
           xp_reward: task.xp_reward || 30,
         });
         taskId = newTask.id;
-        // Update the task list with the new positive ID
         setTasks(prev => prev.map(t => t.id === task.id ? { ...t, id: taskId } : t));
-        console.log('✅ Real task created with ID:', taskId);
       } catch (err) {
         showToast('Failed to create task for milestone', 'error');
         return;
       }
     }
-    // Now call quiz generation with the validated positive ID
     await generateQuizForTask({ ...task, id: taskId });
   };
-  // ------------------------------------------------------------------------
 
   // Add new task
   const handleAddTask = async (e) => {
@@ -239,7 +280,6 @@ export default function DashboardPage() {
     setActionLoading(true);
     try {
       const newTask = await api.createTask({ title: newTaskTitle, xp_reward: newTaskXp });
-      console.log('➕ Created new task:', newTask);
       setTasks(prev => [...prev, { ...newTask, is_completed: false }]);
       setNewTaskTitle('');
       setNewTaskXp(30);
@@ -263,13 +303,30 @@ export default function DashboardPage() {
     }
   };
 
-  // Focus timer logic
-  const startTimer = async () => {
-    if (focusRemaining <= 0) {
-      showToast('Daily focus session limit reached (4 per day).', 'error');
-      return;
+  // ---------- Focus Mode ----------
+  const fetchFocusResources = async (topic) => {
+    try {
+      const res = await fetch('/api/focus/resources', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ topic }),
+      });
+      const data = await res.json();
+      if (data.resources) setFocusResources(data.resources);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to fetch resources', 'error');
     }
-    if (timerActive) return;
+  };
+
+  const startFocusSession = async () => {
+    if (!focusTopic.trim() || focusRemaining <= 0) return;
+    setFocusMode(true);
+    setFocusCompleted(false);
+    setFocusResources([]);
     setTimerActive(true);
     let seconds = 25 * 60;
     setTimerSeconds(seconds);
@@ -278,6 +335,8 @@ export default function DashboardPage() {
         clearInterval(interval);
         setTimerActive(false);
         setTimerSeconds(25 * 60);
+        await fetchFocusResources(focusTopic);
+        setFocusCompleted(true);
         try {
           const res = await api.completeFocusSession(25);
           showToast(`+${res.xpAwarded} XP for completing focus session! ${res.remaining} left today`);
@@ -293,12 +352,20 @@ export default function DashboardPage() {
       }
     }, 1000);
     setTimerInterval(interval);
+    localStorage.setItem('focusMode', 'true');
+    localStorage.setItem('focusTopic', focusTopic);
+    localStorage.setItem('focusTimerStart', Date.now().toString());
   };
 
-  const cancelTimer = () => {
+  const cancelFocus = () => {
     if (timerInterval) clearInterval(timerInterval);
     setTimerActive(false);
     setTimerSeconds(25 * 60);
+    setFocusMode(false);
+    setFocusCompleted(false);
+    localStorage.removeItem('focusMode');
+    localStorage.removeItem('focusTopic');
+    localStorage.removeItem('focusTimerStart');
   };
 
   // Feed interactions
@@ -421,222 +488,255 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-wrap justify-between items-start mb-6 gap-4">
-        <div>
-          <p className="text-white/40 text-sm uppercase tracking-wide">{today}</p>
-          <h1 className="text-3xl font-display font-bold mt-1">
-            {greeting}, {user?.fullName?.split(' ')[0] || 'Learner'} 🥳
-          </h1>
-          <p className="text-amber-400 text-sm mt-1">
-            🔥 You're on a {stats.streakDays}-day streak! Complete today's challenges to unlock your weekly achievement badge.
-          </p>
-        </div>
-        <MoodAvatar
-          streak={stats.streakDays}
-          todayXP={stats.todayXP}
-          tasksDone={tasksDoneToday}
-          challengesDone={todayChallenges}
-        />
-      </div>
+    <div
+      className="relative min-h-screen bg-cover bg-center bg-fixed"
+      style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}
+    >
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-black/60 z-0"></div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="card p-4 flex items-center justify-between">
-          <div><p className="text-white/40 text-sm">XP EARNED</p><p className="text-2xl font-bold text-white">{stats.totalXP.toLocaleString()}</p><p className="text-green-400 text-xs">+{stats.todayXP} today</p></div>
-          <Zap size={32} className="text-brand-400" />
-        </div>
-        <div className="card p-4 flex items-center justify-between">
-          <div><p className="text-white/40 text-sm">DAY STREAK</p><p className="text-2xl font-bold text-white">{stats.streakDays}</p><p className="text-white/40 text-xs">Keep going!</p></div>
-          <Flame size={32} className="text-orange-400" />
-        </div>
-        <div className="card p-4 flex items-center justify-between">
-          <div><p className="text-white/40 text-sm">RANK</p><p className="text-2xl font-bold text-white">{stats.rank}</p><p className="text-white/40 text-xs">Top 5%</p></div>
-          <Trophy size={32} className="text-yellow-400" />
-        </div>
-        <div className="card p-4 flex items-center justify-between">
-          <div><p className="text-white/40 text-sm">COMPLETED</p><p className="text-2xl font-bold text-white">{stats.completed}</p><p className="text-white/40 text-xs">challenges</p></div>
-          <CheckCircle size={32} className="text-green-400" />
-        </div>
-      </div>
-
-      {/* Two columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Today's Tasks */}
-        <div className="card p-5">
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Calendar size={18} className="text-brand-400" />Today's Tasks
-          </h2>
-
-          <form onSubmit={handleAddTask} className="flex gap-2 mb-4">
-            <input
-              type="text"
-              className="flex-1 input text-sm"
-              placeholder="New task title..."
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-            />
-            <input
-              type="number"
-              className="w-20 input text-sm"
-              placeholder="XP"
-              value={newTaskXp}
-              onChange={(e) => setNewTaskXp(parseInt(e.target.value) || 0)}
-            />
-            <button type="submit" disabled={actionLoading} className="btn-primary px-3">Add</button>
-          </form>
-
-          {tasks.length === 0 ? (
-            <p className="text-white/40">No tasks for today. Add one above!</p>
-          ) : (
-            <div className="space-y-2">
-              {tasks.map(task => (
-                <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
-                  <button
-                    onClick={() => !task.is_completed && handleTaskComplete(task)}
-                    disabled={task.is_completed || generatingQuiz}
-                    className={`w-5 h-5 rounded-full border ${task.is_completed ? 'bg-green-500 border-green-500' : 'border-white/30 hover:border-brand-400'} flex items-center justify-center`}
-                  >
-                    {task.is_completed && <CheckCircle size={12} className="text-white" />}
-                  </button>
-                  <span className={`flex-1 ${task.is_completed ? 'line-through text-white/40' : 'text-white/90'}`}>{task.title}</span>
-                  {!task.is_completed && <span className="text-xs text-amber-400">+{task.xp_reward} XP</span>}
-                  <button onClick={() => handleDeleteTask(task.id)} className="text-white/30 hover:text-red-400">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
+      {/* Dashboard content */}
+      <div className="relative z-10">
+        <div className={`p-6 max-w-7xl mx-auto ${focusMode ? 'opacity-40 pointer-events-none' : ''}`}>
+          {/* Header */}
+          <div className="flex flex-wrap justify-between items-start mb-6 gap-4">
+            <div>
+              <p className="text-white/40 text-sm uppercase tracking-wide">{today}</p>
+              <h1 className="text-3xl font-display font-bold mt-1">
+                {greeting}, {user?.fullName?.split(' ')[0] || 'Learner'} 🥳
+              </h1>
+              <p className="text-amber-400 text-sm mt-1">
+                🔥 You're on a {stats.streakDays}-day streak! Complete today's challenges to unlock your weekly achievement badge.
+              </p>
             </div>
+            <MoodAvatar
+              streak={stats.streakDays}
+              todayXP={stats.todayXP}
+              tasksDone={tasksDoneToday}
+              challengesDone={todayChallenges}
+            />
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="card p-4 flex items-center justify-between">
+              <div><p className="text-white/40 text-sm">XP EARNED</p><p className="text-2xl font-bold text-white">{stats.totalXP.toLocaleString()}</p><p className="text-green-400 text-xs">+{stats.todayXP} today</p></div>
+              <Zap size={32} className="text-brand-400" />
+            </div>
+            <div className="card p-4 flex items-center justify-between">
+              <div><p className="text-white/40 text-sm">DAY STREAK</p><p className="text-2xl font-bold text-white">{stats.streakDays}</p><p className="text-white/40 text-xs">Keep going!</p></div>
+              <Flame size={32} className="text-orange-400" />
+            </div>
+            <div className="card p-4 flex items-center justify-between">
+              <div><p className="text-white/40 text-sm">RANK</p><p className="text-2xl font-bold text-white">{stats.rank}</p><p className="text-white/40 text-xs">Top 5%</p></div>
+              <Trophy size={32} className="text-yellow-400" />
+            </div>
+            <div className="card p-4 flex items-center justify-between">
+              <div><p className="text-white/40 text-sm">COMPLETED</p><p className="text-2xl font-bold text-white">{stats.completed}</p><p className="text-white/40 text-xs">challenges</p></div>
+              <CheckCircle size={32} className="text-green-400" />
+            </div>
+          </div>
+
+          {/* Two columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left: Today's Tasks */}
+            <div className="card p-5">
+              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Calendar size={18} className="text-brand-400" />Today's Tasks
+              </h2>
+
+              <form onSubmit={handleAddTask} className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  className="flex-1 input text-sm"
+                  placeholder="New task title..."
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                />
+                <input
+                  type="number"
+                  className="w-20 input text-sm"
+                  placeholder="XP"
+                  value={newTaskXp}
+                  onChange={(e) => setNewTaskXp(parseInt(e.target.value) || 0)}
+                />
+                <button type="submit" disabled={actionLoading} className="btn-primary px-3">Add</button>
+              </form>
+
+              {tasks.length === 0 ? (
+                <p className="text-white/40">No tasks for today. Add one above!</p>
+              ) : (
+                <div className="space-y-2">
+                  {tasks.map(task => (
+                    <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
+                      <button
+                        onClick={() => !task.is_completed && handleTaskComplete(task)}
+                        disabled={task.is_completed || generatingQuiz}
+                        className={`w-5 h-5 rounded-full border ${task.is_completed ? 'bg-green-500 border-green-500' : 'border-white/30 hover:border-brand-400'} flex items-center justify-center`}
+                      >
+                        {task.is_completed && <CheckCircle size={12} className="text-white" />}
+                      </button>
+                      <span className={`flex-1 ${task.is_completed ? 'line-through text-white/40' : 'text-white/90'}`}>{task.title}</span>
+                      {!task.is_completed && <span className="text-xs text-amber-400">+{task.xp_reward} XP</span>}
+                      <button onClick={() => handleDeleteTask(task.id)} className="text-white/30 hover:text-red-400">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Right column: Live Feed + Focus Timer */}
+            <div className="space-y-6">
+              {/* Live Momentum Feed Card */}
+              <div className="card p-5">
+                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">🔥 Live Momentum Feed</h2>
+                <form onSubmit={handleCreatePost} className="mb-4 flex gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 input text-sm"
+                    placeholder="Share something..."
+                    value={newPostContent}
+                    onChange={(e) => setNewPostContent(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="w-24 input text-sm"
+                    placeholder="Image URL"
+                    value={newPostImage}
+                    onChange={(e) => setNewPostImage(e.target.value)}
+                  />
+                  <button type="submit" disabled={submitting} className="btn-primary px-3">
+                    {submitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                  </button>
+                </form>
+
+                {feedLoading ? (
+                  <FeedSkeleton />
+                ) : feedPosts.length === 0 ? (
+                  <p className="text-white/40 text-center py-4">No posts yet. Be the first to share!</p>
+                ) : (
+                  <div
+                    ref={feedContainerRef}
+                    className="space-y-4 max-h-[500px] overflow-y-auto pr-2"
+                  >
+                    {feedPosts.map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        comments={commentsMap[post.id] || []}
+                        currentUserId={user?.id}
+                        onLike={handleLike}
+                        onToggleComments={(postId) => {
+                          if (!commentsMap[postId]) loadComments(postId);
+                          setExpandedComments({ ...expandedComments, [postId]: !expandedComments[postId] });
+                        }}
+                        onComment={async (postId, content) => {
+                          await handleComment(postId);
+                          await loadComments(postId);
+                        }}
+                        onDelete={handleDeletePost}
+                      />
+                    ))}
+                    <div ref={feedEndRef} />
+                  </div>
+                )}
+              </div>
+
+              {/* Focus Timer Card */}
+              <div className="card p-5">
+                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <Clock size={18} className="text-cyan-400" />Focus Timer
+                </h2>
+                {!focusMode ? (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      className="w-full input"
+                      placeholder="What do you want to focus on? (e.g., Study Math)"
+                      value={focusTopic}
+                      onChange={(e) => setFocusTopic(e.target.value)}
+                    />
+                    <button
+                      onClick={startFocusSession}
+                      disabled={!focusTopic.trim() || focusRemaining <= 0}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-500 to-violet-600 text-white font-medium flex items-center justify-center gap-2 hover:opacity-90 transition disabled:opacity-50"
+                    >
+                      <Zap size={16} />
+                      Start focus session (+30 XP) {focusRemaining > 0 && `(${focusRemaining} left today)`}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-white/60">Focusing on: <span className="font-bold text-white">{focusTopic}</span></p>
+                    <p className="text-4xl font-mono my-4">{formatTime(timerSeconds)}</p>
+                    <button onClick={cancelFocus} className="btn-secondary">Cancel Focus</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Personalized Recommendations */}
+          <div className="mt-8">
+            <PersonalizedRecommendations />
+          </div>
+
+          {/* Quiz Modal */}
+          {showQuizModal && (
+            <QuizModal
+              questions={quizQuestions}
+              onSubmit={handleQuizSubmit}
+              onClose={() => {
+                setShowQuizModal(false);
+                setQuizQuestions([]);
+                setCurrentQuizId(null);
+                setQuizResult(null);
+              }}
+              loading={quizLoading}
+              result={quizResult}
+              onRetry={handleRetryQuiz}
+            />
           )}
         </div>
 
-        {/* Right column: Live Feed + Focus Timer */}
-        <div className="space-y-6">
-          {/* Live Momentum Feed Card */}
-          <div className="card p-5">
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">🔥 Live Momentum Feed</h2>
-            <form onSubmit={handleCreatePost} className="mb-4 flex gap-2">
-              <input
-                type="text"
-                className="flex-1 input text-sm"
-                placeholder="Share something..."
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-              />
-              <input
-                type="text"
-                className="w-24 input text-sm"
-                placeholder="Image URL"
-                value={newPostImage}
-                onChange={(e) => setNewPostImage(e.target.value)}
-              />
-              <button type="submit" disabled={submitting} className="btn-primary px-3">
-                {submitting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              </button>
-            </form>
-
-            {feedLoading ? (
-              <div className="space-y-2">
-                {[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-white/5 animate-pulse rounded" />)}
-              </div>
-            ) : feedPosts.length === 0 ? (
-              <p className="text-white/40 text-center py-4">No posts yet. Be the first to share!</p>
-            ) : (
-              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                {feedPosts.map(post => (
-                  <div key={post.id} className="border-b border-white/10 pb-3">
-                    <div className="flex gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-xs font-bold">
-                        {(post.full_name?.[0] || post.username?.[0] || 'U').toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-semibold text-sm">{post.full_name || post.username}</p>
-                            <p className="text-xs text-white/40">{new Date(post.created_at).toLocaleString()}</p>
-                          </div>
-                          {post.user_id === user?.id && (
-                            <button onClick={() => handleDeletePost(post.id)} className="text-white/30 hover:text-red-400 text-xs">Delete</button>
-                          )}
-                        </div>
-                        <p className="text-sm mt-1">{post.content}</p>
-                        {post.image_url && <img src={post.image_url} className="mt-2 rounded max-h-40 object-cover w-full" alt="" />}
-                        <div className="flex gap-3 mt-2">
-                          <button onClick={() => handleLike(post.id)} className={`flex items-center gap-1 text-xs ${post.user_liked ? 'text-red-500' : 'text-white/40'}`}>
-                            <Heart size={14} /> {post.likes_count}
-                          </button>
-                          <button onClick={() => toggleComments(post.id)} className="flex items-center gap-1 text-xs text-white/40">
-                            <MessageCircle size={14} /> {post.comments_count}
-                          </button>
-                        </div>
-                        {expandedComments[post.id] && (
-                          <div className="mt-2 pl-2 border-l-2 border-white/20">
-                            <div className="space-y-1 max-h-32 overflow-y-auto">
-                              {(commentsMap[post.id] || []).map(comment => (
-                                <div key={comment.id} className="text-xs"><span className="font-semibold">{comment.full_name}:</span> {comment.content}</div>
-                              ))}
-                            </div>
-                            <div className="flex gap-1 mt-1">
-                              <input
-                                type="text"
-                                className="flex-1 text-xs p-1 rounded bg-white/5 border border-white/10"
-                                placeholder="Write a comment..."
-                                value={commentInputs[post.id] || ''}
-                                onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })}
-                                onKeyPress={(e) => e.key === 'Enter' && handleComment(post.id)}
-                              />
-                              <button onClick={() => handleComment(post.id)} className="text-brand-400 text-xs">Send</button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+        {/* Focus Mode Overlay */}
+        {focusMode && (
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6">
+            <div className="max-w-2xl w-full text-center">
+              <h2 className="text-3xl font-bold mb-2">🧘 Focus Mode</h2>
+              <p className="text-xl text-white/60 mb-4">Focusing on: <span className="text-white font-semibold">{focusTopic}</span></p>
+              <div className="text-6xl font-mono mb-8">{formatTime(timerSeconds)}</div>
+              {focusCompleted ? (
+                <div className="space-y-4">
+                  <p className="text-lg text-green-400">✅ Focus session complete!</p>
+                  <div className="text-left bg-white/5 rounded-xl p-4 max-h-60 overflow-y-auto">
+                    <h3 className="font-semibold mb-2">📚 Recommended Resources</h3>
+                    {focusResources.length === 0 ? (
+                      <p className="text-white/40">No resources found.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {focusResources.map((res, idx) => (
+                          <li key={idx} className="border-b border-white/10 pb-2">
+                            <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-brand-400 hover:underline">
+                              {res.title}
+                            </a>
+                            <p className="text-sm text-white/60">{res.description}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                ))}
-                <div ref={feedEndRef} />
-              </div>
-            )}
+                  <button onClick={cancelFocus} className="btn-primary mt-4">Return to Dashboard</button>
+                </div>
+              ) : (
+                <button onClick={cancelFocus} className="btn-secondary">Cancel Focus</button>
+              )}
+            </div>
           </div>
-
-          {/* Focus Timer Card */}
-          <div className="card p-5">
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2"><Clock size={18} className="text-cyan-400" />Focus Timer</h2>
-            {timerActive ? (
-              <div className="text-center">
-                <p className="text-2xl font-mono mb-2">{Math.floor(timerSeconds / 60)}:{(timerSeconds % 60).toString().padStart(2, '0')}</p>
-                <button onClick={cancelTimer} className="btn-secondary">Cancel</button>
-              </div>
-            ) : (
-              <button
-                onClick={startTimer}
-                disabled={focusRemaining <= 0}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-500 to-violet-600 text-white font-medium flex items-center justify-center gap-2 hover:opacity-90 transition"
-              >
-                <Zap size={16} />
-                Start focus session (+30 XP) {focusRemaining > 0 && `(${focusRemaining} left today)`}
-              </button>
-            )}
-          </div>
-        </div>
+        )}
       </div>
-
-      {/* Quiz Modal */}
-      {showQuizModal && (
-        <QuizModal
-          questions={quizQuestions}
-          onSubmit={handleQuizSubmit}
-          onClose={() => {
-            setShowQuizModal(false);
-            setQuizQuestions([]);
-            setCurrentQuizId(null);
-            setQuizResult(null);
-          }}
-          loading={quizLoading}
-          result={quizResult}
-          onRetry={handleRetryQuiz}
-        />
-      )}
     </div>
   );
 }

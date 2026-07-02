@@ -1,11 +1,11 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { AuthProvider, useAuth } from "./hooks/useAuth"
 import AppLayout from "./components/layout/AppLayout"
-import LandingPage from "./pages/LandingPage"        // ✅ Fixed: capital 'P'
+import LandingPage from "./pages/LandingPage"
 import LoginPage from "./pages/LoginPage"
 import RegisterPage from "./pages/RegisterPage"
 import DashboardPage from "./pages/DashboardPage"
-import GoalsPage from "./pages/GoalsPage"            // ✅ Fixed: capital 'P'
+import GoalsPage from "./pages/GoalsPage"
 import CommunitiesPage from "./pages/CommunitiesPage"
 import CommunityPage from "./pages/CommunityPage"
 import BadgesPage from "./pages/BadgesPage"
@@ -21,6 +21,7 @@ import StudySpherePage from "./pages/StudySpherePage"
 import CommunityChatPage from "./pages/CommunityChatPage"
 import ForgotPasswordPage from "./pages/ForgotPasswordPage"
 import ResetPasswordPage from "./pages/ResetPasswordPage"
+import AdminDashboard from "./pages/AdminDashboard"
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth()
@@ -36,6 +37,7 @@ const PublicRoute = ({ children }) => {
 
 function RoleBasedRedirect() {
   const { user } = useAuth();
+  if (user?.role === 'admin') return <Navigate to="/admin" replace />;
   if (user?.role === 'parent') return <Navigate to="/parent-dashboard" replace />;
   if (user?.role === 'teacher') return <Navigate to="/teacher-dashboard" replace />;
   return <Navigate to="/dashboard" replace />;
@@ -51,36 +53,26 @@ function RequireRole({ allowedRoles, children }) {
 }
 
 export default function App() {
+  console.log('🔥 App is rendering');
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public routes (no authentication required) */}
-          <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
+          {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
           <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
           <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
 
-          {/* Protected routes (require authentication) */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
+          {/* ✅ Protected layout – no path, just wraps child routes */}
+          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index element={<RoleBasedRedirect />} />
-            <Route
-              path="dashboard"
-              element={
-                <RequireRole allowedRoles={['student']}>
-                  <DashboardPage />
-                </RequireRole>
-              }
-            />
-            <Route path="momentum" element={<MomentumFeedPage />} />
+            <Route path="dashboard" element={
+              <RequireRole allowedRoles={['student']}>
+                <DashboardPage />
+              </RequireRole>
+            } />
             <Route path="goals" element={<GoalsPage />} />
             <Route path="badges" element={<BadgesPage />} />
             <Route path="studysphere" element={<StudySpherePage />} />
@@ -91,13 +83,16 @@ export default function App() {
             <Route path="leaderboard" element={<LeaderboardPage />} />
             <Route path="ai-tutor" element={<AiTutorPage />} />
             <Route path="bridge" element={<BridgePage />} />
+            <Route path="momentum" element={<MomentumFeedPage />} />
             <Route path="parent-dashboard" element={<ParentDashboard />} />
             <Route path="teacher-dashboard" element={<TeacherDashboard />} />
             <Route path="community-chat/:id" element={<CommunityChatPage />} />
+            <Route path="admin" element={
+              <RequireRole allowedRoles={['admin']}>
+                <AdminDashboard />
+              </RequireRole>
+            } />
           </Route>
-
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

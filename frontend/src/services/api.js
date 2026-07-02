@@ -330,6 +330,78 @@ generateTaskQuiz(taskId, topic) {
 submitTaskQuiz(quizId, answers, userId) {
   return this.post('/tasks/quiz/submit', { quizId, answers, userId });
 },
+
+// ===== PERSONALIZATION =====
+getRecommendations: () => fetch(`${API_BASE}/personalize/recommendations`, {
+  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+}).then(handleResponse),
+
+generatePersonalization: () => fetch(`${API_BASE}/personalize/generate`, {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+}).then(handleResponse),
+
+actOnRecommendation: (id) => fetch(`${API_BASE}/personalize/recommendations/${id}/act`, {
+  method: 'PUT',
+  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+}).then(handleResponse),
+
+// Add these to your existing api object
+
+adminGetStats: () => fetch(`${API_BASE}/admin/stats`, {
+  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+}).then(handleResponse),
+
+adminGetPerformance: () => fetch(`${API_BASE}/admin/performance`, {
+  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+}).then(handleResponse),
+
+adminGetUsers: (params) => {
+  const query = new URLSearchParams(params).toString();
+  return fetch(`${API_BASE}/admin/users?${query}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+  }).then(handleResponse);
+},
+
+adminUpdateUser: (id, data) => fetch(`${API_BASE}/admin/users/${id}`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+  body: JSON.stringify(data),
+}).then(handleResponse),
+
+adminDeleteUser: (id) => fetch(`${API_BASE}/admin/users/${id}`, {
+  method: 'DELETE',
+  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+}).then(handleResponse),
+
+adminGetSubscriptions: (params) => {
+  const query = new URLSearchParams(params).toString();
+  return fetch(`${API_BASE}/admin/subscriptions?${query}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+  }).then(handleResponse);
+},
+
+adminUpdateSubscription: (id, data) => fetch(`${API_BASE}/admin/subscriptions/${id}`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+  body: JSON.stringify(data),
+}).then(handleResponse),
+
+adminCreateSubscription: (data) => fetch(`${API_BASE}/admin/subscriptions`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+  body: JSON.stringify(data),
+}).then(handleResponse),
+
+adminGetAnnouncements: () => fetch(`${API_BASE}/admin/announcements`, {
+  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+}).then(handleResponse),
+
+adminCreateAnnouncement: (data) => fetch(`${API_BASE}/admin/announcements`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+  body: JSON.stringify(data),
+}).then(handleResponse),
 };
 
 

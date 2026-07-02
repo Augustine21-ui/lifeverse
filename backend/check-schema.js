@@ -1,18 +1,9 @@
-﻿import db from "./db.js";
+import pkg from 'pg';
+import dotenv from 'dotenv';
+dotenv.config();
+const { Pool } = pkg;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-async function check() {
-  try {
-    const res = await db.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'users' 
-      ORDER BY ordinal_position
-    `);
-    console.log("Columns:", res.rows.map(c => c.column_name));
-    process.exit(0);
-  } catch (err) {
-    console.error("Error:", err.message);
-    process.exit(1);
-  }
-}
-check();
+const res = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='users'`);
+console.log(res.rows.map(r => r.column_name));
+process.exit();

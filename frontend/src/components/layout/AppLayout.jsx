@@ -18,6 +18,7 @@ export default function AppLayout() {
   const isStudent = user?.role === 'student';
   const isParent = user?.role === 'parent';
   const isTeacher = user?.role === 'teacher';
+  const isAdmin = user?.role === 'admin';
 
   const getAvatarGradient = (level) => {
     if (level <= 5) return 'linear-gradient(135deg, #3b82f6, #7c3aed)';
@@ -42,6 +43,10 @@ export default function AppLayout() {
   } else if (isTeacher) {
     mainNav = [
       { to: '/teacher-dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    ];
+  } else if (isAdmin) {
+    mainNav = [
+      { to: '/admin', icon: LayoutDashboard, label: 'Admin Dashboard' },
     ];
   } else {
     // fallback

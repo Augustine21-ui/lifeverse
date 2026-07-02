@@ -1,6 +1,5 @@
 import { query } from './db.js';
 
-// Get student's own progress
 export const getStudentProgress = async (req, res) => {
   const userId = req.user.id;
   try {
@@ -19,7 +18,6 @@ export const getStudentProgress = async (req, res) => {
   }
 };
 
-// Teacher: get list of linked students
 export const getTeacherStudents = async (req, res) => {
   const teacherId = req.user.id;
   try {
@@ -52,12 +50,13 @@ export const linkStudent = async (req, res) => {
   let success = false;
   if (role === 'parent') {
     await query('INSERT INTO parent_student (parent_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [userId, studentId]);
-    // Create conversation
-    await query('INSERT INTO conversations (student_id, adult_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [studentId, userId]);
+    const conversationId = Date.now().toString() + '-' + Math.random().toString(36).substring(2, 6);
+    await query('INSERT INTO conversations (id, student_id, adult_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [conversationId, studentId, userId]);
     success = true;
   } else if (role === 'teacher') {
     await query('INSERT INTO teacher_student (teacher_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [userId, studentId]);
-    await query('INSERT INTO conversations (student_id, adult_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [studentId, userId]);
+    const conversationId = Date.now().toString() + '-' + Math.random().toString(36).substring(2, 6);
+    await query('INSERT INTO conversations (id, student_id, adult_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [conversationId, studentId, userId]);
     success = true;
   }
   if (success) {
@@ -67,7 +66,6 @@ export const linkStudent = async (req, res) => {
   }
 };
 
-// Parent: get linked child
 export const getParentChild = async (req, res) => {
   const parentId = req.user.id;
   try {
@@ -83,7 +81,6 @@ export const getParentChild = async (req, res) => {
   }
 };
 
-// Get progress for a specific student (for parent/teacher)
 export const getStudentProgressById = async (req, res) => {
   const studentId = parseInt(req.params.id);
   try {
@@ -103,7 +100,6 @@ export const getStudentProgressById = async (req, res) => {
   }
 };
 
-// Get announcements for the user's role(s)
 export const getAnnouncements = async (req, res) => {
   const userRole = req.user.role || 'student';
   try {
@@ -120,7 +116,6 @@ export const getAnnouncements = async (req, res) => {
   }
 };
 
-// Create announcement (for teachers/admins – we'll restrict by role)
 export const createAnnouncement = async (req, res) => {
   const userId = req.user.id;
   const userRole = req.user.role;

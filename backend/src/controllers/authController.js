@@ -1,141 +1,116 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { validationResult } from 'express-validator';
-import pool from '../config/db.js';
-import { calculateLevel } from '../models/xp.js';
+import db from '../config/db.js';
+import crypto from 'crypto';
+import { sendResetEmail } from '../services/emailService.js';
 
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
-};
+const generateResetToken = () => crypto.randomBytes(32).toString('hex');
 
-const formatUser = (user) => ({
-  id: user.id,
-  username: user.username,
-  email: user.email,
-  fullName: user.full_name,
-  avatarUrl: user.avatar_url,
-  bio: user.bio,
-  educationLevel: user.education_level,
-  xp: user.xp,
-  level: user.level,
-  streakDays: user.streak_days,
-  createdAt: user.created_at,
-});
-
-export const register = async (req, res, next) => {
+export const register = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const { username, email, password, education_level, institution, course, role } = req.body;
+    // ✅ Accept both full_name and fullName; fallback to username
+    const full_name = req.body.full_name || req.body.fullName || username;
 
-    const { username, email, password, fullName, educationLevel } = req.body;
-
-    const existing = await pool.query('SELECT id FROM users WHERE email=$1 OR username=$2', [email, username]);
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'Email or username already taken' });
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Please provide all required fields' });
     }
-
-    const salt = await bcrypt.genSalt(12);
-    const passwordHash = await bcrypt.hash(password, salt);
-
-    const result = await pool.query(
-      `INSERT INTO users (username, email, password_hash, full_name, education_level, last_active_date)
-       VALUES ($1,$2,$3,$4,$5,CURRENT_DATE) RETURNING *`,
-      [username, email, passwordHash, fullName || username, educationLevel || 'secondary']
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await db.query(
+      `INSERT INTO users (full_name, username, email, password_hash, education_level, institution, course, role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, username, email, full_name, role`,
+      [full_name, username, email, hashedPassword, education_level, institution, course, role || 'student']
     );
-
     const user = result.rows[0];
-    const token = generateToken(user.id);
-
-    res.status(201).json({ token, user: formatUser(user) });
+    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.status(201).json({ token, user });
   } catch (err) {
-    next(err);
+    console.error(err);
+    if (err.code === '23505') return res.status(400).json({ error: 'Username or email already exists' });
+    res.status(500).json({ error: 'Registration failed' });
   }
 };
 
-export const login = async (req, res, next) => {
+export const login = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
     const { email, password } = req.body;
-
-    const result = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
-    if (!result.rows[0]) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    const result = await db.query(`SELECT * FROM users WHERE email = $1`, [email]);
+    if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
     const user = result.rows[0];
-    const isValid = await bcrypt.compare(password, user.password_hash);
-    if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
-
-    // Update streak
-    const today = new Date().toISOString().split('T')[0];
-    const lastActive = user.last_active_date ? new Date(user.last_active_date).toISOString().split('T')[0] : null;
-    let streakDays = user.streak_days;
-
-    if (lastActive) {
-      const diff = Math.floor((new Date(today) - new Date(lastActive)) / (1000 * 60 * 60 * 24));
-      if (diff === 1) streakDays += 1;
-      else if (diff > 1) streakDays = 1;
-    } else {
-      streakDays = 1;
-    }
-
-    await pool.query('UPDATE users SET last_active_date=$1, streak_days=$2, updated_at=NOW() WHERE id=$3',
-      [today, streakDays, user.id]);
-    user.streak_days = streakDays;
-
-    const token = generateToken(user.id);
-    res.json({ token, user: formatUser(user) });
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email, full_name: user.full_name, role: user.role } });
   } catch (err) {
-    next(err);
+    console.error(err);
+    res.status(500).json({ error: 'Login failed' });
   }
 };
 
-export const getMe = async (req, res, next) => {
+export const forgotPassword = async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT u.*,
-        (SELECT COUNT(*) FROM goals WHERE user_id=u.id AND status='completed') as goals_completed,
-        (SELECT COUNT(*) FROM goals WHERE user_id=u.id AND status='active') as goals_active,
-        (SELECT COUNT(*) FROM user_badges WHERE user_id=u.id) as badges_count,
-        (SELECT COUNT(*) FROM community_members WHERE user_id=u.id) as communities_count
-       FROM users u WHERE u.id=$1`,
-      [req.user.id]
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const userRes = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (userRes.rows.length === 0) {
+      return res.status(200).json({ message: 'If an account with that email exists, a reset link has been sent.' });
+    }
+
+    const resetToken = generateResetToken();
+    await db.query(
+      `UPDATE users SET reset_token = $1, reset_token_expiry = NOW() + INTERVAL '1 hour' WHERE id = $2`,
+      [resetToken, userRes.rows[0].id]
     );
 
-    const user = result.rows[0];
-    const { xp } = user;
-    const xpProgress = xp % 500;
+    // ✅ Send email
+    await sendResetEmail(email, resetToken);
+    console.log(`✅ Reset email sent to ${email}`);
 
-    res.json({
-      ...formatUser(user),
-      stats: {
-        goalsCompleted: parseInt(user.goals_completed),
-        goalsActive: parseInt(user.goals_active),
-        badgesCount: parseInt(user.badges_count),
-        communitiesCount: parseInt(user.communities_count),
-        xpProgress,
-        xpToNextLevel: 500,
-        xpPercent: Math.round((xpProgress / 500) * 100),
-      }
-    });
+    res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
   } catch (err) {
-    next(err);
+    console.error(err);
+    res.status(500).json({ error: 'Failed to send reset email' });
   }
 };
 
-export const updateProfile = async (req, res, next) => {
+export const resetPassword = async (req, res) => {
   try {
-    const { fullName, bio, educationLevel, avatarUrl } = req.body;
-    const result = await pool.query(
-      `UPDATE users SET full_name=COALESCE($1,full_name), bio=COALESCE($2,bio),
-       education_level=COALESCE($3,education_level), avatar_url=COALESCE($4,avatar_url), updated_at=NOW()
-       WHERE id=$5 RETURNING *`,
-      [fullName, bio, educationLevel, avatarUrl, req.user.id]
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+    const userRes = await db.query(
+      `SELECT id FROM users WHERE reset_token = $1 AND reset_token_expiry > NOW()`,
+      [token]
     );
-    res.json({ user: formatUser(result.rows[0]) });
+    if (userRes.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.query(
+      `UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE id = $2`,
+      [hashedPassword, userRes.rows[0].id]
+    );
+    res.json({ message: 'Password reset successfully' });
   } catch (err) {
-    next(err);
+    console.error(err);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+};
+
+export const getMe = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await db.query(
+      `SELECT id, username, email, full_name, role, xp, level, streak_days FROM users WHERE id = $1`,
+      [userId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 };

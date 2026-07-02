@@ -1,9 +1,23 @@
 ﻿import { query } from './db.js';
 
+// Helper function to generate unique ID for conversations
+const generateId = () => {
+  return Date.now().toString() + '-' + Math.random().toString(36).substring(2, 6);
+};
+
 const getOrCreateConversation = async (studentId, adultId) => {
+  // Check if conversation already exists
   let conv = await query('SELECT id FROM conversations WHERE student_id = $1 AND adult_id = $2', [studentId, adultId]);
+  
   if (conv.rows.length === 0) {
-    conv = await query('INSERT INTO conversations (student_id, adult_id) VALUES ($1, $2) RETURNING id', [studentId, adultId]);
+    // ✅ Generate a unique ID
+    const conversationId = generateId();
+    
+    // ✅ Insert with the generated ID
+    conv = await query(
+      'INSERT INTO conversations (id, student_id, adult_id) VALUES ($1, $2, $3) RETURNING id',
+      [conversationId, studentId, adultId]
+    );
     return conv.rows[0].id;
   }
   return conv.rows[0].id;
@@ -105,12 +119,16 @@ export const getMessages = async (req, res) => {
 };
 
 export const getMessagesByConversation = async (req, res) => {
-  const conversationId = parseInt(req.params.conversationId);
+  const conversationId = req.params.conversationId;
   const userId = req.user.id;
+  
   try {
+    // Try to find the conversation
     let conv = await query('SELECT student_id, adult_id FROM conversations WHERE id = $1', [conversationId]);
+    
     if (conv.rows.length === 0) {
-      const peerConv = await query('SELECT user1_id, user2_id FROM peer_conversations WHERE id = $1', [conversationId]);
+      // Check if it's a peer conversation
+      const peerConv = await query('SELECT user1_id, user2_id FROM peer_conversations WHERE id = $1', [parseInt(conversationId)]);
       if (peerConv.rows.length === 0) return res.status(404).json({ error: 'Conversation not found' });
       if (peerConv.rows[0].user1_id !== userId && peerConv.rows[0].user2_id !== userId) {
         return res.status(403).json({ error: 'Not authorized' });
@@ -121,12 +139,20 @@ export const getMessagesByConversation = async (req, res) => {
         JOIN users u ON m.sender_id = u.id
         WHERE m.conversation_id = $1
         ORDER BY m.created_at ASC
-      `, [conversationId]);
+      `, [parseInt(conversationId)]);
       res.json(messages.rows);
     } else {
-      if (conv.rows[0].student_id !== userId && conv.rows[0].adult_id !== userId) {
-        return res.status(403).json({ error: 'Not authorized' });
+      // Check if user is authorized
+      const convData = conv.rows[0];
+      const isAuthorized = (convData.student_id === userId) || (convData.adult_id === userId);
+      
+      if (!isAuthorized) {
+        const userCheck = await query('SELECT user_id FROM conversations WHERE id = $1 AND user_id = $2', [conversationId, userId]);
+        if (userCheck.rows.length === 0) {
+          return res.status(403).json({ error: 'Not authorized' });
+        }
       }
+      
       const messages = await query(`
         SELECT m.*, u.full_name as sender_name, u.role as sender_role
         FROM messages m

@@ -3,15 +3,19 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import adminRoutes from './routes/adminRoutes.js';
+// Load environment variables first
+dotenv.config();
 
 // Routes
+import authRoutes from './routes/authRoutes.js';       // ✅ ADD THIS
 import routes from './routes/index.js';
 import tutorRoutes from './routes/tutorRoutes.js';
 import quizRoutes from './routes/quizRoutes.js';
 import taskRoutes from './routes/taskRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
-
-dotenv.config();
+import personalizeRoutes from './routes/personalizationRoutes.js';
+import focusRoutes from './routes/focusRoutes.js';
 
 // Get __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
@@ -31,12 +35,19 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// API Routes
+// --- API Routes ---
+// Public routes first (no authentication)
+app.use('/api', authRoutes);        // ✅ MOUNT AUTH ROUTES FIRST
+
+// Protected routes (if any need authentication, they'll handle it themselves)
 app.use('/api', routes);
 app.use('/api', tutorRoutes);
 app.use('/api', quizRoutes);
 app.use('/api', taskRoutes);
-app.use('/api', uploadRoutes); // Only one line – the duplicate was removed
+app.use('/api', uploadRoutes);
+app.use('/api', personalizeRoutes);
+app.use('/api', focusRoutes);
+app.use('/api', adminRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
