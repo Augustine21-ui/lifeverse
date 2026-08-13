@@ -1,6 +1,7 @@
 import express from 'express';
 import { register, login, forgotPassword, resetPassword, getMe } from '../controllers/authController.js';
 import { authenticate } from '../middleware/auth.js';
+import { googleAuth } from '../controllers/googleAuthController.js';
 
 const router = express.Router();
 
@@ -13,5 +14,5 @@ router.post('/auth/reset-password', resetPassword);
 // Protected routes (require authentication)
 router.use(authenticate);
 router.get('/auth/me', getMe);
-
+router.post('/google', googleAuth);
 export default router;

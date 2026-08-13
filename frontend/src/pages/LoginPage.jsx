@@ -1,43 +1,35 @@
-// frontend/src/pages/LoginPage.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Zap, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { Zap, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function LoginPage() {
-  const { login, user } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // ✅ Navigate when user state changes
-  useEffect(() => {
-    if (user) {
-      console.log('🔐 User state updated:', user);
-      if (user.role === 'admin') {
-        navigate('/admin');
-      } else if (user.role === 'parent') {
-        navigate('/parent-dashboard');
-      } else if (user.role === 'teacher') {
-        navigate('/teacher-dashboard');
-      } else {
-        navigate('/dashboard');
-      }
-    }
-  }, [user, navigate]);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
-      // Navigation happens in useEffect above
+      const data = await login(email, password);
+      if (data.user?.role === 'admin') {
+        navigate('/admin');
+      } else if (data.user?.role === 'teacher') {
+        navigate('/teacher-dashboard');
+      } else if (data.user?.role === 'parent') {
+        navigate('/parent-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
-      setError(err.message || 'Login failed');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -45,40 +37,37 @@ export default function LoginPage() {
 
   return (
     <div
-      className="relative min-h-screen bg-cover bg-center bg-fixed flex items-center justify-center"
+      className="relative min-h-screen bg-cover bg-center bg-fixed flex items-center justify-center py-12"
       style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}
     >
-      {/* Dark overlay for readability */}
       <div className="absolute inset-0 bg-black/60 z-0"></div>
-
-      {/* Content */}
-      <div className="relative z-10" style={{ width: '100%', maxWidth: 420, padding: 16 }}>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 40, textDecoration: 'none', color: 'white' }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#3b82f6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Zap size={17} color="white" />
+      
+      <div className="relative z-10 w-full max-w-md p-4">
+        <div className="card glass-strong p-8">
+          <div className="flex items-center gap-2 justify-center mb-6">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center">
+              <Zap size={20} color="white" />
+            </div>
+            <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Lifeverse</span>
           </div>
-          <span style={{ fontWeight: 700, fontSize: 22 }}>Lifeverse</span>
-        </Link>
 
-        <div className="card glass-strong">
-          <h2 style={{ fontWeight: 800, fontSize: 24, marginBottom: 4 }}>Welcome back</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, marginBottom: 24 }}>Continue your learning journey</p>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Welcome back</h2>
+          <p style={{ color: 'var(--text-muted)' }} className="mb-6">Continue your learning journey</p>
 
           {error && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', fontSize: 13, marginBottom: 20 }}>
-              <AlertCircle size={15} /> {error}
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm mb-4">
+              <AlertCircle size={16} /> {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="label">Email</label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
                 <input
                   type="email"
-                  className="input"
-                  style={{ paddingLeft: 38 }}
+                  className="input pl-10"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -86,15 +75,15 @@ export default function LoginPage() {
                 />
               </div>
             </div>
+
             <div>
               <label className="label">Password</label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className="input"
-                  style={{ paddingLeft: 38, paddingRight: 38 }}
-                  placeholder="••••••••"
+                  className="input pl-10 pr-10"
+                  placeholder="••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -102,22 +91,46 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  style={{ color: 'var(--text-muted)' }}
                 >
-                  {showPassword ? <EyeOff size={16} color="rgba(255,255,255,0.5)" /> : <Eye size={16} color="rgba(255,255,255,0.5)" />}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
+
             <div className="text-right">
-              <Link to="/forgot-password" className="text-xs text-brand-400 hover:underline">Forgot password?</Link>
+              <Link to="/forgot-password" className="text-sm" style={{ color: 'var(--accent)' }}>
+                Forgot password?
+              </Link>
             </div>
-            <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: 4 }}>
-              {loading ? <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} /> : 'Sign in'}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 rounded-lg font-medium transition"
+              style={{ background: 'linear-gradient(135deg, var(--accent), #6d28d9)', color: 'white' }}
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
 
-          <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 20 }}>
-            New to Lifeverse? <Link to="/register" style={{ color: '#60a5fa', textDecoration: 'none', fontWeight: 600 }}>Create account</Link>
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t" style={{ borderColor: 'var(--border)' }} />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-2" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)' }}>or continue with</span>
+            </div>
+          </div>
+
+          <GoogleSignInButton mode="login" />
+
+          <p className="text-center mt-6 text-sm" style={{ color: 'var(--text-muted)' }}>
+            New to Lifeverse?{' '}
+            <Link to="/register" style={{ color: 'var(--accent)' }} className="font-medium">
+              Create account
+            </Link>
           </p>
         </div>
       </div>

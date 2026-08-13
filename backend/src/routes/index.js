@@ -1,7 +1,6 @@
 import express from 'express';
 import { register, login, getMe, authenticate } from '../auth.js';
 import { getChallenges, submitChallenge, getUserChallenges } from '../challengeController.js';
-import * as bridge from '../bridgeController.js';
 import { getChildren, getChildProgress } from '../parentController.js';
 import { getStudents, getStudentProgressForTeacher, getClassSummary } from '../teacherController.js';
 import { sendMessage, getMessages, getMessagesByConversation, getPeerContacts, getOrCreatePeerConversation } from '../bridgeMessageController.js';
@@ -54,8 +53,7 @@ router.delete('/feed/posts/:id', authenticate, deletePost);
 router.get('/communities', authenticate, getCommunities);
 router.get('/communities/:id', authenticate, getCommunityById);
 router.post('/communities/:id/join', authenticate, joinCommunity);
-router.post('/communities', authenticate, createCommunity); 
-router.post('/communities/:id/join', authenticate, joinCommunity);
+router.post('/communities', authenticate, createCommunity);
 router.delete('/communities/:id/leave', authenticate, leaveCommunity);
 router.get('/my-communities', authenticate, getMyCommunities);
 
@@ -70,19 +68,11 @@ router.put('/goals/:id', authenticate, updateGoal);
 router.delete('/goals/:id', authenticate, deleteGoal);
 router.patch('/goals/:id/milestones/:milestoneId/toggle', authenticate, toggleMilestone);
 
-// Bridge
-router.get('/bridge/generate-code', authenticate, bridge.generateConnectionCode);
-router.post('/bridge/connect', authenticate, bridge.linkStudent);
-router.get('/bridge/my-students', authenticate, bridge.getTeacherStudents);
-router.get('/bridge/my-child', authenticate, bridge.getParentChild);
-router.get('/bridge/student/:id/progress', authenticate, bridge.getStudentProgressById);
-router.get('/bridge/announcements', authenticate, bridge.getAnnouncements);
-router.post('/bridge/announcements', authenticate, bridge.createAnnouncement);
-router.post('/bridge/messages', authenticate, sendMessage);
-router.get('/bridge/messages', authenticate, getMessages);
-router.get('/bridge/messages/:conversationId', authenticate, getMessagesByConversation);
-router.get('/bridge/conversation/with/:userId', authenticate, getOrCreatePeerConversation);
-// Parent & Teacher
+// ===== BRIDGE ROUTES REMOVED =====
+// All bridge routes are now handled by bridgeRoutes.js, mounted in the main index.js.
+// If you need to keep any specific bridge routes here, you can add them back, but avoid duplication.
+
+// Parent & Teacher (non-bridge)
 router.get('/parent/children', authenticate, getChildren);
 router.get('/parent/child/:id/progress', authenticate, getChildProgress);
 router.get('/teacher/students', authenticate, getStudents);
@@ -94,17 +84,17 @@ router.get('/resources', authenticate, getResources);
 
 // Community chat routes
 router.get('/communities/:id/members', authenticate, getCommunityMembers);
-
 router.get('/communities/:id/messages', authenticate, getCommunityMessages);
 router.post('/communities/:id/messages', authenticate, sendCommunityMessage);
 router.patch('/communities/:id/members/role', authenticate, updateMemberRole);
 
-
 // Root
 router.get('/', (req, res) => res.json({ message: 'API root' }));
 
+// Additional peer contacts (already in bridge routes, but kept for compatibility)
 router.get('/bridge/peer-contacts', authenticate, getPeerContacts);
 
+// User communities (already in my-communities, kept for compatibility)
 router.get('/user/communities', authenticate, async (req, res) => {
   const userId = req.user.id;
   try {
@@ -115,7 +105,7 @@ router.get('/user/communities', authenticate, async (req, res) => {
   }
 });
 
-export default router;
-
-// Bridge conversations (alias for /bridge/messages)
+// Bridge conversations alias (already in bridge routes)
 router.get('/bridge/conversations', authenticate, getMessages);
+
+export default router;

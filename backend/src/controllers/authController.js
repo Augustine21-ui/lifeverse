@@ -3,51 +3,181 @@ import jwt from 'jsonwebtoken';
 import db from '../config/db.js';
 import crypto from 'crypto';
 import { sendResetEmail } from '../services/emailService.js';
+import { isInstitutionSubscribed, getUserAccess } from '../services/subscriptionService.js';
 
 const generateResetToken = () => crypto.randomBytes(32).toString('hex');
 
+// ---------- LOGIN ----------
+export const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const userRes = await db.query(
+      `SELECT id, email, password_hash, full_name, role, institution, xp, level, streak_days,
+              subscription_tier, subscription_status, trial_end_date, trial_used,
+              subscription_end_date, institution_subscription_valid
+       FROM users WHERE email = $1`,
+      [email]
+    );
+    if (userRes.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const user = userRes.rows[0];
+
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const access = await getUserAccess(user.id);
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        institution: user.institution,
+        xp: user.xp,
+        level: user.level,
+        streak_days: user.streak_days,
+        subscription: access,
+        subscription_tier: user.subscription_tier,
+        subscription_status: user.subscription_status,
+        institution_subscription_valid: user.institution_subscription_valid
+      }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// ---------- REGISTER ----------
 export const register = async (req, res) => {
   try {
-    const { username, email, password, education_level, institution, course, role } = req.body;
-    // ✅ Accept both full_name and fullName; fallback to username
-    const full_name = req.body.full_name || req.body.fullName || username;
-
-    if (!username || !email || !password) {
+    const { full_name, username, email, password, education_level, institution, course, role } = req.body;
+    if (!username || !email || !password || !full_name) {
       return res.status(400).json({ error: 'Please provide all required fields' });
     }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const result = await db.query(
-      `INSERT INTO users (full_name, username, email, password_hash, education_level, institution, course, role)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, username, email, full_name, role`,
-      [full_name, username, email, hashedPassword, education_level, institution, course, role || 'student']
+
+    // Check if user already exists
+    const existingUser = await db.query(
+      'SELECT id FROM users WHERE email = $1 OR username = $2',
+      [email, username]
     );
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'Username or email already exists' });
+    }
+
+    // Check institution subscription
+    let institutionSubscribed = false;
+    let subscriptionPlan = 'free';
+    let subscriptionStatus = 'active';
+    let trialStartDate = null;
+    let trialEndDate = null;
+    let trialUsed = false;
+
+    if (institution) {
+      const instRes = await db.query(
+        'SELECT id, name, subscription_end_date FROM institutions WHERE LOWER(name) = LOWER($1)',
+        [institution.trim()]
+      );
+      
+      if (instRes.rows.length > 0) {
+        const endDate = new Date(instRes.rows[0].subscription_end_date);
+        const now = new Date();
+        institutionSubscribed = endDate > now;
+        
+        if (institutionSubscribed) {
+          subscriptionPlan = 'premium';
+          subscriptionStatus = 'active';
+        } else {
+          const nowDate = new Date();
+          trialStartDate = nowDate;
+          trialEndDate = new Date(nowDate);
+          trialEndDate.setDate(trialEndDate.getDate() + 12);
+          subscriptionPlan = 'free';
+          subscriptionStatus = 'trial';
+        }
+      } else {
+        const nowDate = new Date();
+        trialStartDate = nowDate;
+        trialEndDate = new Date(nowDate);
+        trialEndDate.setDate(trialEndDate.getDate() + 12);
+        subscriptionPlan = 'free';
+        subscriptionStatus = 'trial';
+      }
+    } else {
+      const nowDate = new Date();
+      trialStartDate = nowDate;
+      trialEndDate = new Date(nowDate);
+      trialEndDate.setDate(trialEndDate.getDate() + 12);
+      subscriptionPlan = 'free';
+      subscriptionStatus = 'trial';
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const result = await db.query(
+      `INSERT INTO users (
+        full_name, username, email, password_hash, education_level, 
+        institution, course, role,
+        subscription_tier, subscription_status, trial_start_date, 
+        trial_end_date, trial_used, institution_subscription_valid
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING id, username, email, full_name, role, subscription_tier, 
+                subscription_status, trial_end_date, institution_subscription_valid`,
+      [
+        full_name, username, email, hashedPassword, education_level || null,
+        institution || null, course || null, role || 'student',
+        subscriptionPlan, subscriptionStatus, trialStartDate,
+        trialEndDate, trialUsed, institutionSubscribed
+      ]
+    );
+
     const user = result.rows[0];
-    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.status(201).json({ token, user });
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const access = await getUserAccess(user.id);
+
+    res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        subscription: access,
+        subscription_tier: user.subscription_tier,
+        subscription_status: user.subscription_status,
+        institution_subscription_valid: user.institution_subscription_valid
+      }
+    });
   } catch (err) {
-    console.error(err);
-    if (err.code === '23505') return res.status(400).json({ error: 'Username or email already exists' });
+    console.error('Registration error:', err);
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Username or email already exists' });
+    }
     res.status(500).json({ error: 'Registration failed' });
   }
 };
 
-export const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-    const result = await db.query(`SELECT * FROM users WHERE email = $1`, [email]);
-    if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
-    const user = result.rows[0];
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email, full_name: user.full_name, role: user.role } });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Login failed' });
-  }
-};
-
+// ---------- FORGOT PASSWORD ----------
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -64,10 +194,7 @@ export const forgotPassword = async (req, res) => {
       [resetToken, userRes.rows[0].id]
     );
 
-    // ✅ Send email
     await sendResetEmail(email, resetToken);
-    console.log(`✅ Reset email sent to ${email}`);
-
     res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
   } catch (err) {
     console.error(err);
@@ -75,6 +202,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
+// ---------- RESET PASSWORD ----------
 export const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -100,17 +228,40 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+// ---------- GET ME ----------
 export const getMe = async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await db.query(
-      `SELECT id, username, email, full_name, role, xp, level, streak_days FROM users WHERE id = $1`,
+      `SELECT id, username, email, full_name, role, xp, level, streak_days,
+              institution, subscription_tier, subscription_status, trial_end_date,
+              subscription_end_date, institution_subscription_valid
+       FROM users WHERE id = $1`,
       [userId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-    res.json(result.rows[0]);
+    
+    const user = result.rows[0];
+    const access = await getUserAccess(userId);
+    
+    res.json({
+      ...user,
+      subscription: access
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+};
+
+// ---------- GET SUBSCRIPTION STATUS ----------
+export const getSubscriptionStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const access = await getUserAccess(userId);
+    res.json(access);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to get subscription status' });
   }
 };

@@ -1,8 +1,9 @@
-// frontend/src/pages/RegisterPage.jsx
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Mail, Lock, User, AlertCircle, Building, GraduationCap, Users, Eye, EyeOff, Plus, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 // Kenyan curriculum education levels
 const educationLevels = [
@@ -16,7 +17,7 @@ const educationLevels = [
   'Adult Education',
 ];
 
-// Example courses for University and TVET – you can expand or fetch from API
+// Example courses for University and TVET
 const universityCourses = [
   'Computer Science',
   'Information Technology',
@@ -43,6 +44,7 @@ const tvetCourses = [
 
 export default function RegisterPage() {
   const { register } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -54,23 +56,19 @@ export default function RegisterPage() {
     institution: '',
     course: '',
     role: 'student',
-    // Extra fields for teacher/parent
-    teacherCourses: [],   // array of course names
-    parentSchools: [],    // array of school names
+    teacherCourses: [],
+    parentSchools: [],
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // For adding course (teacher)
   const [newCourse, setNewCourse] = useState('');
-  // For adding school (parent)
   const [newSchool, setNewSchool] = useState('');
 
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
 
-  // When role changes, reset the extra arrays to avoid confusion
   const handleRoleChange = (e) => {
     const role = e.target.value;
     setForm(prev => ({
@@ -133,14 +131,12 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
 
-    // Basic validation
     if (!form.username || !form.email || !form.password || !form.fullName || !form.institution) {
       setError('Please fill in all required fields');
       setLoading(false);
       return;
     }
 
-    // Role-specific validation
     if (form.role === 'teacher' && form.teacherCourses.length === 0) {
       setError('Please add at least one course you teach');
       setLoading(false);
@@ -152,17 +148,25 @@ export default function RegisterPage() {
       return;
     }
 
+    const payload = {
+      full_name: form.fullName,
+      username: form.username,
+      email: form.email,
+      password: form.password,
+      education_level: form.educationLevel,
+      institution: form.institution,
+      course: form.course,
+      role: form.role,
+    };
+
     try {
-      const data = await register(form);
-      if (data.user.role === 'parent') {
-        navigate('/parent-dashboard');
-      } else if (data.user.role === 'teacher') {
-        navigate('/teacher-dashboard');
-      } else {
-        navigate('/dashboard');
-      }
+      const data = await register(payload);
+      // After successful registration, redirect to academic onboarding
+      showToast('Account created! Please complete your academic setup.', 'success');
+      navigate('/academic-onboarding');
     } catch (err) {
       setError(err.message);
+      showToast(err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -173,21 +177,19 @@ export default function RegisterPage() {
       className="relative min-h-screen bg-cover bg-center bg-fixed flex items-center justify-center py-12"
       style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}
     >
-      {/* Dark overlay */}
       <div className="absolute inset-0 bg-black/60 z-0"></div>
 
-      {/* Content */}
       <div className="relative z-10 w-full max-w-2xl p-4">
-        <div className="card glass-strong">
+        <div className="card glass-strong p-8">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 16 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#3b82f6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Zap size={17} color="white" />
             </div>
-            <span style={{ fontWeight: 700, fontSize: 22 }}>Lifeverse</span>
+            <span style={{ fontWeight: 700, fontSize: 22, color: 'var(--text-primary)' }}>Lifeverse</span>
           </div>
 
-          <h2 style={{ fontWeight: 800, fontSize: 24, marginBottom: 4 }}>Begin your journey</h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, marginBottom: 24 }}>Create your free account</p>
+          <h2 style={{ fontWeight: 800, fontSize: 24, marginBottom: 4, color: 'var(--text-primary)' }}>Begin your journey</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 24 }}>Create your free account</p>
 
           {error && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171', fontSize: 13, marginBottom: 20 }}>
@@ -198,31 +200,73 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label className="label">Full name</label>
-                <input className="input" placeholder="Alex Johnson" value={form.fullName} onChange={set('fullName')} required />
+                <label className="label" style={{ color: 'var(--text-secondary)' }}>Full name</label>
+                <input 
+                  className="input" 
+                  placeholder="Alex Johnson" 
+                  value={form.fullName} 
+                  onChange={set('fullName')} 
+                  required 
+                  style={{ 
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    borderColor: 'var(--border)'
+                  }}
+                />
               </div>
               <div>
-                <label className="label">Username</label>
-                <input className="input" placeholder="alexj" value={form.username} onChange={set('username')} required minLength={3} />
+                <label className="label" style={{ color: 'var(--text-secondary)' }}>Username</label>
+                <input 
+                  className="input" 
+                  placeholder="alexj" 
+                  value={form.username} 
+                  onChange={set('username')} 
+                  required 
+                  minLength={3}
+                  style={{ 
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    borderColor: 'var(--border)'
+                  }}
+                />
               </div>
             </div>
 
             <div>
-              <label className="label">Email</label>
+              <label className="label" style={{ color: 'var(--text-secondary)' }}>Email</label>
               <div style={{ position: 'relative' }}>
-                <Mail size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
-                <input type="email" className="input" style={{ paddingLeft: 38 }} placeholder="you@school.com" value={form.email} onChange={set('email')} required />
+                <Mail size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input 
+                  type="email" 
+                  className="input" 
+                  style={{ 
+                    paddingLeft: 38,
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    borderColor: 'var(--border)'
+                  }} 
+                  placeholder="you@school.com" 
+                  value={form.email} 
+                  onChange={set('email')} 
+                  required 
+                />
               </div>
             </div>
 
             <div>
-              <label className="label">Password</label>
+              <label className="label" style={{ color: 'var(--text-secondary)' }}>Password</label>
               <div style={{ position: 'relative' }}>
-                <Lock size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+                <Lock size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   className="input"
-                  style={{ paddingLeft: 38, paddingRight: 38 }}
+                  style={{ 
+                    paddingLeft: 38, 
+                    paddingRight: 38,
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    borderColor: 'var(--border)'
+                  }}
                   placeholder="Min. 6 characters"
                   value={form.password}
                   onChange={set('password')}
@@ -234,14 +278,25 @@ export default function RegisterPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
-                  {showPassword ? <EyeOff size={16} color="rgba(255,255,255,0.5)" /> : <Eye size={16} color="rgba(255,255,255,0.5)" />}
+                  {showPassword ? <EyeOff size={16} color="var(--text-muted)" /> : <Eye size={16} color="var(--text-muted)" />}
                 </button>
               </div>
             </div>
 
             <div>
-              <label className="label">Education level (Kenyan Curriculum)</label>
-              <select className="input" style={{ cursor: 'pointer' }} value={form.educationLevel} onChange={set('educationLevel')} required>
+              <label className="label" style={{ color: 'var(--text-secondary)' }}>Education level (Kenyan Curriculum)</label>
+              <select 
+                className="input" 
+                style={{ 
+                  cursor: 'pointer',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  borderColor: 'var(--border)'
+                }} 
+                value={form.educationLevel} 
+                onChange={set('educationLevel')} 
+                required
+              >
                 {educationLevels.map(level => (
                   <option key={level} value={level}>{level}</option>
                 ))}
@@ -249,13 +304,18 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="label">Institution / School</label>
+              <label className="label" style={{ color: 'var(--text-secondary)' }}>Institution / School</label>
               <div style={{ position: 'relative' }}>
-                <Building size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+                <Building size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   type="text"
                   className="input"
-                  style={{ paddingLeft: 38 }}
+                  style={{ 
+                    paddingLeft: 38,
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    borderColor: 'var(--border)'
+                  }}
                   placeholder="e.g., Strathmore University"
                   value={form.institution}
                   onChange={set('institution')}
@@ -266,11 +326,22 @@ export default function RegisterPage() {
 
             {showCourse && (
               <div>
-                <label className="label">Course / Program</label>
+                <label className="label" style={{ color: 'var(--text-secondary)' }}>Course / Program</label>
                 <div style={{ position: 'relative' }}>
-                  <GraduationCap size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+                  <GraduationCap size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   {courseOptions.length > 0 ? (
-                    <select className="input" style={{ paddingLeft: 38 }} value={form.course} onChange={set('course')} required>
+                    <select 
+                      className="input" 
+                      style={{ 
+                        paddingLeft: 38,
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                        borderColor: 'var(--border)'
+                      }} 
+                      value={form.course} 
+                      onChange={set('course')} 
+                      required
+                    >
                       <option value="">Select your course</option>
                       {courseOptions.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -278,7 +349,12 @@ export default function RegisterPage() {
                     <input
                       type="text"
                       className="input"
-                      style={{ paddingLeft: 38 }}
+                      style={{ 
+                        paddingLeft: 38,
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                        borderColor: 'var(--border)'
+                      }}
                       placeholder="Enter your course"
                       value={form.course}
                       onChange={set('course')}
@@ -290,12 +366,17 @@ export default function RegisterPage() {
             )}
 
             <div>
-              <label className="label">Role</label>
+              <label className="label" style={{ color: 'var(--text-secondary)' }}>Role</label>
               <div style={{ position: 'relative' }}>
-                <Users size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)' }} />
+                <Users size={14} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <select
                   className="input"
-                  style={{ paddingLeft: 38 }}
+                  style={{ 
+                    paddingLeft: 38,
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    borderColor: 'var(--border)'
+                  }}
                   value={form.role}
                   onChange={handleRoleChange}
                   required
@@ -307,14 +388,18 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Teacher: Add courses */}
             {form.role === 'teacher' && (
               <div>
-                <label className="label">Courses you teach *</label>
+                <label className="label" style={{ color: 'var(--text-secondary)' }}>Courses you teach *</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input
                     type="text"
                     className="input flex-1"
+                    style={{ 
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      borderColor: 'var(--border)'
+                    }}
                     placeholder="e.g., Mathematics"
                     value={newCourse}
                     onChange={(e) => setNewCourse(e.target.value)}
@@ -327,9 +412,9 @@ export default function RegisterPage() {
                 {form.teacherCourses.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                     {form.teacherCourses.map((course) => (
-                      <span key={course} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.08)', padding: '4px 10px', borderRadius: 20, fontSize: 12 }}>
+                      <span key={course} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.08)', padding: '4px 10px', borderRadius: 20, fontSize: 12, color: 'var(--text-primary)' }}>
                         {course}
-                        <button type="button" onClick={() => handleRemoveCourse(course)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
+                        <button type="button" onClick={() => handleRemoveCourse(course)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                           <X size={12} />
                         </button>
                       </span>
@@ -339,14 +424,18 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* Parent: Add schools */}
             {form.role === 'parent' && (
               <div>
-                <label className="label">Schools your child(ren) attend *</label>
+                <label className="label" style={{ color: 'var(--text-secondary)' }}>Schools your child(ren) attend *</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input
                     type="text"
                     className="input flex-1"
+                    style={{ 
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      borderColor: 'var(--border)'
+                    }}
                     placeholder="e.g., Sunshine Academy"
                     value={newSchool}
                     onChange={(e) => setNewSchool(e.target.value)}
@@ -359,9 +448,9 @@ export default function RegisterPage() {
                 {form.parentSchools.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                     {form.parentSchools.map((school) => (
-                      <span key={school} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.08)', padding: '4px 10px', borderRadius: 20, fontSize: 12 }}>
+                      <span key={school} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(255,255,255,0.08)', padding: '4px 10px', borderRadius: 20, fontSize: 12, color: 'var(--text-primary)' }}>
                         {school}
-                        <button type="button" onClick={() => handleRemoveSchool(school)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
+                        <button type="button" onClick={() => handleRemoveSchool(school)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                           <X size={12} />
                         </button>
                       </span>
@@ -380,8 +469,21 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 20 }}>
-            Already have an account? <Link to="/login" style={{ color: '#60a5fa', textDecoration: 'none', fontWeight: 600 }}>Sign in</Link>
+          {/* ===== Google Sign-In Divider ===== */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t" style={{ borderColor: 'var(--border)' }} />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-2" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)' }}>or continue with</span>
+            </div>
+          </div>
+
+          {/* ===== Google Sign-In Button ===== */}
+          <GoogleSignInButton mode="register" />
+
+          <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: 20 }}>
+            Already have an account? <Link to="/login" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>Sign in</Link>
           </p>
         </div>
       </div>

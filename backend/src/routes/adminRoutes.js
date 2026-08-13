@@ -21,23 +21,20 @@ const router = express.Router();
 router.use(authenticate);
 router.use(requireAdmin);
 
-// Overview
-router.get('/admin/stats', getStats);
-router.get('/admin/performance', getPerformance);
-router.get('/admin/health', getSystemHealth);
+// No "/admin" prefix – mount point handles it
+router.get('/stats', getStats);
+router.get('/performance', getPerformance);
+router.get('/health', getSystemHealth);
 
-// Users
-router.get('/admin/users', getUsers);
-router.put('/admin/users/:id', updateUser);
-router.delete('/admin/users/:id', deleteUser);
+router.get('/users', getUsers);
+router.put('/users/:id', updateUser);
+router.delete('/users/:id', deleteUser);
 
-// Subscriptions
-router.get('/admin/subscriptions', getSubscriptions);
-router.put('/admin/subscriptions/:id', updateSubscription);
-router.post('/admin/subscriptions', createSubscription);
+router.get('/subscriptions', getSubscriptions);
+router.put('/subscriptions/:id', updateSubscription);
+router.post('/subscriptions', createSubscription);
 
-// Announcements
-router.get('/admin/announcements', getAnnouncements);
-router.post('/admin/announcements', createAnnouncement);
+router.get('/announcements', getAnnouncements);
+router.post('/announcements', createAnnouncement);
 
 export default router;

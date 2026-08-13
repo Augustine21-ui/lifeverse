@@ -9,6 +9,8 @@ const handleResponse = async (res) => {
   return res.json();
 };
 
+
+
 export const api = {
   // Auth
   register: (userData) =>
@@ -65,4 +67,18 @@ export const api = {
     fetch(`${API_BASE}/milestones/${milestoneId}/toggle`, {
       method: 'PATCH',
     }).then(handleResponse),
+
+    getMyStudyGroups: () => fetch(`${API_BASE}/study-groups/my`, {
+  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+}).then(handleResponse).catch(() => []), // fallback
+
+recordMood: (mood) => fetch(`${API_BASE}/mood`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+  body: JSON.stringify({ mood }),
+}).then(handleResponse),
+
+ getMastery: () => fetch(`${API_BASE}/skills/mastery`, {
+  headers: authHeaders()
+}).then(handleResponse),
 };

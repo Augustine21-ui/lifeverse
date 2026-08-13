@@ -26,20 +26,21 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchMe]);
 
-  const login = async (email, password) => {
-    const data = await api.login({ email, password });
-    localStorage.setItem('token', data.token);
-    setUser(data.user);
-    return data;
-  };
+  // frontend/src/hooks/useAuth.jsx
 
-  const register = async (payload) => {
-    const data = await api.register(payload);
-    localStorage.setItem('token', data.token);
-    setUser(data.user);
-    return data;
-  };
+const login = async (email, password) => {
+  const data = await api.login({ email, password });
+  localStorage.setItem('token', data.token);
+  setUser(data.user); // ✅ Store the entire user object
+  return data;
+};
 
+const register = async (userData) => {
+  const data = await api.register(userData);
+  localStorage.setItem('token', data.token);
+  setUser(data.user); // ✅ Store the entire user object
+  return data;
+};
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
