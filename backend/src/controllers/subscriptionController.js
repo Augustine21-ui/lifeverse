@@ -1,3 +1,4 @@
+// backend/src/controllers/subscriptionController.js
 import db from '../config/db.js';
 import Stripe from 'stripe';
 import { 
@@ -9,8 +10,24 @@ import {
   TRIAL_TIERS
 } from '../services/subscriptionService.js';
 
-// ✅ FIX: Use 'new' keyword
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// ✅ FIX: Conditional Stripe initialization
+let stripe = null;
+const stripeEnabled = process.env.STRIPE_SECRET_KEY && 
+                     process.env.STRIPE_SECRET_KEY !== 'your_stripe_secret_key_here' &&
+                     process.env.STRIPE_SECRET_KEY.startsWith('sk_');
+
+if (stripeEnabled) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  console.log('✅ Stripe initialized successfully');
+} else {
+  console.log('ℹ️ Stripe disabled - running in bypass mode');
+  console.log(`   BYPASS_PAYMENT: ${process.env.BYPASS_PAYMENT || 'false'}`);
+}
+
+// Helper function to check if Stripe is available
+const isStripeAvailable = () => {
+  return stripe !== null && stripeEnabled;
+};
 
 export const getSubscriptionPlans = async (req, res) => {
   try {
@@ -38,8 +55,10 @@ export const createCheckoutSession = async (req, res) => {
       return res.status(400).json({ error: 'Invalid tier' });
     }
 
-    // Check if BYPASS_PAYMENT is enabled
-    if (process.env.BYPASS_PAYMENT === 'true') {
+    // Check if BYPASS_PAYMENT is enabled OR Stripe is not available
+    if (process.env.BYPASS_PAYMENT === 'true' || !isStripeAvailable()) {
+      console.log(`ℹ️ Bypass mode: Upgrading user ${userId} to ${tier}`);
+      
       await db.query(
         `UPDATE users 
          SET subscription_tier = $1, 
@@ -58,7 +77,8 @@ export const createCheckoutSession = async (req, res) => {
       return res.json({ 
         success: true, 
         message: `Upgraded to ${tier} (bypass mode)`,
-        bypass: true
+        bypass: true,
+        tier: tier
       });
     }
 
@@ -108,6 +128,12 @@ export const createCheckoutSession = async (req, res) => {
 };
 
 export const handleStripeWebhook = async (req, res) => {
+  // If Stripe is not available, just acknowledge
+  if (!isStripeAvailable()) {
+    console.log('ℹ️ Webhook received but Stripe is disabled');
+    return res.json({ received: true, bypass: true });
+  }
+
   const sig = req.headers['stripe-signature'];
   let event;
 
@@ -235,9 +261,6 @@ export const getTrialStatus = async (req, res) => {
   }
 };
 
-// backend/src/controllers/subscriptionController.js
-
-// ===== GET SUBSCRIPTION STATUS (for frontend) =====
 export const getSubscriptionStatus = async (req, res) => {
   try {
     const userId = req.user.id;
