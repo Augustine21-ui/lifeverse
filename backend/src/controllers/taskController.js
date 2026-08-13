@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+// backend/src/controllers/taskController.js
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
@@ -8,13 +8,86 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 dotenv.config({ path: resolve(__dirname, '../../.env') });
 
-const openai = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1",
-});
+// ✅ Conditional initialization - try Groq first
+let openai = null;
+let isAIAvailable = false;
+let aiProvider = 'none';
+
+const groqApiKey = process.env.GROQ_API_KEY;
+const openAiKey = process.env.OPENAI_API_KEY;
+
+// Try to initialize with GROQ_API_KEY first
+if (groqApiKey && groqApiKey !== 'your_groq_api_key_here' && groqApiKey.startsWith('gsk_')) {
+  try {
+    const { default: OpenAI } = await import('openai');
+    openai = new OpenAI({
+      apiKey: groqApiKey,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
+    isAIAvailable = true;
+    aiProvider = 'groq';
+    console.log('✅ Groq AI initialized for tasks');
+  } catch (error) {
+    console.warn('⚠️ Failed to initialize Groq for tasks:', error.message);
+  }
+} else if (openAiKey && openAiKey !== 'your_openai_api_key_here') {
+  try {
+    const { default: OpenAI } = await import('openai');
+    openai = new OpenAI({
+      apiKey: openAiKey,
+    });
+    isAIAvailable = true;
+    aiProvider = 'openai';
+    console.log('✅ OpenAI initialized for tasks');
+  } catch (error) {
+    console.warn('⚠️ Failed to initialize OpenAI for tasks:', error.message);
+  }
+}
+
+if (!isAIAvailable) {
+  console.log('ℹ️ Task AI disabled - running in mock mode');
+}
 
 // In-memory store for generated quizzes
 if (!global.taskQuizStore) global.taskQuizStore = new Map();
+
+// Mock quiz generator
+const generateMockQuiz = (topic) => {
+  return {
+    questions: [
+      {
+        question: `What is the main concept of ${topic}?`,
+        options: ["Definition A", "Definition B", "Definition C", "Definition D"],
+        correctAnswer: "A",
+        explanation: `The main concept of ${topic} is best described by Definition A.`
+      },
+      {
+        question: `Which of the following is most related to ${topic}?`,
+        options: ["Related concept A", "Related concept B", "Related concept C", "Related concept D"],
+        correctAnswer: "B",
+        explanation: `Related concept B is most closely associated with ${topic}.`
+      },
+      {
+        question: `How is ${topic} typically applied?`,
+        options: ["Application A", "Application B", "Application C", "Application D"],
+        correctAnswer: "C",
+        explanation: `${topic} is commonly applied through Application C.`
+      },
+      {
+        question: `What is a key benefit of understanding ${topic}?`,
+        options: ["Benefit A", "Benefit B", "Benefit C", "Benefit D"],
+        correctAnswer: "A",
+        explanation: `Understanding ${topic} provides Benefit A as a key advantage.`
+      },
+      {
+        question: `Which resource would best help you learn ${topic}?`,
+        options: ["Resource A", "Resource B", "Resource C", "Resource D"],
+        correctAnswer: "D",
+        explanation: `Resource D is the most comprehensive resource for learning ${topic}.`
+      }
+    ]
+  };
+};
 
 // Get today's tasks for a user
 export const getTodaysTasks = async (req, res) => {
@@ -66,6 +139,20 @@ export const generateTaskQuiz = async (req, res) => {
     const { taskId, topic } = req.body;
     if (!topic) return res.status(400).json({ error: "Topic required" });
 
+    // If AI is not available, return mock quiz
+    if (!isAIAvailable || !openai) {
+      console.log('ℹ️ Using mock quiz for task:', taskId);
+      const mockQuiz = generateMockQuiz(topic);
+      const quizId = `task_${taskId}_mock_${Date.now()}`;
+      global.taskQuizStore.set(quizId, { ...mockQuiz, taskId, topic, mock: true });
+      return res.json({ 
+        quizId, 
+        questions: mockQuiz.questions,
+        mock: true,
+        message: "AI is currently unavailable. Using mock quiz."
+      });
+    }
+
     const prompt = `Generate a 5-question multiple-choice quiz on the topic: "${topic}". 
     Each question must have 4 options (A, B, C, D). Return ONLY valid JSON:
     {
@@ -75,7 +162,7 @@ export const generateTaskQuiz = async (req, res) => {
     }`;
 
     const completion = await openai.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
       max_tokens: 2000,
@@ -88,12 +175,26 @@ export const generateTaskQuiz = async (req, res) => {
     else throw new Error("Invalid JSON");
 
     const quizId = `task_${taskId}_${Date.now()}`;
-    global.taskQuizStore.set(quizId, { ...quizData, taskId, topic });
+    global.taskQuizStore.set(quizId, { ...quizData, taskId, topic, mock: false });
 
-    res.json({ quizId, questions: quizData.questions });
+    res.json({ 
+      quizId, 
+      questions: quizData.questions,
+      aiProvider: aiProvider,
+      mock: false
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to generate quiz" });
+    console.error('Quiz generation error:', err);
+    // Fallback to mock quiz
+    const mockQuiz = generateMockQuiz(req.body.topic || 'general');
+    const quizId = `task_${req.body.taskId || 'unknown'}_mock_${Date.now()}`;
+    global.taskQuizStore.set(quizId, { ...mockQuiz, taskId: req.body.taskId, topic: req.body.topic, mock: true });
+    res.json({ 
+      quizId, 
+      questions: mockQuiz.questions,
+      mock: true,
+      message: "AI service unavailable. Using mock quiz."
+    });
   }
 };
 
@@ -160,9 +261,19 @@ export const submitTaskQuiz = async (req, res) => {
       xpEarned,
       message,
       results,
+      mock: quizData.mock || false
     });
   } catch (err) {
-    console.error(err);
+    console.error('Quiz submission error:', err);
     res.status(500).json({ error: 'Submission failed' });
   }
+};
+
+// Health check for AI status
+export const checkTaskAIStatus = async (req, res) => {
+  res.json({
+    aiAvailable: isAIAvailable,
+    aiProvider: aiProvider,
+    mockMode: !isAIAvailable
+  });
 };

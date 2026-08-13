@@ -1,37 +1,36 @@
-import OpenAI from 'openai';
+// backend/src/controllers/focusController.js
+import { getAI, isAIAvailableCheck, getAIProvider, generateMockResponse } from '../utils/aiUtils.js';
 
-const openai = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1",
-});
-
-export const generateResources = async (req, res) => {
+export const getFocusSuggestion = async (req, res) => {
   try {
-    const { topic } = req.body;
-    if (!topic) return res.status(400).json({ error: 'Topic required' });
+    const { topic, subject } = req.body;
+    
+    if (!isAIAvailableCheck()) {
+      return res.json({
+        suggestion: generateMockResponse('focus', topic || subject || 'studying'),
+        mock: true
+      });
+    }
 
-    const prompt = `
-You are a learning resource curator. For the topic "${topic}", provide a list of 5-10 high-quality online resources (articles, videos, courses, tutorials) that are freely available. Include for each: a title, a brief description, and a plausible URL. Return ONLY valid JSON in this format:
-{
-  "resources": [
-    { "title": "...", "description": "...", "url": "..." }
-  ]
-}`;
-
+    const { openai, aiProvider } = getAI();
     const completion = await openai.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 2000,
+      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
+      messages: [
+        { role: 'system', content: 'You are a focus coach. Provide brief, actionable focus tips.' },
+        { role: 'user', content: `Give me a focus tip for studying ${topic || subject || 'general'}` }
+      ],
+      max_tokens: 150,
     });
 
-    const text = completion.choices[0].message.content;
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Invalid JSON');
-    const data = JSON.parse(jsonMatch[0]);
-    res.json(data);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to generate resources' });
+    res.json({
+      suggestion: completion.choices[0].message.content,
+      mock: false
+    });
+  } catch (error) {
+    console.error('Focus suggestion error:', error);
+    res.json({
+      suggestion: generateMockResponse('focus', req.body.topic || 'studying'),
+      mock: true
+    });
   }
 };

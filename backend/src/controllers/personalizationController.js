@@ -1,14 +1,45 @@
-import OpenAI from 'openai';
+// backend/src/controllers/personalizationController.js
 import db from '../config/db.js';
 
-// ✅ Debug: log API key status at startup
-console.log('🔑 GROQ key loaded?', !!process.env.GROQ_API_KEY);
-console.log('First 5 chars:', process.env.GROQ_API_KEY?.substring(0, 5));
+// ✅ Conditional initialization - try Groq first
+let openai = null;
+let isAIAvailable = false;
+let aiProvider = 'none';
 
-const openai = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1",
-});
+const groqApiKey = process.env.GROQ_API_KEY;
+const openAiKey = process.env.OPENAI_API_KEY;
+
+// Try to initialize with GROQ_API_KEY first
+if (groqApiKey && groqApiKey !== 'your_groq_api_key_here' && groqApiKey.startsWith('gsk_')) {
+  try {
+    const { default: OpenAI } = await import('openai');
+    openai = new OpenAI({
+      apiKey: groqApiKey,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
+    isAIAvailable = true;
+    aiProvider = 'groq';
+    console.log('✅ Groq AI initialized for personalization');
+  } catch (error) {
+    console.warn('⚠️ Failed to initialize Groq for personalization:', error.message);
+  }
+} else if (openAiKey && openAiKey !== 'your_openai_api_key_here') {
+  try {
+    const { default: OpenAI } = await import('openai');
+    openai = new OpenAI({
+      apiKey: openAiKey,
+    });
+    isAIAvailable = true;
+    aiProvider = 'openai';
+    console.log('✅ OpenAI initialized for personalization');
+  } catch (error) {
+    console.warn('⚠️ Failed to initialize OpenAI for personalization:', error.message);
+  }
+}
+
+if (!isAIAvailable) {
+  console.log('ℹ️ Personalization AI disabled - running in mock mode');
+}
 
 // Helper: get user data for context
 const getUserProfile = async (userId) => {
@@ -38,25 +69,86 @@ const getRecentActivity = async (userId) => {
   return { tasks: tasks.rows, challenges: challenges.rows };
 };
 
+// Mock recommendations generator
+const generateMockRecommendations = (profile) => {
+  return {
+    goal: {
+      title: `Set a goal to master ${profile?.course || 'your studies'}`,
+      description: `Focus on completing 2-3 key assignments this week to build momentum.`
+    },
+    challenge: {
+      title: `Take on a 7-day learning challenge`,
+      description: `Study ${profile?.course || 'your subject'} for 30 minutes each day for the next week.`
+    },
+    study: {
+      title: `Create a study schedule`,
+      description: `Block out 2 hours of focused study time each morning when your energy is highest.`
+    },
+    career: {
+      title: `Explore career connections`,
+      description: `Research how ${profile?.course || 'your studies'} applies to real-world careers.`
+    },
+    extra: {
+      title: `Join a study group`,
+      description: `Connect with peers who are studying similar topics to share insights and stay motivated.`
+    }
+  };
+};
+
+// AI-powered recommendations
 const generateRecommendations = async (userId) => {
   const profile = await getUserProfile(userId);
   const activity = await getRecentActivity(userId);
 
-  // ✅ TEMPORARY: simplified prompt to test if 403 disappears
-  const prompt = `
-Generate 5 personalized learning recommendations for a learner.
-Return ONLY valid JSON with keys: goal, challenge, study, career, extra.
+  // If AI is not available, return mock data
+  if (!isAIAvailable || !openai) {
+    console.log('ℹ️ Using mock recommendations for personalization');
+    return generateMockRecommendations(profile);
+  }
+
+  // Build context from user profile
+  const context = `
+User Profile:
+- Name: ${profile?.full_name || 'Learner'}
+- Course: ${profile?.course || 'General'}
+- Education Level: ${profile?.education_level || 'Not specified'}
+- Interests: ${profile?.interests || 'Various'}
+- Learning Style: ${profile?.learning_style || 'Mixed'}
+- Career Goal: ${profile?.career_goal || 'Career development'}
+- XP: ${profile?.xp || 0}
+- Level: ${profile?.level || 1}
+
+Recent Activity:
+- Recent tasks: ${activity.tasks.map(t => `"${t.title}" (${t.is_completed ? '✅ Completed' : '⏳ Pending'})`).join(', ') || 'No recent tasks'}
+- Recent challenges: ${activity.challenges.map(c => `"${c.title}" (${c.status})`).join(', ') || 'No recent challenges'}
 `;
 
-  // ✅ Log prompt length
-  console.log('📝 Prompt length:', prompt.length);
+  const prompt = `
+You are a personalized learning assistant for the Lifeverse platform. Based on the user's profile and recent activity, generate 5 personalized learning recommendations.
+
+${context}
+
+Return ONLY valid JSON with exactly these 5 keys: goal, challenge, study, career, extra.
+Each recommendation should have: title, description, and a suggested action.
+
+Format:
+{
+  "goal": { "title": "...", "description": "...", "action": "..." },
+  "challenge": { "title": "...", "description": "...", "action": "..." },
+  "study": { "title": "...", "description": "...", "action": "..." },
+  "career": { "title": "...", "description": "...", "action": "..." },
+  "extra": { "title": "...", "description": "...", "action": "..." }
+}
+`;
+
+  console.log('📝 Generating personalization for user:', userId);
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.8,
-      max_tokens: 1024,
+      max_tokens: 800,
     });
 
     const text = completion.choices[0].message.content;
@@ -64,14 +156,9 @@ Return ONLY valid JSON with keys: goal, challenge, study, career, extra.
     if (!jsonMatch) throw new Error('Invalid AI response');
     return JSON.parse(jsonMatch[0]);
   } catch (err) {
-    // ✅ Log full error details
-    console.error('❌ Groq API error in generateRecommendations:');
-    console.error('Status:', err.status);
-    console.error('Message:', err.message);
-    if (err.response) {
-      console.error('Response data:', err.response.data);
-    }
-    throw err;
+    console.error('❌ AI error in generateRecommendations:', err.message);
+    // Fallback to mock recommendations
+    return generateMockRecommendations(profile);
   }
 };
 
@@ -89,7 +176,7 @@ export const generatePersonalization = async (req, res) => {
 
     const recommendations = await generateRecommendations(userId);
 
-    const types = ['goal', 'challenge', 'study', 'career'];
+    const types = ['goal', 'challenge', 'study', 'career', 'extra'];
     for (const type of types) {
       const data = recommendations[type];
       if (!data) continue;
@@ -106,7 +193,12 @@ export const generatePersonalization = async (req, res) => {
       );
     }
 
-    res.json({ success: true, recommendations });
+    res.json({ 
+      success: true, 
+      recommendations,
+      aiProvider: aiProvider,
+      mockResponse: !isAIAvailable
+    });
   } catch (err) {
     console.error('❌ Error in generatePersonalization:', err);
     res.status(500).json({ error: err.message });
@@ -139,4 +231,13 @@ export const actOnRecommendation = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+};
+
+// Health check for AI status
+export const checkPersonalizationStatus = async (req, res) => {
+  res.json({
+    aiAvailable: isAIAvailable,
+    aiProvider: aiProvider,
+    mockMode: !isAIAvailable
+  });
 };
