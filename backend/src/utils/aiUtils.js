@@ -1,4 +1,4 @@
-// backend/src/utils/aiUtils.js
+﻿// backend/src/utils/aiUtils.js
 
 let openai = null;
 let isAIAvailable = false;
@@ -8,40 +8,40 @@ const groqApiKey = process.env.GROQ_API_KEY;
 const openAiKey = process.env.OPENAI_API_KEY;
 
 // Try to initialize with GROQ_API_KEY first
-if (groqApiKey && groqApiKey !== 'your_groq_api_key_here' && groqApiKey.startsWith('gsk_')) {
+if (groqApiKey && groqApiKey !== "your_groq_api_key_here" && groqApiKey.startsWith("gsk_")) {
   try {
-    const { default: OpenAI } = await import('openai');
+    const { default: OpenAI } = await import("openai");
     openai = new OpenAI({
       apiKey: groqApiKey,
       baseURL: "https://api.groq.com/openai/v1",
     });
     isAIAvailable = true;
-    aiProvider = 'groq';
-    console.log('✅ Groq AI initialized successfully');
+    aiProvider = "groq";
+    console.log("✅ Groq AI initialized successfully");
   } catch (error) {
-    console.warn('⚠️ Failed to initialize Groq:', error.message);
+    console.warn("⚠️ Failed to initialize Groq:", error.message);
   }
-} else if (openAiKey && openAiKey !== 'your_openai_api_key_here') {
+} else if (openAiKey && openAiKey !== "your_openai_api_key_here") {
   try {
-    const { default: OpenAI } = await import('openai');
+    const { default: OpenAI } = await import("openai");
     openai = new OpenAI({
       apiKey: openAiKey,
     });
     isAIAvailable = true;
-    aiProvider = 'openai';
-    console.log('✅ OpenAI initialized successfully');
+    aiProvider = "openai";
+    console.log("✅ OpenAI initialized successfully");
   } catch (error) {
-    console.warn('⚠️ Failed to initialize OpenAI:', error.message);
+    console.warn("⚠️ Failed to initialize OpenAI:", error.message);
   }
 }
 
 if (!isAIAvailable) {
-  console.log('ℹ️ AI services disabled - running in mock mode');
+  console.log("ℹ️ AI services disabled - running in mock mode");
 }
 
 export const getAI = () => {
   if (!isAIAvailable || !openai) {
-    throw new Error('AI service is not available');
+    throw new Error("AI service is not available");
   }
   return { openai, aiProvider };
 };
