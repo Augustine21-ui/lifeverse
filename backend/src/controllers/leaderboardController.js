@@ -1,3 +1,4 @@
+// backend/src/controllers/leaderboardController.js
 import db from '../config/db.js';
 
 // Types and their display names
@@ -38,7 +39,6 @@ const calculateScores = async () => {
     GROUP BY user_id
   `;
   // 6. Community engagement – sum of posts + comments + group_posts
-  // ✅ FIXED: Use UNION ALL instead of FULL OUTER JOIN with OR
   const communityQuery = `
     WITH all_interactions AS (
       SELECT user_id, COUNT(*) as cnt FROM posts GROUP BY user_id
@@ -59,7 +59,7 @@ const calculateScores = async () => {
     db.query(likesQuery),
     db.query(challengesQuery),
     db.query(tasksQuery),
-    db.query(communityQuery).catch(() => ({ rows: [] })), // Handle if tables don't exist yet
+    db.query(communityQuery).catch(() => ({ rows: [] })),
   ]);
 
   // Map results to objects keyed by user_id
@@ -79,7 +79,6 @@ const calculateScores = async () => {
 export const refreshLeaderboards = async () => {
   try {
     const scores = await calculateScores();
-    // For each type, upsert scores into leaderboard_entries
     for (const type of Object.keys(LEADERBOARD_TYPES)) {
       const userScores = scores[type] || {};
       for (const [userId, score] of Object.entries(userScores)) {
@@ -94,15 +93,15 @@ export const refreshLeaderboards = async () => {
     }
   } catch (err) {
     console.error('Refresh leaderboard error:', err);
-    // Don't throw - we want to continue even if refresh fails
   }
 };
 
-// Get leaderboard for a specific type
+// ✅ SINGLE DEFINITION - Get leaderboard
 export const getLeaderboard = async (req, res) => {
   const { type = 'xp' } = req.query;
   const limit = parseInt(req.query.limit) || 50;
 
+  // Check if leaderboard type is valid
   if (!LEADERBOARD_TYPES[type]) {
     return res.status(400).json({ error: 'Invalid leaderboard type' });
   }
@@ -159,30 +158,28 @@ export const getLeaderboard = async (req, res) => {
       icon: LEADERBOARD_TYPES[type].icon,
       entries: ranked.rows,
       userRank,
+      mock: false
     });
   } catch (err) {
     console.error('Leaderboard error:', err);
-    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+    // Fallback to mock data on error
+    res.json({
+      type,
+      label: LEADERBOARD_TYPES[type]?.label || 'Leaderboard',
+      icon: LEADERBOARD_TYPES[type]?.icon || '🏆',
+      entries: [
+        { rank: 1, id: 1, full_name: 'User 1', username: 'user1', score: 1000 },
+        { rank: 2, id: 2, full_name: 'User 2', username: 'user2', score: 900 },
+        { rank: 3, id: 3, full_name: 'User 3', username: 'user3', score: 800 }
+      ],
+      userRank: null,
+      mock: true,
+      message: 'Using mock data - database may not have leaderboard entries yet'
+    });
   }
 };
 
 export default {
   getLeaderboard,
   refreshLeaderboards,
-};
-
-export const getLeaderboard = async (req, res) => {
-  try {
-    res.json({
-      leaderboard: [
-        { rank: 1, name: "User 1", score: 1000 },
-        { rank: 2, name: "User 2", score: 900 },
-        { rank: 3, name: "User 3", score: 800 }
-      ],
-      mock: true
-    });
-  } catch (error) {
-    console.error("Leaderboard error:", error);
-    res.status(500).json({ error: "Failed to get leaderboard" });
-  }
 };

@@ -1,8 +1,14 @@
+// backend/src/controllers/settingsController.js
 import db from '../config/db.js';
 
 export const getSettings = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     const result = await db.query(
       `SELECT 
         email_notifications, 
@@ -24,7 +30,8 @@ export const getSettings = async (req, res) => {
         language: 'en',
         dailyReminder: '09:00',
         weeklyReport: true,
-        pushNotifications: true
+        pushNotifications: true,
+        mock: false
       });
     }
     
@@ -35,17 +42,33 @@ export const getSettings = async (req, res) => {
       language: settings.language,
       dailyReminder: settings.daily_reminder,
       weeklyReport: settings.weekly_report,
-      pushNotifications: settings.push_notifications
+      pushNotifications: settings.push_notifications,
+      mock: false
     });
   } catch (err) {
     console.error('Get settings error:', err);
-    res.status(500).json({ error: 'Failed to get settings' });
+    // Fallback to default settings on error
+    res.json({
+      emailNotifications: true,
+      darkMode: true,
+      language: 'en',
+      dailyReminder: '09:00',
+      weeklyReport: true,
+      pushNotifications: true,
+      mock: true,
+      message: 'Using default settings (database error)'
+    });
   }
 };
 
 export const updateSettings = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     const {
       emailNotifications,
       darkMode,
@@ -80,38 +103,16 @@ export const updateSettings = async (req, res) => {
       ]
     );
     
-    res.json({ success: true, message: 'Settings updated successfully' });
+    res.json({ 
+      success: true, 
+      message: 'Settings updated successfully',
+      mock: false
+    });
   } catch (err) {
     console.error('Update settings error:', err);
-    res.status(500).json({ error: 'Failed to update settings' });
-  }
-};
-
-export const getSettings = async (req, res) => {
-  try {
-    const userId = req.user?.id;
-    res.json({
-      theme: "dark",
-      notifications: true,
-      language: "en",
-      mock: true
+    res.status(500).json({ 
+      error: 'Failed to update settings',
+      message: err.message
     });
-  } catch (error) {
-    console.error("Get settings error:", error);
-    res.status(500).json({ error: "Failed to get settings" });
-  }
-};
-
-export const updateSettings = async (req, res) => {
-  try {
-    const { theme, notifications } = req.body;
-    res.json({
-      success: true,
-      updated: { theme, notifications },
-      mock: true
-    });
-  } catch (error) {
-    console.error("Update settings error:", error);
-    res.status(500).json({ error: "Failed to update settings" });
   }
 };
