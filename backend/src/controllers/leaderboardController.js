@@ -170,3 +170,19 @@ export default {
   getLeaderboard,
   refreshLeaderboards,
 };
+
+export const getLeaderboard = async (req, res) => {
+  try {
+    res.json({
+      leaderboard: [
+        { rank: 1, name: "User 1", score: 1000 },
+        { rank: 2, name: "User 2", score: 900 },
+        { rank: 3, name: "User 3", score: 800 }
+      ],
+      mock: true
+    });
+  } catch (error) {
+    console.error("Leaderboard error:", error);
+    res.status(500).json({ error: "Failed to get leaderboard" });
+  }
+};

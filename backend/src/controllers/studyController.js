@@ -29,3 +29,30 @@ export const updateCurrentStudy = async (req, res) => {
     res.status(500).json({ error: 'Failed to update study context' });
   }
 };
+
+export const getCurrentStudy = async (req, res) => {
+  try {
+    res.json({
+      currentStudy: "Study topic",
+      progress: 45,
+      mock: true
+    });
+  } catch (error) {
+    console.error("Get study error:", error);
+    res.status(500).json({ error: "Failed to get current study" });
+  }
+};
+
+export const updateCurrentStudy = async (req, res) => {
+  try {
+    const { topic, progress } = req.body;
+    res.json({
+      success: true,
+      updated: { topic, progress },
+      mock: true
+    });
+  } catch (error) {
+    console.error("Update study error:", error);
+    res.status(500).json({ error: "Failed to update current study" });
+  }
+};

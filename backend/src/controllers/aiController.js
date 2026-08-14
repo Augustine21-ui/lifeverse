@@ -17,3 +17,17 @@ export const explain = async (req, res) => {
     res.status(500).json({ error: 'Failed to generate explanation' });
   }
 };
+
+export const explain = async (req, res) => {
+  try {
+    const { concept, level } = req.body;
+    res.json({
+      explanation: `Concept explained: ${concept} at ${level || "beginner"} level.`,
+      mock: true,
+      message: "AI explanation (mock mode)"
+    });
+  } catch (error) {
+    console.error("Explain error:", error);
+    res.status(500).json({ error: "Failed to explain concept" });
+  }
+};

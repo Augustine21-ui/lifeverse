@@ -72,3 +72,75 @@ export const getWeaknesses = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const generate = async (req, res) => {
+  try {
+    const { subject, topic } = req.body;
+    res.json({
+      activity: {
+        id: Date.now(),
+        type: "quiz",
+        subject: subject || "General",
+        topic: topic || "Learning",
+        content: "Orbit activity generated",
+        questions: [
+          { question: "What is the main concept?", options: ["A", "B", "C", "D"], correct: 0 }
+        ]
+      },
+      mock: true
+    });
+  } catch (error) {
+    console.error("Generate error:", error);
+    res.status(500).json({ error: "Failed to generate orbit activity" });
+  }
+};
+
+export const start = async (req, res) => {
+  try {
+    res.json({
+      sessionId: Date.now().toString(),
+      mock: true,
+      message: "Orbit session started"
+    });
+  } catch (error) {
+    console.error("Start error:", error);
+    res.status(500).json({ error: "Failed to start session" });
+  }
+};
+
+export const end = async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      mock: true,
+      message: "Orbit session ended"
+    });
+  } catch (error) {
+    console.error("End error:", error);
+    res.status(500).json({ error: "Failed to end session" });
+  }
+};
+
+export const feedback = async (req, res) => {
+  try {
+    res.json({
+      feedback: "Good job! Keep practicing.",
+      mock: true
+    });
+  } catch (error) {
+    console.error("Feedback error:", error);
+    res.status(500).json({ error: "Failed to get feedback" });
+  }
+};
+
+export const getWeaknesses = async (req, res) => {
+  try {
+    res.json({
+      weaknesses: ["Concept A", "Concept B", "Concept C"],
+      mock: true
+    });
+  } catch (error) {
+    console.error("Weaknesses error:", error);
+    res.status(500).json({ error: "Failed to get weaknesses" });
+  }
+};

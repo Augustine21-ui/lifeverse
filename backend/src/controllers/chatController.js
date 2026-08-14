@@ -34,3 +34,18 @@ export const chat = async (req, res) => {
     res.status(500).json({ error: 'Failed to get AI response' });
   }
 };
+
+export const chat = async (req, res) => {
+  try {
+    const { message, conversationId } = req.body;
+    res.json({
+      reply: `I received your message: "${message}". This is a mock response.`,
+      conversationId: conversationId || Date.now().toString(),
+      mock: true,
+      message: "Chat response (mock mode)"
+    });
+  } catch (error) {
+    console.error("Chat error:", error);
+    res.status(500).json({ error: "Chat failed" });
+  }
+};

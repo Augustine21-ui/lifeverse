@@ -52,3 +52,31 @@ export const uploadFile = async (req, res) => {
 
 // Middleware for single file upload
 export const uploadSingle = upload.single('file');
+
+export const uploadFile = async (req, res) => {
+  try {
+    const file = req.file;
+    res.json({
+      fileUrl: `/uploads/${file?.filename || "file.jpg"}`,
+      mock: true,
+      message: "File uploaded successfully (mock mode)"
+    });
+  } catch (error) {
+    console.error("Upload error:", error);
+    res.status(500).json({ error: "Failed to upload file" });
+  }
+};
+
+export const uploadSingle = async (req, res) => {
+  try {
+    const file = req.file;
+    res.json({
+      fileUrl: `/uploads/${file?.filename || "single-file.jpg"}`,
+      mock: true,
+      message: "Single file uploaded successfully (mock mode)"
+    });
+  } catch (error) {
+    console.error("Upload single error:", error);
+    res.status(500).json({ error: "Failed to upload single file" });
+  }
+};

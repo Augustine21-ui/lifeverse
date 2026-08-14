@@ -86,3 +86,32 @@ export const updateSettings = async (req, res) => {
     res.status(500).json({ error: 'Failed to update settings' });
   }
 };
+
+export const getSettings = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    res.json({
+      theme: "dark",
+      notifications: true,
+      language: "en",
+      mock: true
+    });
+  } catch (error) {
+    console.error("Get settings error:", error);
+    res.status(500).json({ error: "Failed to get settings" });
+  }
+};
+
+export const updateSettings = async (req, res) => {
+  try {
+    const { theme, notifications } = req.body;
+    res.json({
+      success: true,
+      updated: { theme, notifications },
+      mock: true
+    });
+  } catch (error) {
+    console.error("Update settings error:", error);
+    res.status(500).json({ error: "Failed to update settings" });
+  }
+};
