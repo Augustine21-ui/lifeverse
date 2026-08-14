@@ -1,21 +1,108 @@
 // backend/src/services/aiService.js
-import Groq from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+// ✅ Conditional initialization - don't crash if API key is missing
+let groq = null;
+let isGroqAvailable = false;
+
+const groqApiKey = process.env.GROQ_API_KEY;
+
+// Try to initialize Groq if API key exists
+if (groqApiKey && groqApiKey !== 'your_groq_api_key_here' && groqApiKey.startsWith('gsk_')) {
+  try {
+    // Dynamic import to avoid top-level crash
+    const Groq = (await import('groq-sdk')).default;
+    groq = new Groq({
+      apiKey: groqApiKey,
+    });
+    isGroqAvailable = true;
+    console.log('✅ Groq AI service initialized successfully');
+  } catch (error) {
+    console.warn('⚠️ Failed to initialize Groq:', error.message);
+  }
+}
+
+if (!isGroqAvailable) {
+  console.log('ℹ️ Groq AI service disabled - running in mock mode');
+  console.log('   Set GROQ_API_KEY to enable real AI');
+}
 
 /**
- * Generic generate function
+ * Generic generate function with fallback
  */
 const generate = async (prompt, model = 'llama-3.3-70b-versatile', temperature = 0.7) => {
-  const chatCompletion = await groq.chat.completions.create({
-    messages: [{ role: 'user', content: prompt }],
-    model,
-    temperature,
-    response_format: { type: 'json_object' },
-  });
-  return chatCompletion.choices[0]?.message?.content || '';
+  // If Groq is not available, return mock data
+  if (!isGroqAvailable || !groq) {
+    console.log('ℹ️ Using mock response for prompt:', prompt.substring(0, 50) + '...');
+    return generateMockResponse(prompt);
+  }
+
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model,
+      temperature,
+      response_format: { type: 'json_object' },
+    });
+    return chatCompletion.choices[0]?.message?.content || '';
+  } catch (error) {
+    console.error('Groq API error:', error.message);
+    return generateMockResponse(prompt);
+  }
+};
+
+/**
+ * Generate mock response when AI is unavailable
+ */
+const generateMockResponse = (prompt) => {
+  const mockResponses = {
+    'multiple-choice': JSON.stringify({
+      questions: [
+        { question: 'What is the main concept?', options: ['Option A', 'Option B', 'Option C', 'Option D'], correct: 0 },
+        { question: 'Which statement is correct?', options: ['Statement 1', 'Statement 2', 'Statement 3', 'Statement 4'], correct: 1 },
+        { question: 'What is the best approach?', options: ['Approach 1', 'Approach 2', 'Approach 3', 'Approach 4'], correct: 2 }
+      ]
+    }),
+    'flashcards': JSON.stringify({
+      flashcards: [
+        { question: 'What is this concept?', answer: 'This is a mock answer' },
+        { question: 'Why is this important?', answer: 'Because it helps learning' }
+      ]
+    }),
+    'memory_match': JSON.stringify({
+      pairs: [
+        { term: 'Term 1', definition: 'Definition 1' },
+        { term: 'Term 2', definition: 'Definition 2' },
+        { term: 'Term 3', definition: 'Definition 3' },
+        { term: 'Term 4', definition: 'Definition 4' }
+      ]
+    }),
+    'cluepath': JSON.stringify({
+      story: 'A mysterious event occurred in the lab.',
+      question: 'What was the main cause?',
+      options: ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
+      correct: 0
+    }),
+    'pathfinder': JSON.stringify({
+      instruction: 'Order the following steps:',
+      steps: ['Step 1', 'Step 2', 'Step 3', 'Step 4', 'Step 5']
+    }),
+    'reflex': JSON.stringify({
+      questions: [
+        { question: 'What is 2+2?', answer: '4' },
+        { question: 'What is the capital of France?', answer: 'Paris' }
+      ]
+    })
+  };
+
+  // Try to determine the type from the prompt
+  let type = 'multiple-choice';
+  if (prompt.includes('flashcard')) type = 'flashcards';
+  else if (prompt.includes('memory match')) type = 'memory_match';
+  else if (prompt.includes('mystery')) type = 'cluepath';
+  else if (prompt.includes('sequence ordering')) type = 'pathfinder';
+  else if (prompt.includes('rapid-fire')) type = 'reflex';
+
+  return mockResponses[type] || mockResponses['multiple-choice'];
 };
 
 // ===== CORTEX ACTIVITIES =====
