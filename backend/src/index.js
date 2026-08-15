@@ -32,7 +32,7 @@ import academicRoutes from "./routes/academicRoutes.js";
 import momentumRoutes from "./routes/momentumRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 
-// Import migration
+// Import migration and database
 import { createTables } from "./migrate.js";
 import db from "./config/db.js";
 
@@ -98,7 +98,9 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// ✅ DEBUG ENDPOINT - List all tables in the database
+// ===== DEBUG ENDPOINTS =====
+
+// ✅ List all tables in the database
 app.get("/api/debug/tables", async (req, res) => {
   try {
     const result = await db.query(`
@@ -117,21 +119,38 @@ app.get("/api/debug/tables", async (req, res) => {
   }
 });
 
-// ✅ DEBUG ENDPOINT - Check if a specific table exists
+// ✅ Check if a specific table exists and show its columns
 app.get("/api/debug/table/:name", async (req, res) => {
   try {
-    const { name } = req.params;
-    const result = await db.query(`
+    const tableName = req.params.name;
+    
+    // Check if table exists
+    const existsResult = await db.query(`
       SELECT EXISTS (
-        SELECT 1 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = $1
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = $1
       ) as exists
-    `, [name]);
-    res.json({ 
-      table: name, 
-      exists: result.rows[0].exists 
+    `, [tableName]);
+    
+    const exists = existsResult.rows[0].exists;
+    
+    // If table exists, get its columns
+    let columns = [];
+    if (exists) {
+      const columnsResult = await db.query(`
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = $1
+        ORDER BY ordinal_position
+      `, [tableName]);
+      columns = columnsResult.rows;
+    }
+    
+    res.json({
+      table: tableName,
+      exists: exists,
+      columns: columns,
+      message: exists ? `Table '${tableName}' exists with ${columns.length} columns` : `Table '${tableName}' does not exist`
     });
   } catch (err) {
     console.error('Debug table error:', err);
@@ -146,7 +165,6 @@ app.use((err, req, res, next) => {
   console.error('  - Stack:', err.stack);
   console.error('  - URL:', req.url);
   console.error('  - Method:', req.method);
-  console.error('  - Body:', req.body);
   
   // Send a detailed error response (only in development)
   const isDev = process.env.NODE_ENV !== 'production';
