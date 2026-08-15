@@ -4,9 +4,9 @@ import db from './config/db.js';
 export const createTables = async () => {
   console.log('🔧 Running database migrations...');
 
-  // ===== CREATE ALL TABLES =====
+  // ===== CREATE TABLES =====
   const queries = [
-    // ===== CORE TABLES =====
+    // ===== CORE =====
     `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
@@ -41,7 +41,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== SOCIAL TABLES =====
+    // ===== SOCIAL =====
     `CREATE TABLE IF NOT EXISTS posts (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -92,7 +92,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== COMMUNITY TABLES =====
+    // ===== COMMUNITIES =====
     `CREATE TABLE IF NOT EXISTS communities (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -211,6 +211,7 @@ export const createTables = async () => {
       status VARCHAR(50) DEFAULT 'pending',
       xp_reward INTEGER DEFAULT 30,
       is_completed BOOLEAN DEFAULT FALSE,
+      quiz BOOLEAN DEFAULT FALSE,
       completed_at TIMESTAMP,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
@@ -226,7 +227,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== ACADEMIC TABLES =====
+    // ===== ACADEMIC =====
     `CREATE TABLE IF NOT EXISTS countries (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) UNIQUE,
@@ -273,6 +274,7 @@ export const createTables = async () => {
       start_time TIME,
       end_time TIME,
       subject VARCHAR(255),
+      subject_id INTEGER,
       location VARCHAR(255),
       created_at TIMESTAMP DEFAULT NOW()
     )`,
@@ -284,6 +286,7 @@ export const createTables = async () => {
       start_time TIME,
       end_time TIME,
       subject VARCHAR(255),
+      subject_id INTEGER,
       location VARCHAR(255),
       created_at TIMESTAMP DEFAULT NOW()
     )`,
@@ -354,7 +357,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== GAMIFICATION TABLES =====
+    // ===== GAMIFICATION =====
     `CREATE TABLE IF NOT EXISTS badges (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) UNIQUE,
@@ -420,7 +423,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== ORBIT / LEARNING =====
+    // ===== ORBIT =====
     `CREATE TABLE IF NOT EXISTS orbit_activities (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -443,7 +446,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== AI / PERSONALIZATION =====
+    // ===== AI / CONVERSATIONS =====
     `CREATE TABLE IF NOT EXISTS conversations (
       id VARCHAR(255) PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -472,7 +475,7 @@ export const createTables = async () => {
       expires_at TIMESTAMP
     )`,
 
-    // ===== BRIDGE / PARENT-TEACHER =====
+    // ===== BRIDGE =====
     `CREATE TABLE IF NOT EXISTS parent_student (
       id SERIAL PRIMARY KEY,
       parent_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -564,6 +567,19 @@ export const createTables = async () => {
       score INTEGER DEFAULT 0,
       updated_at TIMESTAMP DEFAULT NOW(),
       UNIQUE(user_id, leaderboard_type)
+    )`,
+
+    // ===== FOCUS SESSIONS =====
+    `CREATE TABLE IF NOT EXISTS focus_sessions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      topic VARCHAR(255),
+      duration INTEGER,
+      start_time TIMESTAMP DEFAULT NOW(),
+      end_time TIMESTAMP,
+      completed BOOLEAN DEFAULT FALSE,
+      completed_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW()
     )`
   ];
 
@@ -576,7 +592,7 @@ export const createTables = async () => {
     }
   }
 
-  // ===== ADD MISSING COLUMNS =====
+  // ===== ADD MISSING COLUMNS (safe fallback) =====
   const alterQueries = [
     // Users
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS education_level VARCHAR(100)`,
@@ -603,10 +619,19 @@ export const createTables = async () => {
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMP`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'medium'`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'pending'`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS quiz BOOLEAN DEFAULT FALSE`,
 
     // Study Groups
     `ALTER TABLE study_groups ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'study'`,
     `ALTER TABLE study_groups ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`,
+
+    // Timetable / Academic
+    `ALTER TABLE timetable_entries ADD COLUMN IF NOT EXISTS subject_id INTEGER`,
+    `ALTER TABLE academic_timetable ADD COLUMN IF NOT EXISTS subject_id INTEGER`,
+
+    // Focus Sessions
+    `ALTER TABLE focus_sessions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP`,
+    `ALTER TABLE focus_sessions ADD COLUMN IF NOT EXISTS completed BOOLEAN DEFAULT FALSE`,
   ];
 
   for (const query of alterQueries) {
