@@ -37,8 +37,28 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+// Middleware
+const allowedOrigins = [
+  'https://lifeverse-ivory.vercel.app',
+  'https://lifeverse-frontend.onrender.com',
+  'http://localhost:5173'  // for local development
+];
+
+// If you have a FRONTEND_URL environment variable (like on Render), add it
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: "5mb" }));
