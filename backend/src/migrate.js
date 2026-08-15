@@ -56,7 +56,11 @@ export const createTables = async () => {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS career_goal VARCHAR(255)`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS current_subject VARCHAR(255)`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS current_topic VARCHAR(255)`,
-    // Add any other columns your registration might need
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_used BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255)`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(255)`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT`,
   ];
 
   for (const query of alterQueries) {
