@@ -5,15 +5,15 @@ import { googleAuth } from '../controllers/googleAuthController.js';
 
 const router = express.Router();
 
-// ✅ PUBLIC ROUTES (no authentication) – MUST come first
-router.post('/auth/register', register);
-router.post('/auth/login', login);
-router.post('/auth/forgot-password', forgotPassword);
-router.post('/auth/reset-password', resetPassword);
-router.post('/google', googleAuth); // Google OAuth is also public
+// ✅ PUBLIC ROUTES (no authentication) – no '/auth' prefix
+router.post('/register', register);
+router.post('/login', login);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
+router.post('/google', googleAuth);
 
-// ❌ PROTECTED ROUTES (require authentication) – come AFTER
+// ✅ PROTECTED ROUTES
 router.use(authenticate);
-router.get('/auth/me', getMe);
+router.get('/me', getMe);
 
 export default router;
