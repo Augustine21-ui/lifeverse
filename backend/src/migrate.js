@@ -166,9 +166,11 @@ export const createTables = async () => {
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
       description TEXT,
+      type VARCHAR(50) DEFAULT 'study',
       created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       member_count INTEGER DEFAULT 0,
-      created_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
     )`,
 
     // Groups (alias) – with all columns the controller might query
@@ -180,7 +182,8 @@ export const createTables = async () => {
       status VARCHAR(50) DEFAULT 'active',
       created_by INTEGER,
       member_count INTEGER DEFAULT 0,
-      created_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
     )`,
 
     // Study Group Members
@@ -293,18 +296,21 @@ export const createTables = async () => {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(255)`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT`,
 
-    // Groups – add missing columns (type, status)
+    // Groups – add missing columns (type, status, updated_at, created_at)
     `ALTER TABLE groups ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'study'`,
     `ALTER TABLE groups ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active'`,
+    `ALTER TABLE groups ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`,
+    `ALTER TABLE groups ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`,
 
-    // Tasks – add missing columns (description, due_date, priority, status)
+    // Tasks – add missing columns
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMP`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'medium'`,
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'pending'`,
 
-    // Any other likely missing columns
+    // Study Groups – add missing type and updated_at
     `ALTER TABLE study_groups ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'study'`,
+    `ALTER TABLE study_groups ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`,
   ];
 
   for (const query of alterQueries) {
