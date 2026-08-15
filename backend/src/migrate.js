@@ -4,9 +4,8 @@ import db from './config/db.js';
 export const createTables = async () => {
   console.log('🔧 Running database migrations...');
 
-  // ===== CREATE TABLES =====
   const queries = [
-    // ===== CORE =====
+    // Users
     `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
@@ -41,7 +40,18 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== SOCIAL =====
+    // Mood Entries
+    `CREATE TABLE IF NOT EXISTS mood_entries (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      mood VARCHAR(50),
+      note TEXT,
+      energy_level INTEGER,
+      recorded_at TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+
+    // Posts
     `CREATE TABLE IF NOT EXISTS posts (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -52,6 +62,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Comments
     `CREATE TABLE IF NOT EXISTS comments (
       id SERIAL PRIMARY KEY,
       post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
@@ -60,6 +71,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Likes
     `CREATE TABLE IF NOT EXISTS likes (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -68,6 +80,7 @@ export const createTables = async () => {
       UNIQUE(user_id, post_id)
     )`,
 
+    // Post Likes
     `CREATE TABLE IF NOT EXISTS post_likes (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -76,6 +89,7 @@ export const createTables = async () => {
       UNIQUE(user_id, post_id)
     )`,
 
+    // Announcements
     `CREATE TABLE IF NOT EXISTS announcements (
       id SERIAL PRIMARY KEY,
       title VARCHAR(255),
@@ -85,6 +99,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Encouragement Wall
     `CREATE TABLE IF NOT EXISTS encouragement_wall (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -92,7 +107,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== COMMUNITIES =====
+    // Communities
     `CREATE TABLE IF NOT EXISTS communities (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -104,6 +119,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Community Members
     `CREATE TABLE IF NOT EXISTS community_members (
       id SERIAL PRIMARY KEY,
       community_id INTEGER REFERENCES communities(id) ON DELETE CASCADE,
@@ -113,6 +129,7 @@ export const createTables = async () => {
       UNIQUE(community_id, user_id)
     )`,
 
+    // Community Events
     `CREATE TABLE IF NOT EXISTS community_events (
       id SERIAL PRIMARY KEY,
       community_id INTEGER REFERENCES communities(id) ON DELETE CASCADE,
@@ -124,6 +141,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Event RSVPs
     `CREATE TABLE IF NOT EXISTS event_rsvps (
       id SERIAL PRIMARY KEY,
       event_id INTEGER REFERENCES community_events(id) ON DELETE CASCADE,
@@ -133,7 +151,7 @@ export const createTables = async () => {
       UNIQUE(event_id, user_id)
     )`,
 
-    // ===== STUDY GROUPS =====
+    // Study Groups
     `CREATE TABLE IF NOT EXISTS study_groups (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -145,18 +163,21 @@ export const createTables = async () => {
       updated_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Groups (alias)
     `CREATE TABLE IF NOT EXISTS groups (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
       description TEXT,
       type VARCHAR(50) DEFAULT 'study',
       status VARCHAR(50) DEFAULT 'active',
+      milestones TEXT,
       created_by INTEGER,
       member_count INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Study Group Members
     `CREATE TABLE IF NOT EXISTS study_group_members (
       id SERIAL PRIMARY KEY,
       study_group_id INTEGER REFERENCES study_groups(id) ON DELETE CASCADE,
@@ -166,6 +187,7 @@ export const createTables = async () => {
       UNIQUE(study_group_id, user_id)
     )`,
 
+    // Group Members
     `CREATE TABLE IF NOT EXISTS group_members (
       id SERIAL PRIMARY KEY,
       group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
@@ -175,6 +197,7 @@ export const createTables = async () => {
       UNIQUE(group_id, user_id)
     )`,
 
+    // Group Posts
     `CREATE TABLE IF NOT EXISTS group_posts (
       id SERIAL PRIMARY KEY,
       group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
@@ -183,6 +206,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Group Resources
     `CREATE TABLE IF NOT EXISTS group_resources (
       id SERIAL PRIMARY KEY,
       group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
@@ -193,6 +217,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Group Focus Sessions
     `CREATE TABLE IF NOT EXISTS group_focus_sessions (
       id SERIAL PRIMARY KEY,
       group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
@@ -200,7 +225,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== TASKS =====
+    // Tasks
     `CREATE TABLE IF NOT EXISTS tasks (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -216,6 +241,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Task Quiz Attempts
     `CREATE TABLE IF NOT EXISTS task_quiz_attempts (
       id SERIAL PRIMARY KEY,
       task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
@@ -227,13 +253,14 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== ACADEMIC =====
+    // Academic: Countries
     `CREATE TABLE IF NOT EXISTS countries (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) UNIQUE,
       code VARCHAR(10)
     )`,
 
+    // Academic: Institutions
     `CREATE TABLE IF NOT EXISTS institutions (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) UNIQUE,
@@ -243,6 +270,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Curricula
     `CREATE TABLE IF NOT EXISTS curricula (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255),
@@ -251,6 +279,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Subjects
     `CREATE TABLE IF NOT EXISTS subjects (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255),
@@ -259,6 +288,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Topics
     `CREATE TABLE IF NOT EXISTS topics (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255),
@@ -267,6 +297,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Timetable
     `CREATE TABLE IF NOT EXISTS academic_timetable (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -276,9 +307,11 @@ export const createTables = async () => {
       subject VARCHAR(255),
       subject_id INTEGER,
       location VARCHAR(255),
+      institution_id INTEGER,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Timetable Entries
     `CREATE TABLE IF NOT EXISTS timetable_entries (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -288,9 +321,11 @@ export const createTables = async () => {
       subject VARCHAR(255),
       subject_id INTEGER,
       location VARCHAR(255),
+      institution_id INTEGER,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Assignments
     `CREATE TABLE IF NOT EXISTS academic_assignments (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -302,6 +337,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Assignments (alias)
     `CREATE TABLE IF NOT EXISTS assignments (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -309,10 +345,12 @@ export const createTables = async () => {
       description TEXT,
       due_date TIMESTAMP,
       subject VARCHAR(255),
+      subject_id INTEGER,
       completed BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Materials
     `CREATE TABLE IF NOT EXISTS academic_materials (
       id SERIAL PRIMARY KEY,
       title VARCHAR(255),
@@ -323,6 +361,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Feedback
     `CREATE TABLE IF NOT EXISTS academic_feedback (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -332,6 +371,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Student Info
     `CREATE TABLE IF NOT EXISTS student_academic_info (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
@@ -341,6 +381,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Report Cards
     `CREATE TABLE IF NOT EXISTS report_cards (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -350,6 +391,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Reflections
     `CREATE TABLE IF NOT EXISTS reflections (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -357,7 +399,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== GAMIFICATION =====
+    // Gamification: Badges
     `CREATE TABLE IF NOT EXISTS badges (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) UNIQUE,
@@ -367,6 +409,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Gamification: User Badges
     `CREATE TABLE IF NOT EXISTS user_badges (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -375,6 +418,7 @@ export const createTables = async () => {
       UNIQUE(user_id, badge_id)
     )`,
 
+    // Gamification: Challenges
     `CREATE TABLE IF NOT EXISTS challenges (
       id SERIAL PRIMARY KEY,
       title VARCHAR(255) NOT NULL,
@@ -384,6 +428,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Gamification: User Challenges
     `CREATE TABLE IF NOT EXISTS user_challenges (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -394,6 +439,7 @@ export const createTables = async () => {
       UNIQUE(user_id, challenge_id)
     )`,
 
+    // Gamification: Goals
     `CREATE TABLE IF NOT EXISTS goals (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -404,6 +450,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Gamification: XP History
     `CREATE TABLE IF NOT EXISTS xp_history (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -413,6 +460,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Gamification: User Mastery
     `CREATE TABLE IF NOT EXISTS user_mastery (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -423,7 +471,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== ORBIT =====
+    // Orbit: Activities
     `CREATE TABLE IF NOT EXISTS orbit_activities (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -436,6 +484,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Orbit: Weaknesses
     `CREATE TABLE IF NOT EXISTS orbit_weaknesses (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -446,7 +495,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== AI / CONVERSATIONS =====
+    // AI: Conversations
     `CREATE TABLE IF NOT EXISTS conversations (
       id VARCHAR(255) PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -455,6 +504,7 @@ export const createTables = async () => {
       updated_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // AI: Messages
     `CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
       conversation_id VARCHAR(255) REFERENCES conversations(id) ON DELETE CASCADE,
@@ -463,6 +513,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // AI: Personalized Recommendations
     `CREATE TABLE IF NOT EXISTS personalized_recommendations (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -475,7 +526,7 @@ export const createTables = async () => {
       expires_at TIMESTAMP
     )`,
 
-    // ===== BRIDGE =====
+    // Bridge: Parent-Student
     `CREATE TABLE IF NOT EXISTS parent_student (
       id SERIAL PRIMARY KEY,
       parent_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -485,6 +536,7 @@ export const createTables = async () => {
       UNIQUE(parent_id, student_id)
     )`,
 
+    // Bridge: Teacher-Student
     `CREATE TABLE IF NOT EXISTS teacher_student (
       id SERIAL PRIMARY KEY,
       teacher_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -493,7 +545,7 @@ export const createTables = async () => {
       UNIQUE(teacher_id, student_id)
     )`,
 
-    // ===== SUBSCRIPTIONS =====
+    // Subscriptions
     `CREATE TABLE IF NOT EXISTS subscriptions (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -504,6 +556,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // User Subscriptions
     `CREATE TABLE IF NOT EXISTS user_subscriptions (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -515,7 +568,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== QUIZ =====
+    // Quiz Results
     `CREATE TABLE IF NOT EXISTS quiz_results (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -526,7 +579,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== NOTIFICATIONS =====
+    // Notifications
     `CREATE TABLE IF NOT EXISTS notifications (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -536,7 +589,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== SUPPORT =====
+    // Support Requests
     `CREATE TABLE IF NOT EXISTS support_requests (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -546,7 +599,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== SETTINGS =====
+    // User Settings
     `CREATE TABLE IF NOT EXISTS user_settings (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
@@ -559,7 +612,7 @@ export const createTables = async () => {
       updated_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== LEADERBOARD =====
+    // Leaderboard Entries
     `CREATE TABLE IF NOT EXISTS leaderboard_entries (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -569,7 +622,7 @@ export const createTables = async () => {
       UNIQUE(user_id, leaderboard_type)
     )`,
 
-    // ===== FOCUS SESSIONS =====
+    // Focus Sessions
     `CREATE TABLE IF NOT EXISTS focus_sessions (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -592,7 +645,7 @@ export const createTables = async () => {
     }
   }
 
-  // ===== ADD MISSING COLUMNS (safe fallback) =====
+  // ===== ADD MISSING COLUMNS =====
   const alterQueries = [
     // Users
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS education_level VARCHAR(100)`,
@@ -613,6 +666,7 @@ export const createTables = async () => {
     `ALTER TABLE groups ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active'`,
     `ALTER TABLE groups ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`,
     `ALTER TABLE groups ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`,
+    `ALTER TABLE groups ADD COLUMN IF NOT EXISTS milestones TEXT`,
 
     // Tasks
     `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT`,
@@ -627,7 +681,12 @@ export const createTables = async () => {
 
     // Timetable / Academic
     `ALTER TABLE timetable_entries ADD COLUMN IF NOT EXISTS subject_id INTEGER`,
+    `ALTER TABLE timetable_entries ADD COLUMN IF NOT EXISTS institution_id INTEGER`,
     `ALTER TABLE academic_timetable ADD COLUMN IF NOT EXISTS subject_id INTEGER`,
+    `ALTER TABLE academic_timetable ADD COLUMN IF NOT EXISTS institution_id INTEGER`,
+
+    // Assignments
+    `ALTER TABLE assignments ADD COLUMN IF NOT EXISTS subject_id INTEGER`,
 
     // Focus Sessions
     `ALTER TABLE focus_sessions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP`,
