@@ -1,106 +1,156 @@
-﻿import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import path from "path";
-import { fileURLToPath } from "url";
+﻿// backend/src/migrate.js
+import db from './config/db.js';
 
-// Load environment variables first
-dotenv.config();
+export const createTables = async () => {
+  console.log('🔧 Running database migrations...');
 
-// Get __dirname in ES module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+  const queries = [
+    // Users table
+    `CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password_hash VARCHAR(255),
+      full_name VARCHAR(255),
+      username VARCHAR(100) UNIQUE,
+      role VARCHAR(50) DEFAULT 'student',
+      institution VARCHAR(255),
+      institution_subscription_valid BOOLEAN DEFAULT FALSE,
+      subscription_tier VARCHAR(50) DEFAULT 'none',
+      subscription_status VARCHAR(50) DEFAULT 'inactive',
+      trial_start_date TIMESTAMP,
+      trial_end_date TIMESTAMP,
+      subscription_end_date TIMESTAMP,
+      xp INTEGER DEFAULT 0,
+      level INTEGER DEFAULT 1,
+      streak_days INTEGER DEFAULT 0,
+      reset_token VARCHAR(255),
+      reset_token_expiry TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
 
-// Import routes
-import authRoutes from "./routes/authRoutes.js";
-import bridgeRoutes from "./routes/bridgeRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
-import routes from "./routes/index.js";
-import tutorRoutes from "./routes/tutorRoutes.js";
-import quizRoutes from "./routes/quizRoutes.js";
-import taskRoutes from "./routes/taskRoutes.js";
-import uploadRoutes from "./routes/uploadRoutes.js";
-import personalizeRoutes from "./routes/personalizationRoutes.js";
-import focusRoutes from "./routes/focusRoutes.js";
-import leaderboardRoutes from "./routes/leaderboardRoutes.js";
-import studyGroupRoutes from "./routes/studyGroupRoutes.js";
-import orbitRoutes from "./routes/orbitRoutes.js";
-import aiRoutes from "./routes/aiRoutes.js";
-import studyRoutes from "./routes/studyRoutes.js";
-import subscriptionRoutes from "./routes/subscriptionRoutes.js";
-import academicRoutes from "./routes/academicRoutes.js";
-import momentumRoutes from "./routes/momentumRoutes.js";
-import settingsRoutes from "./routes/settingsRoutes.js";
+    // Posts table
+    `CREATE TABLE IF NOT EXISTS posts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT,
+      community_id INTEGER,
+      likes_count INTEGER DEFAULT 0,
+      comments_count INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
 
-// Create app - ONLY ONCE
-const app = express();
-const PORT = process.env.PORT || 5000;
+    // Comments table
+    `CREATE TABLE IF NOT EXISTS comments (
+      id SERIAL PRIMARY KEY,
+      post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
 
-// Middleware
-// Middleware
-const allowedOrigins = [
-  'https://lifeverse-ivory.vercel.app',
-  'https://lifeverse-frontend.onrender.com',
-  'http://localhost:5173'  // for local development
-];
+    // Likes table
+    `CREATE TABLE IF NOT EXISTS likes (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, post_id)
+    )`,
 
-// If you have a FRONTEND_URL environment variable (like on Render), add it
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
+    // Tasks table
+    `CREATE TABLE IF NOT EXISTS tasks (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      title VARCHAR(255),
+      xp_reward INTEGER DEFAULT 30,
+      is_completed BOOLEAN DEFAULT FALSE,
+      completed_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Communities table
+    `CREATE TABLE IF NOT EXISTS communities (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      type VARCHAR(50) DEFAULT 'study',
+      member_count INTEGER DEFAULT 0,
+      post_count INTEGER DEFAULT 0,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+
+    // Community members table
+    `CREATE TABLE IF NOT EXISTS community_members (
+      id SERIAL PRIMARY KEY,
+      community_id INTEGER REFERENCES communities(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      role VARCHAR(50) DEFAULT 'member',
+      joined_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(community_id, user_id)
+    )`,
+
+    // Orbit activities table
+    `CREATE TABLE IF NOT EXISTS orbit_activities (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      subject VARCHAR(255),
+      topic VARCHAR(255),
+      grade VARCHAR(50),
+      activity_type VARCHAR(50),
+      content JSONB,
+      completed BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+
+    // Leaderboard entries table
+    `CREATE TABLE IF NOT EXISTS leaderboard_entries (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      leaderboard_type VARCHAR(50),
+      score INTEGER DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, leaderboard_type)
+    )`,
+
+    // User settings table
+    `CREATE TABLE IF NOT EXISTS user_settings (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+      email_notifications BOOLEAN DEFAULT TRUE,
+      dark_mode BOOLEAN DEFAULT TRUE,
+      language VARCHAR(10) DEFAULT 'en',
+      daily_reminder VARCHAR(10) DEFAULT '09:00',
+      weekly_report BOOLEAN DEFAULT TRUE,
+      push_notifications BOOLEAN DEFAULT TRUE,
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
+
+    // Conversations table (for AI tutor)
+    `CREATE TABLE IF NOT EXISTS conversations (
+      id VARCHAR(255) PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      title VARCHAR(255),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`,
+
+    // Messages table
+    `CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      conversation_id VARCHAR(255) REFERENCES conversations(id) ON DELETE CASCADE,
+      role VARCHAR(50),
+      content TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`
+  ];
+
+  for (const query of queries) {
+    try {
+      await db.query(query);
+    } catch (err) {
+      console.warn('⚠️ Migration warning:', err.message);
     }
-  },
-  credentials: true,
-}));
-app.use(express.json({ limit: "5mb" }));
-app.use(express.urlencoded({ extended: true }));
-
-// Serve uploaded files statically
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
-
-// API Routes
-app.use("/api", authRoutes);
-app.use("/api", bridgeRoutes);
-app.use("/api", routes);
-app.use("/api", tutorRoutes);
-app.use("/api", quizRoutes);
-app.use("/api", taskRoutes);
-app.use("/api", uploadRoutes);
-app.use("/api", personalizeRoutes);
-app.use("/api", focusRoutes);
-app.use("/api", leaderboardRoutes);
-app.use("/api", studyGroupRoutes);
-app.use("/api/orbit", orbitRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/study", studyRoutes);
-app.use("/api/subscription", subscriptionRoutes);
-app.use("/api/academic", academicRoutes);
-app.use("/api/momentum", momentumRoutes);
-app.use("/api/settings", settingsRoutes);
-app.use("/api/admin", adminRoutes);
-
-// Health check
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error("Error:", err.message);
-  res.status(err.status || 500).json({ error: err.message || "Internal server error" });
-});
-
-// Start server - ONLY ONCE
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || "development"}`);
-});
+  }
+  console.log('✅ Database tables checked/created');
+};
