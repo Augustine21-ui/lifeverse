@@ -41,7 +41,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // Posts (social feed)
+    // Posts
     `CREATE TABLE IF NOT EXISTS posts (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -75,6 +75,10 @@ export const createTables = async () => {
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       title VARCHAR(255),
+      description TEXT,
+      due_date TIMESTAMP,
+      priority VARCHAR(50) DEFAULT 'medium',
+      status VARCHAR(50) DEFAULT 'pending',
       xp_reward INTEGER DEFAULT 30,
       is_completed BOOLEAN DEFAULT FALSE,
       completed_at TIMESTAMP,
@@ -157,7 +161,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // Study Groups (main table)
+    // Study Groups
     `CREATE TABLE IF NOT EXISTS study_groups (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -167,17 +171,19 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // Groups (alias for backward compatibility)
+    // Groups (alias) – with all columns the controller might query
     `CREATE TABLE IF NOT EXISTS groups (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
       description TEXT,
+      type VARCHAR(50) DEFAULT 'study',
+      status VARCHAR(50) DEFAULT 'active',
       created_by INTEGER,
       member_count INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // Study Group Members (for study_groups)
+    // Study Group Members
     `CREATE TABLE IF NOT EXISTS study_group_members (
       id SERIAL PRIMARY KEY,
       study_group_id INTEGER REFERENCES study_groups(id) ON DELETE CASCADE,
@@ -195,6 +201,14 @@ export const createTables = async () => {
       role VARCHAR(50) DEFAULT 'member',
       joined_at TIMESTAMP DEFAULT NOW(),
       UNIQUE(group_id, user_id)
+    )`,
+
+    // Group Focus Sessions
+    `CREATE TABLE IF NOT EXISTS group_focus_sessions (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+      focus_session_id INTEGER REFERENCES focus_sessions(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW()
     )`,
 
     // Academic: Timetable
@@ -232,14 +246,6 @@ export const createTables = async () => {
       completed BOOLEAN DEFAULT FALSE
     )`,
 
-    // Group Focus Sessions (many-to-many between groups and focus sessions)
-    `CREATE TABLE IF NOT EXISTS group_focus_sessions (
-      id SERIAL PRIMARY KEY,
-      group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
-      focus_session_id INTEGER REFERENCES focus_sessions(id) ON DELETE CASCADE,
-      created_at TIMESTAMP DEFAULT NOW()
-    )`,
-
     // Challenges
     `CREATE TABLE IF NOT EXISTS challenges (
       id SERIAL PRIMARY KEY,
@@ -271,8 +277,9 @@ export const createTables = async () => {
     }
   }
 
-  // ===== ADD MISSING COLUMNS =====
+  // ===== ADD MISSING COLUMNS (in case CREATE TABLE didn't include them) =====
   const alterQueries = [
+    // Users
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS education_level VARCHAR(100)`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS course VARCHAR(255)`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS interests TEXT`,
@@ -285,6 +292,19 @@ export const createTables = async () => {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255)`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(255)`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT`,
+
+    // Groups – add missing columns (type, status)
+    `ALTER TABLE groups ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'study'`,
+    `ALTER TABLE groups ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active'`,
+
+    // Tasks – add missing columns (description, due_date, priority, status)
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMP`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'medium'`,
+    `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'pending'`,
+
+    // Any other likely missing columns
+    `ALTER TABLE study_groups ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'study'`,
   ];
 
   for (const query of alterQueries) {
