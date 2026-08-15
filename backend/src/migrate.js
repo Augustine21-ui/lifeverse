@@ -157,7 +157,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // Study Groups (the main table)
+    // Study Groups (main table)
     `CREATE TABLE IF NOT EXISTS study_groups (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -187,7 +187,7 @@ export const createTables = async () => {
       UNIQUE(study_group_id, user_id)
     )`,
 
-    // Group Members (for groups) – needed for the /api/study-groups/my endpoint
+    // Group Members (for groups)
     `CREATE TABLE IF NOT EXISTS group_members (
       id SERIAL PRIMARY KEY,
       group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
@@ -230,6 +230,14 @@ export const createTables = async () => {
       start_time TIMESTAMP DEFAULT NOW(),
       end_time TIMESTAMP,
       completed BOOLEAN DEFAULT FALSE
+    )`,
+
+    // Group Focus Sessions (many-to-many between groups and focus sessions)
+    `CREATE TABLE IF NOT EXISTS group_focus_sessions (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+      focus_session_id INTEGER REFERENCES focus_sessions(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW()
     )`,
 
     // Challenges
