@@ -6,7 +6,7 @@ export const createTables = async () => {
 
   // ===== CREATE TABLES =====
   const queries = [
-    // Users (already exists, but we ensure columns)
+    // Users
     `CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
@@ -157,7 +157,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== NEW: Study Groups (used by /api/study-groups) =====
+    // Study Groups (the main table)
     `CREATE TABLE IF NOT EXISTS study_groups (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -167,7 +167,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // Alias "groups" for backward compatibility (some controllers might query it)
+    // Groups (alias for backward compatibility)
     `CREATE TABLE IF NOT EXISTS groups (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -177,7 +177,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // Study Group Members
+    // Study Group Members (for study_groups)
     `CREATE TABLE IF NOT EXISTS study_group_members (
       id SERIAL PRIMARY KEY,
       study_group_id INTEGER REFERENCES study_groups(id) ON DELETE CASCADE,
@@ -187,11 +187,21 @@ export const createTables = async () => {
       UNIQUE(study_group_id, user_id)
     )`,
 
-    // ===== NEW: Academic (timetable & assignments) =====
+    // Group Members (for groups) – needed for the /api/study-groups/my endpoint
+    `CREATE TABLE IF NOT EXISTS group_members (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      role VARCHAR(50) DEFAULT 'member',
+      joined_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(group_id, user_id)
+    )`,
+
+    // Academic: Timetable
     `CREATE TABLE IF NOT EXISTS academic_timetable (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      day_of_week INTEGER, -- 0=Sunday, 1=Monday...
+      day_of_week INTEGER,
       start_time TIME,
       end_time TIME,
       subject VARCHAR(255),
@@ -199,6 +209,7 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // Academic: Assignments
     `CREATE TABLE IF NOT EXISTS academic_assignments (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -210,18 +221,18 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
-    // ===== NEW: Focus Sessions =====
+    // Focus Sessions
     `CREATE TABLE IF NOT EXISTS focus_sessions (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       topic VARCHAR(255),
-      duration INTEGER, -- in minutes
+      duration INTEGER,
       start_time TIMESTAMP DEFAULT NOW(),
       end_time TIMESTAMP,
       completed BOOLEAN DEFAULT FALSE
     )`,
 
-    // ===== NEW: Challenges =====
+    // Challenges
     `CREATE TABLE IF NOT EXISTS challenges (
       id SERIAL PRIMARY KEY,
       title VARCHAR(255) NOT NULL,
@@ -231,11 +242,12 @@ export const createTables = async () => {
       created_at TIMESTAMP DEFAULT NOW()
     )`,
 
+    // User Challenges
     `CREATE TABLE IF NOT EXISTS user_challenges (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       challenge_id INTEGER REFERENCES challenges(id) ON DELETE CASCADE,
-      status VARCHAR(50) DEFAULT 'pending', -- pending, in_progress, completed
+      status VARCHAR(50) DEFAULT 'pending',
       completed_at TIMESTAMP,
       created_at TIMESTAMP DEFAULT NOW(),
       UNIQUE(user_id, challenge_id)
