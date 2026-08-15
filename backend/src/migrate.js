@@ -691,6 +691,20 @@ export const createTables = async () => {
     // Focus Sessions
     `ALTER TABLE focus_sessions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP`,
     `ALTER TABLE focus_sessions ADD COLUMN IF NOT EXISTS completed BOOLEAN DEFAULT FALSE`,
+
+    // Assignments
+`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id) ON DELETE SET NULL`,
+
+// XP awarded
+`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS xp_awarded INTEGER DEFAULT 0`,
+`ALTER TABLE user_challenges ADD COLUMN IF NOT EXISTS xp_awarded INTEGER DEFAULT 0`,
+
+// submitted_at
+`ALTER TABLE user_challenges ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP`,
+`ALTER TABLE challenges ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP`,
+
+// Groups milestones (again)
+`ALTER TABLE groups ADD COLUMN IF NOT EXISTS milestones TEXT`,
   ];
 
   for (const query of alterQueries) {
