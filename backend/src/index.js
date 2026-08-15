@@ -46,17 +46,15 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   'https://lifeverse-ivory.vercel.app',
   'https://lifeverse-frontend.onrender.com',
-  'http://localhost:5173'  // for local development
+  'http://localhost:5173'
 ];
 
-// If you have a FRONTEND_URL environment variable (like on Render), add it
 if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL);
 }
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -72,35 +70,14 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files statically
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// API Routes
-app.use("/api/auth", authRoutes);
-app.use("/api", bridgeRoutes);
-app.use("/api", routes);
-app.use("/api", tutorRoutes);
-app.use("/api", quizRoutes);
-app.use("/api", taskRoutes);
-app.use("/api", uploadRoutes);
-app.use("/api", personalizeRoutes);
-app.use("/api", focusRoutes);
-app.use("/api", leaderboardRoutes);
-app.use("/api", studyGroupRoutes);
-app.use("/api/orbit", orbitRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/study", studyRoutes);
-app.use("/api/subscription", subscriptionRoutes);
-app.use("/api/academic", academicRoutes);
-app.use("/api/momentum", momentumRoutes);
-app.use("/api/settings", settingsRoutes);
-app.use("/api/admin", adminRoutes);
+// ===== PUBLIC ROUTES (no authentication required) =====
 
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// ===== DEBUG ENDPOINTS =====
-
-// ✅ List all tables in the database
+// ✅ DEBUG ENDPOINTS - PUBLIC (no authentication)
 app.get("/api/debug/tables", async (req, res) => {
   try {
     const result = await db.query(`
@@ -119,12 +96,10 @@ app.get("/api/debug/tables", async (req, res) => {
   }
 });
 
-// ✅ Check if a specific table exists and show its columns
 app.get("/api/debug/table/:name", async (req, res) => {
   try {
     const tableName = req.params.name;
     
-    // Check if table exists
     const existsResult = await db.query(`
       SELECT EXISTS (
         SELECT 1 FROM information_schema.tables 
@@ -134,7 +109,6 @@ app.get("/api/debug/table/:name", async (req, res) => {
     
     const exists = existsResult.rows[0].exists;
     
-    // If table exists, get its columns
     let columns = [];
     if (exists) {
       const columnsResult = await db.query(`
@@ -158,27 +132,34 @@ app.get("/api/debug/table/:name", async (req, res) => {
   }
 });
 
-// ✅ Global error handler with detailed logging
+// ===== API ROUTES =====
+app.use("/api/auth", authRoutes);
+app.use("/api", bridgeRoutes);
+app.use("/api", routes);
+app.use("/api", tutorRoutes);
+app.use("/api", quizRoutes);
+app.use("/api", taskRoutes);
+app.use("/api", uploadRoutes);
+app.use("/api", personalizeRoutes);
+app.use("/api", focusRoutes);
+app.use("/api", leaderboardRoutes);
+app.use("/api", studyGroupRoutes);
+app.use("/api/orbit", orbitRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/study", studyRoutes);
+app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/academic", academicRoutes);
+app.use("/api/momentum", momentumRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/admin", adminRoutes);
+
+// Global error handler
 app.use((err, req, res, next) => {
-  console.error('❌ Error details:');
-  console.error('  - Message:', err.message);
-  console.error('  - Stack:', err.stack);
-  console.error('  - URL:', req.url);
-  console.error('  - Method:', req.method);
-  
-  // Send a detailed error response (only in development)
-  const isDev = process.env.NODE_ENV !== 'production';
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
-    ...(isDev && { 
-      stack: err.stack, 
-      url: req.url,
-      method: req.method
-    })
-  });
+  console.error('❌ Error details:', err.message);
+  res.status(err.status || 500).json({ error: err.message || "Internal server error" });
 });
 
-// ✅ Wrap startup in an async function with try-catch
+// Start server
 const startServer = async () => {
   try {
     console.log('🔵 Running migrations...');
@@ -196,5 +177,4 @@ const startServer = async () => {
   }
 };
 
-// Start the server
 startServer();
