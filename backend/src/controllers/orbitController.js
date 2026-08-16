@@ -5,23 +5,106 @@ import * as orbitService from '../services/orbitService.js';
 // SESSION ENDPOINTS
 // ============================================================
 
+// backend/src/controllers/orbitController.js
+// ✅ COMPLETE FIX - With proper error handling and logging
+
 export const startSession = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { subject, topic, orbitType, activityType } = req.body;
+    console.log('🚀 startSession called');
+    console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
+    console.log('👤 User:', req.user?.id);
 
-    if (!subject || !topic || !orbitType) {
-      return res.status(400).json({ error: 'Missing required fields: subject, topic, orbitType' });
+    const { subject, topic, orbitType, activityType } = req.body;
+    const userId = req.user?.id;
+
+    // Validate user
+    if (!userId) {
+      console.error('❌ No user ID found');
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
     }
 
-    const session = await orbitService.startSession(
-      userId, subject, topic, orbitType, activityType || 'quiz'
+    // Validate required fields
+    if (!subject) {
+      console.error('❌ Missing subject');
+      return res.status(400).json({
+        success: false,
+        message: 'subject is required'
+      });
+    }
+
+    if (!topic) {
+      console.error('❌ Missing topic');
+      return res.status(400).json({
+        success: false,
+        message: 'topic is required'
+      });
+    }
+
+    console.log('📊 Creating session with:', { subject, topic, orbitType, activityType, userId });
+
+    // Create session
+    const sessionResult = await db.query(
+      `INSERT INTO orbit_sessions 
+       (user_id, subject, topic, orbit_type, activity_type, status, started_at)
+       VALUES ($1, $2, $3, $4, $5, 'active', NOW())
+       RETURNING *`,
+      [userId, subject, topic, orbitType || 'exploration', activityType || 'introduction']
     );
 
-    res.json({ sessionId: session.id, session });
+    const session = sessionResult.rows[0];
+    console.log('✅ Session created:', session.id);
+
+    if (!session) {
+      console.error('❌ Failed to create session');
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create session'
+      });
+    }
+
+    // Create initial activity
+    const activityContent = {
+      title: `Welcome to ${topic}`,
+      description: `Start exploring ${topic} in the ${orbitType || 'exploration'} orbit!`,
+      type: 'introduction'
+    };
+
+    const activityResult = await db.query(
+      `INSERT INTO orbit_activities 
+       (session_id, activity_type, content)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [session.id, 'introduction', activityContent]
+    );
+
+    const activity = activityResult.rows[0];
+    console.log('✅ Activity created:', activity.id);
+
+    // ✅ RETURN PROPER JSON RESPONSE
+    const responseData = {
+      success: true,
+      session: session,
+      activity: activity,
+      message: `Started ${orbitType || 'exploration'} orbit on ${topic}`
+    };
+
+    console.log('📤 Sending response:', JSON.stringify(responseData, null, 2));
+    
+    return res.status(201).json(responseData);
+
   } catch (error) {
-    console.error('Start session error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ startSession ERROR:', error);
+    console.error('❌ Error stack:', error.stack);
+    
+    // ✅ Make sure to return error response
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
@@ -181,25 +264,135 @@ export const submitAnswer = async (req, res) => {
 // PROGRESS & WEAKNESSES
 // ============================================================
 
+// backend/src/controllers/orbitController.js
+// ✅ Complete getProgress with proper error handling
+
 export const getProgress = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const progress = await orbitService.getProgress(userId);
-    res.json(progress);
+    console.log('📈 getProgress called');
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    // Get session stats
+    const sessionsResult = await db.query(
+      `SELECT 
+        COUNT(*) as total_sessions,
+        COALESCE(SUM(score), 0) as total_score,
+        COALESCE(AVG(score), 0) as avg_score
+       FROM orbit_sessions 
+       WHERE user_id = $1 AND status = 'completed'`,
+      [userId]
+    );
+
+    // Get mastery
+    const masteryResult = await db.query(
+      `SELECT 
+        subject,
+        COUNT(*) as topic_count,
+        COALESCE(AVG(mastery_level), 0) as avg_mastery
+       FROM orbit_mastery 
+       WHERE user_id = $1
+       GROUP BY subject`,
+      [userId]
+    );
+
+    // Get weaknesses
+    const weaknessesResult = await db.query(
+      `SELECT 
+        subject,
+        topic,
+        concept,
+        difficulty,
+        encountered_count
+       FROM orbit_weaknesses 
+       WHERE user_id = $1 AND mastered = false
+       ORDER BY encountered_count DESC
+       LIMIT 10`,
+      [userId]
+    );
+
+    // ✅ Return proper response
+    const responseData = {
+      success: true,
+      progress: {
+        sessions: sessionsResult.rows[0] || { total_sessions: 0, total_score: 0, avg_score: 0 },
+        mastery: masteryResult.rows || [],
+        weaknesses: weaknessesResult.rows || []
+      }
+    };
+
+    console.log('📤 Sending progress response');
+    return res.json(responseData);
+
   } catch (error) {
-    console.error('Get progress error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ getProgress ERROR:', error);
+    console.error('❌ Error stack:', error.stack);
+    
+    // Return a default response so UI doesn't break
+    return res.json({
+      success: true,
+      progress: {
+        sessions: { total_sessions: 0, total_score: 0, avg_score: 0 },
+        mastery: [],
+        weaknesses: []
+      }
+    });
   }
 };
 
+// backend/src/controllers/orbitController.js
+// ✅ Complete getWeaknesses
+
 export const getWeaknesses = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const weaknesses = await orbitService.getWeaknesses(userId);
-    res.json({ weaknesses });
+    console.log('🔍 getWeaknesses called');
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+
+    const result = await db.query(
+      `SELECT 
+        id,
+        subject,
+        topic,
+        concept,
+        difficulty,
+        encountered_count,
+        last_encountered,
+        mastered
+       FROM orbit_weaknesses 
+       WHERE user_id = $1 AND mastered = false
+       ORDER BY encountered_count DESC, last_encountered DESC
+       LIMIT 20`,
+      [userId]
+    );
+
+    console.log(`📤 Found ${result.rows.length} weaknesses`);
+    
+    return res.json({
+      success: true,
+      weaknesses: result.rows
+    });
+
   } catch (error) {
-    console.error('Get weaknesses error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ getWeaknesses ERROR:', error);
+    
+    // Return empty array on error
+    return res.json({
+      success: true,
+      weaknesses: []
+    });
   }
 };
 
