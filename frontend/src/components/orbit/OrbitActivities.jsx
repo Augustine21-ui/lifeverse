@@ -1,6 +1,27 @@
 // frontend/src/components/orbit/OrbitActivities.jsx
 import React from 'react';
-import { Activity, BookOpen, Zap, Target, Brain, Rocket } from 'lucide-react';
+import { 
+  Activity, 
+  BookOpen, 
+  Zap, 
+  Target, 
+  Brain, 
+  Rocket,
+  Search,          // ← added
+  Lock,            // ← added
+  Eye,             // ← added
+  Map,             // ← added
+  FileText,        // ← added
+  GitBranch,       // ← added
+  ArrowUpDown,     // ← added
+  Network,         // ← added
+  Crosshair,       // ← added
+  Circle,          // ← added
+  Clock,           // ← added
+  Hand,            // ← added
+  PenTool,         // ← added (already in Dashboard but we need it here)
+  Puzzle           // ← added (if not already)
+} from 'lucide-react';
 
 const ORBIT_ACTIVITIES = {
   cortex: [
@@ -17,7 +38,7 @@ const ORBIT_ACTIVITIES = {
     { id: 'detective_mission', label: 'Detective Mission', icon: Search, color: 'text-amber-400' },
     { id: 'story_adventure', label: 'Story Adventure', icon: BookOpen, color: 'text-purple-400' },
     { id: 'escape_challenge', label: 'Escape Challenge', icon: Lock, color: 'text-red-400' },
-    { id: 'solve_clues', label: 'Solve the Clues', icon: MagnifyingGlass, color: 'text-cyan-400' },
+    { id: 'solve_clues', label: 'Solve the Clues', icon: Eye, color: 'text-cyan-400' },
     { id: 'educational_riddles', label: 'Riddles', icon: Brain, color: 'text-yellow-400' },
     { id: 'rapid_fire', label: 'Rapid Fire', icon: Zap, color: 'text-orange-400' },
   ],
