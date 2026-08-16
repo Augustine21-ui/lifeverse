@@ -235,27 +235,15 @@ export const generateReflex = async ({ subject, topic, grade, count = 3 }) => {
   }
 };
 
-// ===== UNIFIED GENERATOR =====
+// ============================================================
+// NEW ORBIT ACTIVITY GENERATOR (single, no duplicate)
+// ============================================================
 
-export const generateActivity = async (type, params) => {
-  switch (type) {
-    case 'cortex': return generateCortexQuiz(params);
-    case 'flashcards': return generateFlashcards(params);
-    case 'memory_match': return generateMemoryMatch(params);
-    case 'cluepath': return generateCluePath(params);
-    case 'pathfinder': return generatePathfinder(params);
-    case 'reflex': return generateReflex(params);
-    default: throw new Error(`Unsupported activity type: ${type}`);
-  }
-};
-
-// backend/src/services/aiService.js – ADD THESE FUNCTIONS
-
-export const generateActivity = async (context) => {
-  const { subject, topic, grade, learningStyle, activityType } = context;
+export const generateOrbitActivity = async (activityType, context) => {
+  const { subject, topic, grade, learningStyle } = context;
 
   // Check if Groq is available
-  if (!groq) {
+  if (!isGroqAvailable || !groq) {
     console.warn('Groq not available – using mock activity');
     return generateMockActivityContent(activityType, context);
   }
@@ -329,7 +317,6 @@ const buildPrompt = (activityType, context) => {
 };
 
 const generateMockActivityContent = (activityType, context) => {
-  // Return mock content based on activity type
   const { subject, topic } = context;
 
   const mockContent = {
