@@ -15,6 +15,7 @@ import GlanceTicker from '../components/GlanceTicker';
 import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
+import OrbitProgressCard from '../components/orbit/OrbitProgressCard';
 
 // ---- Confetti ----
 function Confetti({ active, onComplete }) {
@@ -830,6 +831,9 @@ export default function DashboardPage() {
             )}
           </Card>
 
+          {/* ===== ORBIT PROGRESS CARD (Mobile) ===== */}
+          <OrbitProgressCard />
+
           {/* Brain Dump */}
           <Card className="mb-4">
             <div className="flex items-center justify-between mb-3">
@@ -1153,6 +1157,9 @@ export default function DashboardPage() {
                 </div>
                 {notifications.length > 3 && <p className="text-xs text-white/40 mt-2">+{notifications.length - 3} more</p>}
               </Card>
+
+              {/* ===== ORBIT PROGRESS CARD (Desktop) ===== */}
+              <OrbitProgressCard />
 
               {/* Today's Schedule */}
               <Card>
