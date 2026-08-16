@@ -1,14 +1,14 @@
 // frontend/src/pages/OrbitPage.jsx
-// ✅ Complete fix with proper state handling
+// ✅ Complete fix - All state defined properly
 
 import React, { useState, useEffect, useCallback } from 'react';
 import orbitApi from '../services/orbitApi';
 import './OrbitPage.css';
 
 const OrbitPage = () => {
-  // ✅ All state is defined here
+  // ✅ ALL STATE DEFINED HERE
   const [selectedPlanet, setSelectedPlanet] = useState(null);
-  const [session, setSession] = useState(null);  // ✅ Defined!
+  const [session, setSession] = useState(null);  // ← CRITICAL: MUST BE HERE
   const [activities, setActivities] = useState([]);
   const [currentActivity, setCurrentActivity] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ const OrbitPage = () => {
   const [userAnswer, setUserAnswer] = useState('');
   const [apiReady, setApiReady] = useState(false);
 
-  // Planets configuration
+  // Planets
   const planets = [
     { id: 'cortex', label: 'Cortex', subtitle: 'Knowledge & Memory', color: '#6C63FF', icon: '🧠', bg: 'rgba(108, 99, 255, 0.1)' },
     { id: 'cluepath', label: 'CluePath', subtitle: 'Story & Problem Solving', color: '#FF6B6B', icon: '🕵️', bg: 'rgba(255, 107, 107, 0.1)' },
@@ -30,13 +30,12 @@ const OrbitPage = () => {
   useEffect(() => {
     const checkApi = async () => {
       try {
-        const hasStartSession = typeof orbitApi.startSession === 'function';
-        const hasGetProgress = typeof orbitApi.getProgress === 'function';
+        const hasStartSession = typeof orbitApi?.startSession === 'function';
+        const hasGetProgress = typeof orbitApi?.getProgress === 'function';
         
         if (hasStartSession && hasGetProgress) {
           setApiReady(true);
           console.log('✅ Orbit API is ready!');
-          // Load progress
           await fetchProgress();
         } else {
           console.error('❌ Orbit API is NOT ready!');
@@ -44,6 +43,7 @@ const OrbitPage = () => {
         }
       } catch (err) {
         console.error('API check failed:', err);
+        setError('Failed to initialize Orbit API');
       }
     };
     
@@ -59,9 +59,9 @@ const OrbitPage = () => {
       setProgress(data?.progress || null);
     } catch (err) {
       console.warn('⚠️ Could not load progress:', err.message);
-      // If "column mastered does not exist", we still continue
-      if (err.message?.includes('mastered')) {
-        console.warn('⚠️ Database missing "mastered" column - run the ALTER TABLE command');
+      // Don't set error here - progress is non-critical
+      if (err.message?.includes('column')) {
+        console.warn('⚠️ Database missing columns - run ALTER TABLE commands');
       }
     }
   };
@@ -90,8 +90,16 @@ const OrbitPage = () => {
       );
       
       console.log('✅ Session started:', result);
-      setSession(result?.session || null);
       
+      // ✅ SAFELY set session
+      if (result?.session) {
+        setSession(result.session);
+      } else {
+        console.warn('⚠️ No session returned');
+        setError('Failed to create session');
+      }
+      
+      // ✅ SAFELY set activity
       if (result?.activity) {
         setActivities([result.activity]);
         setCurrentActivity(result.activity);
@@ -106,8 +114,10 @@ const OrbitPage = () => {
 
   // Generate next activity
   const handleGenerateNext = useCallback(async () => {
+    // ✅ Check if session exists before using it
     if (!session) {
       console.warn('⚠️ No active session');
+      setError('No active session. Start a new session first.');
       return;
     }
 
@@ -133,8 +143,14 @@ const OrbitPage = () => {
 
   // Submit answer
   const handleSubmitAnswer = useCallback(async () => {
-    if (!session || !currentActivity) {
-      console.warn('⚠️ No session or activity');
+    // ✅ Check if session and currentActivity exist
+    if (!session) {
+      setError('No active session. Start a new session first.');
+      return;
+    }
+    
+    if (!currentActivity) {
+      setError('No active activity to answer.');
       return;
     }
 
@@ -151,13 +167,12 @@ const OrbitPage = () => {
       const result = await orbitApi.submitAnswer(
         currentActivity.id,
         userAnswer,
-        10 // time taken in seconds
+        10
       );
 
       console.log('📊 Submit result:', result);
       
-      // Show feedback
-      if (result.isCorrect !== undefined) {
+      if (result?.isCorrect !== undefined) {
         alert(result.isCorrect ? '✅ Correct! Well done!' : '❌ Incorrect. Keep learning!');
       }
 
@@ -172,17 +187,21 @@ const OrbitPage = () => {
 
   // End session
   const handleEndSession = useCallback(async () => {
-    if (!session) return;
+    // ✅ Check if session exists
+    if (!session) {
+      setError('No active session to end.');
+      return;
+    }
 
     setLoading(true);
     try {
       console.log(`🏁 Ending session...`);
       await orbitApi.endSession(
         session.id,
-        85, // score
-        10, // totalQuestions
-        8,  // correctAnswers
-        120 // timeSpent
+        85,
+        10,
+        8,
+        120
       );
       setShowSummary(true);
       setSession(null);
@@ -270,7 +289,7 @@ const OrbitPage = () => {
           <div className="ring ring-3"></div>
         </div>
 
-        <div className="life-core" onClick={() => !session && handleReset()}>
+        <div className="life-core">
           <span className="core-icon">☀️</span>
           <span className="core-label">Life Core</span>
           {session && <span className="core-status">Active</span>}
@@ -298,7 +317,7 @@ const OrbitPage = () => {
         </div>
       </div>
 
-      {/* Session Content */}
+      {/* Session Content - Only render if session exists */}
       {session && !showSummary && (
         <div className="session-container">
           <div className="session-content">
@@ -368,7 +387,7 @@ const OrbitPage = () => {
         </div>
       )}
 
-      {/* Loading Overlay */}
+      {/* Loading */}
       {loading && (
         <div className="loading-overlay">
           <div className="spinner"></div>
