@@ -20,10 +20,9 @@ export default function HolographicAvatar() {
   const [showMenu, setShowMenu] = useState(false);
   const avatarRef = useRef(null);
 
-  // Current mood config
   const currentMood = moodConfig[mood] || moodConfig.neutral;
 
-  // Particle animation (runs once)
+  // Particle animation (unchanged)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -63,7 +62,6 @@ export default function HolographicAvatar() {
     return () => cancelAnimationFrame(animationId);
   }, []);
 
-  // Update mood
   const updateMood = async (newMood) => {
     try {
       await api.recordMood(newMood);
@@ -80,12 +78,7 @@ export default function HolographicAvatar() {
   const toggleMenu = () => setShowMenu(!showMenu);
 
   return (
-    <div className="relative flex flex-col items-center" ref={avatarRef}>
-      {/* 
-        Greeting removed – we now use the dashboard's own greeting
-        (with user name and current date/time).
-      */}
-
+    <div className="relative flex flex-col items-center z-50 isolate" ref={avatarRef}>
       {/* Holographic Frame */}
       <div
         className="relative w-32 h-32 cursor-pointer group"
@@ -133,15 +126,17 @@ export default function HolographicAvatar() {
         <span className="w-2 h-2 rounded-full inline-block" style={{ background: currentMood.glow }} />
       </div>
 
-      {/* Interaction menu */}
+      {/* ===== INTERACTION MENU – with high z-index and absolute positioning ===== */}
       {showMenu && (
-        <AvatarInteractionMenu
-          onClose={() => setShowMenu(false)}
-          onMoodSelect={updateMood}
-          currentMood={mood}
-          onUploadAvatar={() => {}}
-          onViewProfile={() => {}}
-        />
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[9999] w-64 pointer-events-auto">
+          <AvatarInteractionMenu
+            onClose={() => setShowMenu(false)}
+            onMoodSelect={updateMood}
+            currentMood={mood}
+            onUploadAvatar={() => {}}
+            onViewProfile={() => {}}
+          />
+        </div>
       )}
     </div>
   );
