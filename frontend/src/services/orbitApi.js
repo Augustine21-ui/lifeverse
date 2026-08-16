@@ -1,5 +1,5 @@
 // frontend/src/services/orbitApi.js
-import api from './api';
+import { api } from './api';  // ✅ named import, not default
 
 export const orbitApi = {
   // Session management
@@ -41,11 +41,20 @@ export const orbitApi = {
     return response.data;
   },
 
-  // Legacy feedback (optional)
   feedback: async (sessionId, activityId, answer, time) => {
     const response = await api.post('/orbit/feedback', {
       sessionId, activityId, answer, time
     });
+    return response.data;
+  },
+
+  getActiveSessions: async () => {
+    const response = await api.get('/orbit/sessions/active');
+    return response.data;
+  },
+
+  getActivities: async (sessionId) => {
+    const response = await api.get(`/orbit/sessions/${sessionId}/activities`);
     return response.data;
   }
 };
