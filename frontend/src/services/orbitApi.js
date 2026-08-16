@@ -1,8 +1,7 @@
 // frontend/src/services/orbitApi.js
-import { api } from './api';  // ✅ named import, not default
+import api from './api';   // ✅ default import (change from { api })
 
 export const orbitApi = {
-  // Session management
   startSession: async (subject, topic, orbitType, activityType) => {
     const response = await api.post('/orbit/session/start', {
       subject, topic, orbitType, activityType
