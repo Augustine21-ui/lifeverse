@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { orbitApi } from '../services/orbitApi';
 import LifeCore from '../components/orbit/LifeCore';
-import OrbitPlanet from '../components/orbit/OrbitPlanet';
 import OrbitActivities from '../components/orbit/OrbitActivities';
 import OrbitActivityRenderer from '../components/orbit/OrbitActivityRenderer';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -16,17 +15,23 @@ const ORBIT_PLANETS = [
   { id: 'reflex', name: 'Reflex', icon: '⚡', color: '#EF4444' },
 ];
 
+// Planet positions (percentage-based)
+const PLANET_POSITIONS = [
+  { top: '12%', left: '50%' },   // Cortex (top)
+  { top: '50%', left: '88%' },   // CluePath (right)
+  { top: '88%', left: '50%' },   // Pathfinder (bottom)
+  { top: '50%', left: '12%' },   // Reflex (left)
+];
+
 const OrbitPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // State
   const [subject, setSubject] = useState(location.state?.subject || 'Select Subject');
   const [topic, setTopic] = useState(location.state?.topic || '');
   const [progress, setProgress] = useState(0);
   const [selectedOrbit, setSelectedOrbit] = useState(null);
-  const [selectedActivity, setSelectedActivity] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [activity, setActivity] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -42,10 +47,27 @@ const OrbitPage = () => {
     }
   }, [location.state]);
 
+  // Fetch progress
+  useEffect(() => {
+    const fetchProgress = async () => {
+      try {
+        const data = await orbitApi.getProgress();
+        if (data.mastery && data.mastery.length > 0) {
+          const matched = data.mastery.find(
+            m => m.subject === subject && m.topic === topic
+          );
+          if (matched) setProgress(matched.mastery_level);
+        }
+      } catch (err) {
+        console.error('Failed to fetch orbit progress:', err);
+      }
+    };
+    if (subject !== 'Select Subject') fetchProgress();
+  }, [subject, topic]);
+
   const handleOrbitSelect = async (orbitId, activityType) => {
     setLoading(true);
     try {
-      // Start session
       const session = await orbitApi.startSession(
         subject || 'General',
         topic || 'Learning',
@@ -54,8 +76,6 @@ const OrbitPage = () => {
       );
       setSessionId(session.sessionId);
       setSelectedOrbit(orbitId);
-
-      // Generate first activity
       const act = await orbitApi.generateActivity(session.sessionId, activityType || 'quiz');
       setActivity(act.activity);
     } catch (error) {
@@ -67,7 +87,6 @@ const OrbitPage = () => {
 
   const handleActivitySelect = async (activityType) => {
     if (!sessionId) {
-      // If no session, start one
       await handleOrbitSelect(selectedOrbit, activityType);
       return;
     }
@@ -75,7 +94,6 @@ const OrbitPage = () => {
     try {
       const act = await orbitApi.generateActivity(sessionId, activityType);
       setActivity(act.activity);
-      setSelectedActivity(activityType);
     } catch (error) {
       console.error('Error generating activity:', error);
     } finally {
@@ -86,8 +104,7 @@ const OrbitPage = () => {
   const handleActivitySubmit = async (answers) => {
     if (!activity) return;
     try {
-      const result = await orbitApi.submitAnswer(activity.id, answers, 30);
-      // Update session progress
+      await orbitApi.submitAnswer(activity.id, answers, 30);
       const progressData = await orbitApi.getProgress();
       if (progressData.mastery && progressData.mastery.length > 0) {
         const mastered = progressData.mastery.find(
@@ -95,10 +112,7 @@ const OrbitPage = () => {
         );
         if (mastered) setProgress(mastered.mastery_level);
       }
-      // Show summary after some activities (or when user ends session)
-      // For now, just set activity to null to go back
       setActivity(null);
-      setSelectedActivity(null);
     } catch (error) {
       console.error('Submit error:', error);
     }
@@ -107,7 +121,6 @@ const OrbitPage = () => {
   const handleBack = () => {
     if (activity) {
       setActivity(null);
-      setSelectedActivity(null);
     } else if (selectedOrbit) {
       setSelectedOrbit(null);
     } else {
@@ -129,7 +142,7 @@ const OrbitPage = () => {
   // ---- Render ----
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black/60">
+      <div className="min-h-screen flex items-center justify-center bg-black/80">
         <Loader2 className="animate-spin text-brand-500" size={48} />
       </div>
     );
@@ -156,7 +169,6 @@ const OrbitPage = () => {
     );
   }
 
-  // If an activity is active, render it
   if (activity) {
     return (
       <div className="min-h-screen bg-cover bg-center bg-fixed" style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}>
@@ -172,7 +184,6 @@ const OrbitPage = () => {
     );
   }
 
-  // If an orbit is selected, show activities
   if (selectedOrbit) {
     const planet = ORBIT_PLANETS.find(p => p.id === selectedOrbit);
     return (
@@ -208,25 +219,75 @@ const OrbitPage = () => {
 
   // ---- Solar System View ----
   return (
-    <div className="min-h-screen bg-cover bg-center bg-fixed" style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}>
-      <div className="absolute inset-0 bg-black/60 z-0" />
-      
-      <div className="relative z-10 max-w-6xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="text-white/40 hover:text-white transition flex items-center gap-2"
-          >
-            <ArrowLeft size={18} /> Dashboard
-          </button>
-          <h1 className="text-2xl font-bold text-white">🌌 Orbit</h1>
-        </div>
+    <div className="relative min-h-screen overflow-hidden bg-black">
+      {/* Cosmic background with stars */}
+      <div className="absolute inset-0 bg-gradient-to-b from-purple-900/40 via-black to-blue-900/20 z-0" />
+      <div className="absolute inset-0 z-0">
+        {[...Array(200)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-white animate-twinkle"
+            style={{
+              width: Math.random() * 3 + 1 + 'px',
+              height: Math.random() * 3 + 1 + 'px',
+              top: Math.random() * 100 + '%',
+              left: Math.random() * 100 + '%',
+              opacity: Math.random() * 0.8 + 0.2,
+              animationDelay: Math.random() * 5 + 's',
+              animationDuration: Math.random() * 3 + 2 + 's',
+            }}
+          />
+        ))}
+      </div>
 
-        {/* Life Core + Planets */}
-        <div className="flex flex-col items-center justify-center min-h-[60vh] relative">
-          {/* Life Core */}
-          <div className="mb-8">
+      {/* Back button */}
+      <button
+        onClick={() => navigate('/dashboard')}
+        className="absolute top-6 left-6 z-20 text-white/40 hover:text-white transition flex items-center gap-2 text-sm"
+      >
+        <ArrowLeft size={18} /> Dashboard
+      </button>
+
+      {/* Solar System Container */}
+      <div className="relative z-10 flex items-center justify-center min-h-screen px-4">
+        <div className="relative w-full max-w-4xl aspect-square">
+          {/* Rotating Orbit Rings */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-[10%] border border-white/10 rounded-full animate-spin-slow" />
+            <div className="absolute inset-[20%] border border-white/5 rounded-full animate-spin-reverse" style={{ animationDuration: '25s' }} />
+            <div className="absolute inset-[30%] border border-white/5 rounded-full animate-spin-slow" style={{ animationDuration: '20s' }} />
+          </div>
+
+          {/* Planets */}
+          {ORBIT_PLANETS.map((planet, index) => {
+            const pos = PLANET_POSITIONS[index] || { top: '50%', left: '50%' };
+            return (
+              <div
+                key={planet.id}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-110 transition-transform duration-300"
+                style={{ top: pos.top, left: pos.left }}
+                onClick={() => handleOrbitSelect(planet.id)}
+              >
+                <div className="flex flex-col items-center">
+                  <div
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-3xl sm:text-4xl shadow-2xl"
+                    style={{
+                      background: `radial-gradient(circle at 30% 30%, ${planet.color}80, ${planet.color}30)`,
+                      boxShadow: `0 0 40px ${planet.color}40, inset 0 0 30px ${planet.color}20`,
+                      border: `2px solid ${planet.color}60`,
+                    }}
+                  >
+                    <span className="relative z-10">{planet.icon}</span>
+                  </div>
+                  <span className="text-xs sm:text-sm font-medium text-white/80 mt-2 text-center">{planet.name}</span>
+                  <span className="text-[10px] text-white/30">0 activities</span>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Life Core – centered */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
             <LifeCore
               subject={subject}
               topic={topic}
@@ -234,27 +295,12 @@ const OrbitPage = () => {
               onBack={null}
             />
           </div>
-
-          {/* Planet Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 w-full max-w-3xl">
-            {ORBIT_PLANETS.map((planet) => (
-              <OrbitPlanet
-                key={planet.id}
-                name={planet.name}
-                icon={planet.icon}
-                color={planet.color}
-                activities={[]} // we don't show counts initially
-                onSelect={() => handleOrbitSelect(planet.id)}
-                isActive={false}
-              />
-            ))}
-          </div>
-
-          {/* Instruction */}
-          <p className="mt-8 text-sm text-white/30 text-center">
-            Tap a planet to explore its learning activities
-          </p>
         </div>
+      </div>
+
+      {/* Footer hint */}
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10 text-xs text-white/20 text-center">
+        Tap a planet to explore its learning activities
       </div>
     </div>
   );
