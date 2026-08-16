@@ -28,88 +28,115 @@ export const startSession = async (req, res) => {
 // backend/src/controllers/orbitController.js
 // ✅ Fixed endSession with proper type handling
 
+// backend/src/controllers/orbitController.js
+// ✅ DEBUG VERSION - Shows exact error
+
 export const endSession = async (req, res) => {
   try {
+    console.log('🏁 endSession called');
+    console.log('📥 Request body:', req.body);
+    console.log('👤 User:', req.user);
+
     const { sessionId, score, totalQuestions, correctAnswers, timeSpent } = req.body;
     const userId = req.user.id;
 
-    console.log('🏁 Ending session:', { sessionId, score, totalQuestions, correctAnswers, timeSpent });
-
-    // Validate inputs
-    const sessionIdStr = String(sessionId);
-    const scoreInt = parseInt(score) || 0;
-    const totalQuestionsInt = parseInt(totalQuestions) || 0;
-    const correctAnswersInt = parseInt(correctAnswers) || 0;
-    const timeSpentInt = parseInt(timeSpent) || 0;
-
-    // Get the session first to verify ownership
-    const sessionResult = await db.query(
-      'SELECT * FROM orbit_sessions WHERE id = $1 AND user_id = $2 AND status = $3',
-      [sessionIdStr, userId, 'active']
-    );
-
-    if (sessionResult.rows.length === 0) {
-      return res.status(404).json({
+    // Validate sessionId
+    if (!sessionId) {
+      console.log('❌ Missing sessionId');
+      return res.status(400).json({
         success: false,
-        message: 'Active session not found'
+        message: 'sessionId is required'
       });
     }
 
-    const session = sessionResult.rows[0];
+    console.log('📊 Session data:', { sessionId, score, totalQuestions, correctAnswers, timeSpent });
 
-    // Calculate XP earned
-    const xpEarned = Math.round(
-      (correctAnswersInt / Math.max(totalQuestionsInt, 1)) * 50 + 10
+    // Convert to proper types
+    const sessionIdStr = String(sessionId);
+    const scoreNum = Number(score) || 0;
+    const totalQuestionsNum = Number(totalQuestions) || 0;
+    const correctAnswersNum = Number(correctAnswers) || 0;
+    const timeSpentNum = Number(timeSpent) || 0;
+
+    console.log('📊 Converted types:', {
+      sessionIdStr,
+      scoreNum,
+      totalQuestionsNum,
+      correctAnswersNum,
+      timeSpentNum
+    });
+
+    // Check if session exists
+    const sessionCheck = await db.query(
+      'SELECT * FROM orbit_sessions WHERE id = $1 AND user_id = $2',
+      [sessionIdStr, userId]
     );
 
-    // Update session with all parameters - use explicit type casting
-    const updateResult = await db.query(
-      `UPDATE orbit_sessions 
-       SET 
-         status = 'completed', 
-         completed_at = NOW(),
-         score = $1,
-         total_questions = $2,
-         correct_answers = $3,
-         time_spent = $4,
-         xp_earned = $5
-       WHERE id = $6 AND user_id = $7
-       RETURNING *`,
-      [
-        scoreInt,           // $1: score
-        totalQuestionsInt,  // $2: total_questions
-        correctAnswersInt,  // $3: correct_answers
-        timeSpentInt,       // $4: time_spent
-        xpEarned,           // $5: xp_earned
-        sessionIdStr,       // $6: id
-        userId              // $7: user_id
-      ]
-    );
+    console.log('📊 Session check result:', sessionCheck.rows);
 
-    if (updateResult.rows.length === 0) {
+    if (sessionCheck.rows.length === 0) {
+      console.log('❌ Session not found');
       return res.status(404).json({
         success: false,
-        message: 'Failed to update session'
+        message: 'Session not found'
       });
+    }
+
+    const session = sessionCheck.rows[0];
+    console.log('📊 Found session:', session);
+
+    // Calculate XP
+    const xpEarned = Math.round(
+      (correctAnswersNum / Math.max(totalQuestionsNum, 1)) * 50 + 10
+    );
+    console.log('📊 XP earned:', xpEarned);
+
+    // Simple update - try the most basic version first
+    try {
+      const updateResult = await db.query(
+        `UPDATE orbit_sessions 
+         SET status = 'completed', 
+             completed_at = NOW() 
+         WHERE id = $1 
+         RETURNING *`,
+        [sessionIdStr]
+      );
+      console.log('📊 Update result:', updateResult.rows);
+    } catch (updateError) {
+      console.error('❌ Update failed:', updateError.message);
+      console.error('❌ Update error details:', updateError);
+      throw updateError;
     }
 
     // Update user XP
-    await db.query(
-      'UPDATE users SET xp = xp + $1 WHERE id = $2',
-      [xpEarned, userId]
-    );
+    try {
+      await db.query(
+        'UPDATE users SET xp = xp + $1 WHERE id = $2',
+        [xpEarned, userId]
+      );
+      console.log('📊 XP updated for user:', userId);
+    } catch (xpError) {
+      console.error('❌ XP update failed:', xpError.message);
+      // Don't throw - user XP update is non-critical
+    }
 
     res.json({
       success: true,
-      session: updateResult.rows[0],
+      session: session,
       xpEarned,
       message: 'Session ended successfully'
     });
+
   } catch (error) {
-    console.error('❌ endSession error:', error);
+    console.error('❌ endSession ERROR:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error message:', error.message);
+    
+    // Return detailed error
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };

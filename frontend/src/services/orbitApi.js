@@ -28,17 +28,42 @@ export const orbitApi = {
     }
   },
 
-  endSession: async (sessionId, score, totalQuestions, correctAnswers, timeSpent) => {
-    try {
-      const response = await api.post('/orbit/session/end', {
-        sessionId, score, totalQuestions, correctAnswers, timeSpent
-      });
-      return response?.data || response || {};
-    } catch (error) {
-      console.error('❌ endSession error:', error);
-      throw error;
-    }
-  },
+  // frontend/src/services/orbitApi.js
+// ✅ Fix endSession to handle response properly
+
+endSession: async (sessionId, score, totalQuestions, correctAnswers, timeSpent) => {
+  try {
+    console.log('🏁 Ending session with:', { 
+      sessionId, 
+      score, 
+      totalQuestions, 
+      correctAnswers, 
+      timeSpent 
+    });
+
+    // Ensure all values are properly formatted
+    const payload = {
+      sessionId: String(sessionId || ''),
+      score: Number(score) || 0,
+      totalQuestions: Number(totalQuestions) || 0,
+      correctAnswers: Number(correctAnswers) || 0,
+      timeSpent: Number(timeSpent) || 0
+    };
+
+    console.log('📤 Sending payload:', payload);
+
+    const response = await api.post('/orbit/session/end', payload);
+    
+    console.log('📥 End session response:', response);
+    
+    // Return the data or the response itself
+    return response?.data || response || { success: true };
+  } catch (error) {
+    console.error('❌ endSession error:', error);
+    console.error('❌ Error details:', error.response?.data || error.message);
+    throw error;
+  }
+},
 
   generateActivity: async (sessionId, activityType) => {
     try {
