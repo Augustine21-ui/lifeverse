@@ -6,21 +6,20 @@ import {
   Zap, 
   Target, 
   Brain, 
-  Rocket,
-  Search,          // ← added
-  Lock,            // ← added
-  Eye,             // ← added
-  Map,             // ← added
-  FileText,        // ← added
-  GitBranch,       // ← added
-  ArrowUpDown,     // ← added
-  Network,         // ← added
-  Crosshair,       // ← added
-  Circle,          // ← added
-  Clock,           // ← added
-  Hand,            // ← added
-  PenTool,         // ← added (already in Dashboard but we need it here)
-  Puzzle           // ← added (if not already)
+  Search,
+  Lock,
+  Eye,
+  Map,
+  FileText,
+  GitBranch,
+  ArrowUpDown,
+  Network,
+  Crosshair,
+  Circle,
+  Clock,
+  Hand,
+  PenTool,
+  Puzzle
 } from 'lucide-react';
 
 const ORBIT_ACTIVITIES = {
