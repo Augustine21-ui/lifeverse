@@ -1,140 +1,252 @@
 // backend/src/services/orbitService.js
 import db from '../config/db.js';
+import * as models from '../models/orbitModels.js';
 import { generateActivity } from './aiService.js';
 
-export const generateOrbitActivities = async ({ subject, topic, grade, activityTypes = ['cortex', 'cluepath', 'pathfinder', 'reflex'] }) => {
-  const activities = [];
-  for (const type of activityTypes) {
-    try {
-      const content = await generateActivity(type, { subject, topic, grade });
-      
-      if (!content || typeof content !== 'object') {
-        throw new Error(`Generated content for ${type} is not an object.`);
-      }
-
-      const contentJson = JSON.stringify(content);
-      const result = await db.query(
-        `INSERT INTO orbit_activities (subject, topic, grade, activity_type, content)
-         VALUES ($1, $2, $3, $4, $5::jsonb) RETURNING id`,
-        [subject, topic, grade, type, contentJson]
-      );
-      
-      activities.push({ id: result.rows[0].id, type, content });
-    } catch (error) {
-      console.error(`Failed to generate activity (${type}):`, error);
-      throw new Error(`Failed to generate ${type} activity: ${error.message}`);
-    }
-  }
-  return activities;
+const XP_CONFIG = {
+  quiz: { base: 30, bonus: 10 },
+  flashcards: { base: 20, bonus: 5 },
+  memory_match: { base: 25, bonus: 8 },
+  crossword: { base: 35, bonus: 12 },
+  word_search: { base: 25, bonus: 5 },
+  fill_blanks: { base: 30, bonus: 10 },
+  match_pairs: { base: 25, bonus: 8 },
+  puzzles: { base: 40, bonus: 15 },
+  detective_mission: { base: 45, bonus: 20 },
+  story_adventure: { base: 40, bonus: 15 },
+  escape_challenge: { base: 50, bonus: 25 },
+  solve_clues: { base: 35, bonus: 15 },
+  educational_riddles: { base: 30, bonus: 10 },
+  rapid_fire: { base: 25, bonus: 8 },
+  knowledge_maze: { base: 40, bonus: 15 },
+  hidden_object: { base: 30, bonus: 10 },
+  reading_mission: { base: 35, bonus: 12 },
+  reading_summary: { base: 35, bonus: 12 },
+  interactive_diagram: { base: 30, bonus: 10 },
+  sequence_builder: { base: 30, bonus: 10 },
+  concept_maps: { base: 35, bonus: 12 },
+  answer_shooter: { base: 20, bonus: 5 },
+  bubble_pop: { base: 15, bonus: 3 },
+  lightning_tap: { base: 15, bonus: 3 },
+  target_strike: { base: 20, bonus: 5 },
+  speed_match: { base: 20, bonus: 5 },
+  rapid_recall: { base: 25, bonus: 8 },
+  swipe_challenge: { base: 20, bonus: 5 }
 };
 
-// ... rest of the file (startSession, endSession, submitAnswer)
+// ============================================================
+// SESSION MANAGEMENT
+// ============================================================
 
-export const startSession = async (userId, subject, topic, mixup = false) => {
-  const result = await db.query(
-    `INSERT INTO orbit_sessions (user_id, subject, topic, mixup_mode) VALUES ($1, $2, $3, $4) RETURNING id`,
-    [userId, subject, topic, mixup]
-  );
-  return result.rows[0].id;
+export const startSession = async (userId, subject, topic, orbitType, activityType) => {
+  try {
+    const session = await models.createSession(userId, subject, topic, orbitType, activityType);
+    return session;
+  } catch (error) {
+    console.error('Error starting orbit session:', error);
+    throw error;
+  }
 };
 
-export const endSession = async (sessionId, score, activitiesCompleted) => {
-  await db.query(
-    `UPDATE orbit_sessions SET end_time = NOW(), score = $1, activities_completed = $2 WHERE id = $3`,
-    [score, activitiesCompleted, sessionId]
-  );
+export const endSession = async (sessionId, score, totalQuestions, correctAnswers, timeSpent) => {
+  try {
+    const session = await models.getSession(sessionId);
+    if (!session) throw new Error('Session not found');
+
+    // Calculate XP
+    const xpConfig = XP_CONFIG[session.activity_type] || { base: 25, bonus: 5 };
+    const percentage = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
+    const xpEarned = Math.round(xpConfig.base + (percentage / 100) * xpConfig.bonus);
+
+    // Update session
+    const completed = await models.completeSession(
+      sessionId, score, totalQuestions, correctAnswers, timeSpent, xpEarned
+    );
+
+    // Update mastery
+    await models.updateMastery(
+      session.user_id, session.subject, session.topic,
+      percentage >= 60, xpEarned
+    );
+
+    // Save activity history
+    await models.saveActivityHistory(
+      session.user_id, sessionId, session.activity_type, session.orbit_type,
+      session.subject, session.topic, score, totalQuestions, correctAnswers,
+      timeSpent, xpEarned
+    );
+
+    // Award XP to user
+    await db.query(
+      `UPDATE users SET xp = xp + $1, level = FLOOR((xp + $1) / 500) + 1 WHERE id = $2`,
+      [xpEarned, session.user_id]
+    );
+
+    return { ...completed, xpEarned };
+  } catch (error) {
+    console.error('Error ending orbit session:', error);
+    throw error;
+  }
 };
 
-export const submitAnswer = async (sessionId, activityId, userAnswer, timeSpent) => {
-  // Fetch the activity
-  const activityRes = await db.query('SELECT content, correct_answer FROM orbit_activities WHERE id = $1', [activityId]);
-  if (activityRes.rows.length === 0) {
-    throw new Error('Activity not found');
+// ============================================================
+// ACTIVITY GENERATION
+// ============================================================
+
+export const generateActivity = async (sessionId, activityType) => {
+  try {
+    const session = await models.getSession(sessionId);
+    if (!session) throw new Error('Session not found');
+
+    // Get user context
+    const userResult = await db.query(
+      `SELECT id, full_name, education_level, course, learning_style FROM users WHERE id = $1`,
+      [session.user_id]
+    );
+    const user = userResult.rows[0] || {};
+
+    // Build context for AI
+    const context = {
+      subject: session.subject,
+      topic: session.topic,
+      grade: user.education_level || 'University',
+      course: user.course || 'General',
+      learningStyle: user.learning_style || 'visual',
+      activityType: activityType || session.activity_type
+    };
+
+    // Generate content via AI
+    const content = await generateActivity(context);
+
+    // Save activity
+    const activity = await models.saveActivity(sessionId, activityType, content);
+
+    return activity;
+  } catch (error) {
+    console.error('Error generating orbit activity:', error);
+    // Fallback to mock activity
+    return generateMockActivity(sessionId, activityType);
   }
-  const activity = activityRes.rows[0];
-  const content = activity.content;
-  const correct = activity.correct_answer;
+};
 
-  // Determine correctness
-  let isCorrect = false;
+export const submitAnswer = async (activityId, userAnswer, timeTaken) => {
+  try {
+    const activity = await db.query(
+      `SELECT * FROM orbit_activities WHERE id = $1`,
+      [activityId]
+    );
+    if (!activity.rows[0]) throw new Error('Activity not found');
 
-  // If correct_answer is null, we can't check; assume false? or maybe we need to parse content differently.
-  // For now, if no correct_answer, we'll set isCorrect = false and log.
-  if (!correct) {
-    console.warn(`No correct_answer for activity ${activityId}, marking as incorrect.`);
-    isCorrect = false;
-  } else {
-    // Check based on type (simplified)
-    if (correct.correct !== undefined) {
-      // For cortex/cluepath: correct is an index
-      isCorrect = (userAnswer === correct.correct);
-    } else if (correct.answers && Array.isArray(correct.answers)) {
-      // For reflex: answers array; we'll compare with the first one for simplicity
-      isCorrect = (userAnswer === correct.answers[0]);
-    } else if (correct.steps && Array.isArray(correct.steps)) {
-      // Pathfinder: userAnswer should be array of step indices; compare JSON
-      isCorrect = JSON.stringify(userAnswer) === JSON.stringify(correct.steps);
-    } else {
-      // fallback: maybe content has a correct field
-      if (content.correct !== undefined) {
-        isCorrect = (userAnswer === content.correct);
-      } else if (content.answer !== undefined) {
-        isCorrect = (userAnswer === content.answer);
-      } else {
-        console.warn(`Unknown correct_answer format for activity ${activityId}`, correct);
-        isCorrect = false;
-      }
-    }
-  }
+    const content = activity.rows[0].content;
+    const isCorrect = evaluateAnswer(content, userAnswer);
 
-  // Insert response
-  await db.query(
-    `INSERT INTO orbit_responses (session_id, activity_id, user_answer, is_correct, time_spent_seconds)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [sessionId, activityId, JSON.stringify(userAnswer), isCorrect, timeSpent || 0]
-  );
+    // Update activity
+    const updated = await models.submitActivityAnswer(activityId, userAnswer, isCorrect, timeTaken);
 
-  // Track weakness if incorrect
-  if (!isCorrect) {
-    try {
-      const sessionRes = await db.query('SELECT subject, topic, user_id FROM orbit_sessions WHERE id = $1', [sessionId]);
-      if (sessionRes.rows.length > 0) {
-        const { subject, topic, user_id } = sessionRes.rows[0];
-        // Get concept from content if possible
-        let concept = 'Unknown concept';
-        if (content.question) {
-          concept = content.question;
-        } else if (content.story) {
-          concept = content.story.substring(0, 100);
-        }
-        await db.query(
-          `INSERT INTO orbit_weaknesses (user_id, subject, topic, concept, difficulty_level)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [user_id, subject, topic, concept, 1]
+    // Update session
+    const session = await models.getSession(activity.rows[0].session_id);
+    if (session) {
+      const newTotal = session.total_questions + 1;
+      const newCorrect = session.correct_answers + (isCorrect ? 1 : 0);
+      const newScore = Math.round((newCorrect / newTotal) * 100);
+
+      await models.updateSession(session.id, {
+        total_questions: newTotal,
+        correct_answers: newCorrect,
+        score: newScore,
+        time_spent: session.time_spent + timeTaken
+      });
+
+      // Track weakness if incorrect
+      if (!isCorrect) {
+        await models.updateWeakness(
+          session.user_id, session.subject, session.topic,
+          content.concept || session.topic, false
         );
       }
-    } catch (err) {
-      console.error('Failed to track weakness:', err);
-      // Non-critical, continue
     }
+
+    return { isCorrect, updated };
+  } catch (error) {
+    console.error('Error submitting answer:', error);
+    throw error;
+  }
+};
+
+// ============================================================
+// PROGRESS & WEAKNESSES
+// ============================================================
+
+export const getProgress = async (userId) => {
+  try {
+    return await models.getUserProgress(userId);
+  } catch (error) {
+    console.error('Error getting progress:', error);
+    throw error;
+  }
+};
+
+export const getWeaknesses = async (userId) => {
+  try {
+    return await models.getWeaknessesByUser(userId);
+  } catch (error) {
+    console.error('Error getting weaknesses:', error);
+    throw error;
+  }
+};
+
+// ============================================================
+// FEEDBACK & EVALUATION
+// ============================================================
+
+export const evaluateAnswer = (content, userAnswer) => {
+  // Simple evaluation – can be expanded for different activity types
+  if (!content || !userAnswer) return false;
+
+  // For quiz questions
+  if (content.questions && content.questions.length > 0) {
+    const question = content.questions[0];
+    return userAnswer.correct === question.correct;
   }
 
-  return isCorrect;
+  // For flashcards
+  if (content.flashcards) {
+    // Compare answers (simplified)
+    return userAnswer.answer?.toLowerCase() === content.flashcards[0]?.answer?.toLowerCase();
+  }
 
-  // Update mastery for the subject/topic of the session
-const sessionRes = await db.query('SELECT subject, topic FROM orbit_sessions WHERE id = $1', [sessionId]);
-const { subject, topic } = sessionRes.rows[0];
+  // Default
+  return false;
+};
 
-// Insert or update mastery
-await db.query(
-  `INSERT INTO user_mastery (user_id, subject, topic, activities_attempted, activities_correct, mastery_score, last_updated)
-   VALUES ($1, $2, $3, 1, $4, $5, NOW())
-   ON CONFLICT (user_id, subject, topic) 
-   DO UPDATE SET 
-     activities_attempted = user_mastery.activities_attempted + 1,
-     activities_correct = user_mastery.activities_correct + $4,
-     mastery_score = (user_mastery.activities_correct + $4)::float / (user_mastery.activities_attempted + 1) * 100,
-     last_updated = NOW()`,
-  [req.user.id, subject, topic, isCorrect ? 1 : 0]
-);
+// ============================================================
+// MOCK GENERATOR (fallback when AI fails)
+// ============================================================
+
+const generateMockActivity = (sessionId, activityType) => {
+  const mockContent = {
+    quiz: {
+      questions: [
+        {
+          question: `What is the main concept of this topic?`,
+          options: ['Option A', 'Option B', 'Option C', 'Option D'],
+          correct: 0,
+          explanation: 'This is a mock question. Enable AI for real content.'
+        }
+      ]
+    },
+    flashcards: {
+      flashcards: [
+        { question: 'Mock flashcard 1', answer: 'Mock answer 1' },
+        { question: 'Mock flashcard 2', answer: 'Mock answer 2' }
+      ]
+    }
+  };
+
+  return {
+    type: activityType,
+    content: mockContent[activityType] || mockContent.quiz,
+    mock: true,
+    message: 'AI service unavailable – using mock content'
+  };
 };

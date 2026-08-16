@@ -1,13 +1,34 @@
+// backend/src/routes/orbitRoutes.js
 import express from 'express';
-import { generate, start, end, feedback, getWeaknesses } from '../controllers/orbitController.js';
-import { authenticate } from '../middleware/auth.js'; // adjust path if your auth middleware is elsewhere
+import { authenticate } from '../middleware/auth.js';
+import {
+  startSession,
+  endSession,
+  generateActivity,
+  submitAnswer,
+  getProgress,
+  getWeaknesses,
+  feedback
+} from '../controllers/orbitController.js';
 
 const router = express.Router();
 
-router.post('/generate', authenticate, generate);
-router.post('/session/start', authenticate, start);
-router.post('/session/end', authenticate, end);
-router.post('/feedback', authenticate, feedback);
-router.get('/weaknesses', authenticate, getWeaknesses);
+// All orbit routes require authentication
+router.use(authenticate);
+
+// Session management
+router.post('/session/start', startSession);
+router.post('/session/end', endSession);
+
+// Activity management
+router.post('/generate', generateActivity);
+router.post('/submit', submitAnswer);
+
+// Progress & weaknesses
+router.get('/progress', getProgress);
+router.get('/weaknesses', getWeaknesses);
+
+// Legacy feedback endpoint
+router.post('/feedback', feedback);
 
 export default router;
