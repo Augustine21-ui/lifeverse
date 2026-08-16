@@ -1,9 +1,14 @@
 // backend/src/services/orbitService.js
 import db from '../config/db.js';
 import * as models from '../models/orbitModels.js';
-import { generateActivity } from './aiService.js';
+import { generateOrbitActivity } from './aiService.js';
+
+// ============================================================
+// XP CONFIGURATION
+// ============================================================
 
 const XP_CONFIG = {
+  // Cortex
   quiz: { base: 30, bonus: 10 },
   flashcards: { base: 20, bonus: 5 },
   memory_match: { base: 25, bonus: 8 },
@@ -12,12 +17,16 @@ const XP_CONFIG = {
   fill_blanks: { base: 30, bonus: 10 },
   match_pairs: { base: 25, bonus: 8 },
   puzzles: { base: 40, bonus: 15 },
+
+  // CluePath
   detective_mission: { base: 45, bonus: 20 },
   story_adventure: { base: 40, bonus: 15 },
   escape_challenge: { base: 50, bonus: 25 },
   solve_clues: { base: 35, bonus: 15 },
   educational_riddles: { base: 30, bonus: 10 },
   rapid_fire: { base: 25, bonus: 8 },
+
+  // Pathfinder
   knowledge_maze: { base: 40, bonus: 15 },
   hidden_object: { base: 30, bonus: 10 },
   reading_mission: { base: 35, bonus: 12 },
@@ -25,6 +34,8 @@ const XP_CONFIG = {
   interactive_diagram: { base: 30, bonus: 10 },
   sequence_builder: { base: 30, bonus: 10 },
   concept_maps: { base: 35, bonus: 12 },
+
+  // Reflex
   answer_shooter: { base: 20, bonus: 5 },
   bubble_pop: { base: 15, bonus: 3 },
   lightning_tap: { base: 15, bonus: 3 },
@@ -90,7 +101,7 @@ export const endSession = async (sessionId, score, totalQuestions, correctAnswer
 };
 
 // ============================================================
-// ACTIVITY GENERATION
+// ACTIVITY GENERATION (using new AI generators)
 // ============================================================
 
 export const generateActivity = async (sessionId, activityType) => {
@@ -105,18 +116,15 @@ export const generateActivity = async (sessionId, activityType) => {
     );
     const user = userResult.rows[0] || {};
 
-    // Build context for AI
     const context = {
       subject: session.subject,
       topic: session.topic,
       grade: user.education_level || 'University',
-      course: user.course || 'General',
-      learningStyle: user.learning_style || 'visual',
-      activityType: activityType || session.activity_type
+      learningStyle: user.learning_style || 'visual'
     };
 
-    // Generate content via AI
-    const content = await generateActivity(context);
+    // Generate content using the new AI generators
+    const content = await generateOrbitActivity(activityType, context);
 
     // Save activity
     const activity = await models.saveActivity(sessionId, activityType, content);
@@ -124,10 +132,14 @@ export const generateActivity = async (sessionId, activityType) => {
     return activity;
   } catch (error) {
     console.error('Error generating orbit activity:', error);
-    // Fallback to mock activity
+    // Fallback mock
     return generateMockActivity(sessionId, activityType);
   }
 };
+
+// ============================================================
+// ANSWER SUBMISSION
+// ============================================================
 
 export const submitAnswer = async (activityId, userAnswer, timeTaken) => {
   try {
@@ -159,9 +171,10 @@ export const submitAnswer = async (activityId, userAnswer, timeTaken) => {
 
       // Track weakness if incorrect
       if (!isCorrect) {
+        const concept = content.concept || session.topic;
         await models.updateWeakness(
           session.user_id, session.subject, session.topic,
-          content.concept || session.topic, false
+          concept, false
         );
       }
     }
@@ -196,26 +209,39 @@ export const getWeaknesses = async (userId) => {
 };
 
 // ============================================================
-// FEEDBACK & EVALUATION
+// ANSWER EVALUATION
 // ============================================================
 
 export const evaluateAnswer = (content, userAnswer) => {
-  // Simple evaluation – can be expanded for different activity types
   if (!content || !userAnswer) return false;
 
-  // For quiz questions
+  // Quiz / multiple choice
   if (content.questions && content.questions.length > 0) {
     const question = content.questions[0];
     return userAnswer.correct === question.correct;
   }
 
-  // For flashcards
+  // Flashcards / Q&A
   if (content.flashcards) {
-    // Compare answers (simplified)
     return userAnswer.answer?.toLowerCase() === content.flashcards[0]?.answer?.toLowerCase();
   }
 
-  // Default
+  // Memory match / pairs
+  if (content.pairs) {
+    return userAnswer.match === true; // simplified
+  }
+
+  // Crossword
+  if (content.clues) {
+    return userAnswer.answer?.toLowerCase() === content.clues[0]?.answer?.toLowerCase();
+  }
+
+  // Rapid fire / quick answer
+  if (content.questions && !content.questions[0]?.options) {
+    return userAnswer.answer?.toLowerCase() === content.questions[0]?.answer?.toLowerCase();
+  }
+
+  // Default fallback
   return false;
 };
 
@@ -228,7 +254,7 @@ const generateMockActivity = (sessionId, activityType) => {
     quiz: {
       questions: [
         {
-          question: `What is the main concept of this topic?`,
+          question: 'What is the main concept of this topic?',
           options: ['Option A', 'Option B', 'Option C', 'Option D'],
           correct: 0,
           explanation: 'This is a mock question. Enable AI for real content.'
@@ -239,6 +265,17 @@ const generateMockActivity = (sessionId, activityType) => {
       flashcards: [
         { question: 'Mock flashcard 1', answer: 'Mock answer 1' },
         { question: 'Mock flashcard 2', answer: 'Mock answer 2' }
+      ]
+    },
+    memory_match: {
+      pairs: [
+        { term: 'Term 1', definition: 'Definition 1' },
+        { term: 'Term 2', definition: 'Definition 2' }
+      ]
+    },
+    crossword: {
+      clues: [
+        { clue: 'Mock clue 1', answer: 'answer1', row: 0, col: 0, direction: 'across' }
       ]
     }
   };
