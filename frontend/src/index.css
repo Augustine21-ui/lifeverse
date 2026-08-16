@@ -291,3 +291,28 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* ============================================================ */
+/* ===== ORBIT MODULE ANIMATIONS ===== */
+/* ============================================================ */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes spin-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
+.animate-spin-reverse {
+  animation: spin-reverse 25s linear infinite;
+}
+.animate-twinkle {
+  animation: twinkle 3s ease-in-out infinite;
+}
