@@ -1,12 +1,15 @@
 // backend/src/controllers/orbitController.js
+// ✅ COMPLETE FIX - With db import at the top
+
+// ============================================
+// ✅ FIX: Import database connection
+// ============================================
+import db from '../config/db.js';
 import * as orbitService from '../services/orbitService.js';
 
 // ============================================================
 // SESSION ENDPOINTS
 // ============================================================
-
-// backend/src/controllers/orbitController.js
-// ✅ COMPLETE FIX - With proper error handling and logging
 
 export const startSession = async (req, res) => {
   try {
@@ -17,7 +20,6 @@ export const startSession = async (req, res) => {
     const { subject, topic, orbitType, activityType } = req.body;
     const userId = req.user?.id;
 
-    // Validate user
     if (!userId) {
       console.error('❌ No user ID found');
       return res.status(401).json({
@@ -26,7 +28,6 @@ export const startSession = async (req, res) => {
       });
     }
 
-    // Validate required fields
     if (!subject) {
       console.error('❌ Missing subject');
       return res.status(400).json({
@@ -45,7 +46,6 @@ export const startSession = async (req, res) => {
 
     console.log('📊 Creating session with:', { subject, topic, orbitType, activityType, userId });
 
-    // Create session
     const sessionResult = await db.query(
       `INSERT INTO orbit_sessions 
        (user_id, subject, topic, orbit_type, activity_type, status, started_at)
@@ -65,7 +65,6 @@ export const startSession = async (req, res) => {
       });
     }
 
-    // Create initial activity
     const activityContent = {
       title: `Welcome to ${topic}`,
       description: `Start exploring ${topic} in the ${orbitType || 'exploration'} orbit!`,
@@ -83,7 +82,6 @@ export const startSession = async (req, res) => {
     const activity = activityResult.rows[0];
     console.log('✅ Activity created:', activity.id);
 
-    // ✅ RETURN PROPER JSON RESPONSE
     const responseData = {
       success: true,
       session: session,
@@ -91,28 +89,18 @@ export const startSession = async (req, res) => {
       message: `Started ${orbitType || 'exploration'} orbit on ${topic}`
     };
 
-    console.log('📤 Sending response:', JSON.stringify(responseData, null, 2));
-    
+    console.log('📤 Sending response');
     return res.status(201).json(responseData);
 
   } catch (error) {
     console.error('❌ startSession ERROR:', error);
     console.error('❌ Error stack:', error.stack);
-    
-    // ✅ Make sure to return error response
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: error.message || 'Internal server error'
     });
   }
 };
-
-// backend/src/controllers/orbitController.js
-// ✅ Fixed endSession with proper type handling
-
-// backend/src/controllers/orbitController.js
-// ✅ DEBUG VERSION - Shows exact error
 
 export const endSession = async (req, res) => {
   try {
@@ -123,7 +111,6 @@ export const endSession = async (req, res) => {
     const { sessionId, score, totalQuestions, correctAnswers, timeSpent } = req.body;
     const userId = req.user.id;
 
-    // Validate sessionId
     if (!sessionId) {
       console.log('❌ Missing sessionId');
       return res.status(400).json({
@@ -134,7 +121,6 @@ export const endSession = async (req, res) => {
 
     console.log('📊 Session data:', { sessionId, score, totalQuestions, correctAnswers, timeSpent });
 
-    // Convert to proper types
     const sessionIdStr = String(sessionId);
     const scoreNum = Number(score) || 0;
     const totalQuestionsNum = Number(totalQuestions) || 0;
@@ -149,7 +135,6 @@ export const endSession = async (req, res) => {
       timeSpentNum
     });
 
-    // Check if session exists
     const sessionCheck = await db.query(
       'SELECT * FROM orbit_sessions WHERE id = $1 AND user_id = $2',
       [sessionIdStr, userId]
@@ -168,13 +153,11 @@ export const endSession = async (req, res) => {
     const session = sessionCheck.rows[0];
     console.log('📊 Found session:', session);
 
-    // Calculate XP
     const xpEarned = Math.round(
       (correctAnswersNum / Math.max(totalQuestionsNum, 1)) * 50 + 10
     );
     console.log('📊 XP earned:', xpEarned);
 
-    // Simple update - try the most basic version first
     try {
       const updateResult = await db.query(
         `UPDATE orbit_sessions 
@@ -187,11 +170,9 @@ export const endSession = async (req, res) => {
       console.log('📊 Update result:', updateResult.rows);
     } catch (updateError) {
       console.error('❌ Update failed:', updateError.message);
-      console.error('❌ Update error details:', updateError);
       throw updateError;
     }
 
-    // Update user XP
     try {
       await db.query(
         'UPDATE users SET xp = xp + $1 WHERE id = $2',
@@ -200,7 +181,6 @@ export const endSession = async (req, res) => {
       console.log('📊 XP updated for user:', userId);
     } catch (xpError) {
       console.error('❌ XP update failed:', xpError.message);
-      // Don't throw - user XP update is non-critical
     }
 
     res.json({
@@ -213,13 +193,9 @@ export const endSession = async (req, res) => {
   } catch (error) {
     console.error('❌ endSession ERROR:', error);
     console.error('❌ Error stack:', error.stack);
-    console.error('❌ Error message:', error.message);
-    
-    // Return detailed error
     res.status(500).json({
       success: false,
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: error.message
     });
   }
 };
@@ -264,9 +240,6 @@ export const submitAnswer = async (req, res) => {
 // PROGRESS & WEAKNESSES
 // ============================================================
 
-// backend/src/controllers/orbitController.js
-// ✅ Complete getProgress with proper error handling
-
 export const getProgress = async (req, res) => {
   try {
     console.log('📈 getProgress called');
@@ -279,7 +252,6 @@ export const getProgress = async (req, res) => {
       });
     }
 
-    // Get session stats
     const sessionsResult = await db.query(
       `SELECT 
         COUNT(*) as total_sessions,
@@ -290,7 +262,6 @@ export const getProgress = async (req, res) => {
       [userId]
     );
 
-    // Get mastery
     const masteryResult = await db.query(
       `SELECT 
         subject,
@@ -302,7 +273,6 @@ export const getProgress = async (req, res) => {
       [userId]
     );
 
-    // Get weaknesses
     const weaknessesResult = await db.query(
       `SELECT 
         subject,
@@ -317,7 +287,6 @@ export const getProgress = async (req, res) => {
       [userId]
     );
 
-    // ✅ Return proper response
     const responseData = {
       success: true,
       progress: {
@@ -333,8 +302,6 @@ export const getProgress = async (req, res) => {
   } catch (error) {
     console.error('❌ getProgress ERROR:', error);
     console.error('❌ Error stack:', error.stack);
-    
-    // Return a default response so UI doesn't break
     return res.json({
       success: true,
       progress: {
@@ -345,9 +312,6 @@ export const getProgress = async (req, res) => {
     });
   }
 };
-
-// backend/src/controllers/orbitController.js
-// ✅ Complete getWeaknesses
 
 export const getWeaknesses = async (req, res) => {
   try {
@@ -379,7 +343,6 @@ export const getWeaknesses = async (req, res) => {
     );
 
     console.log(`📤 Found ${result.rows.length} weaknesses`);
-    
     return res.json({
       success: true,
       weaknesses: result.rows
@@ -387,8 +350,6 @@ export const getWeaknesses = async (req, res) => {
 
   } catch (error) {
     console.error('❌ getWeaknesses ERROR:', error);
-    
-    // Return empty array on error
     return res.json({
       success: true,
       weaknesses: []
