@@ -149,7 +149,7 @@ export default function DashboardPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  // ---- State (unchanged) ----
+  // ---- State ----
   const [stats, setStats] = useState({ totalXP: 0, todayXP: 0, streakDays: 0, rank: '#?', completed: 0 });
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -227,7 +227,7 @@ export default function DashboardPage() {
     minute: '2-digit',
   });
 
-  // ---- Data loading (unchanged) ----
+  // ---- Data loading ----
   useEffect(() => {
     const interval = setInterval(() => loadFeed(true), 5000);
     return () => clearInterval(interval);
@@ -330,7 +330,7 @@ export default function DashboardPage() {
 
   const selectDuration = (mins) => setSelectedDuration(mins);
 
-  // ---- Task functions (unchanged) ----
+  // ---- Task functions ----
   const handleAddTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
@@ -526,22 +526,23 @@ export default function DashboardPage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-4 lg:px-6 lg:py-6">
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
-        {/* ===== WELCOME HEADER (shared) ===== */}
-        <div className="flex flex-wrap items-start justify-between mb-4 gap-2">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-white">
+        {/* ===== WELCOME HEADER with spacing fix for mobile ===== */}
+        <div className="flex flex-wrap items-start justify-between mb-6 gap-2 pr-2 sm:pr-4 lg:pr-0">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl lg:text-3xl font-bold text-white truncate">
               {greeting}, {displayName} 👋
             </h1>
-            <p className="text-sm text-white/50 mt-1 flex items-center gap-2">
+            <p className="text-xs lg:text-sm text-white/50 mt-0.5 flex items-center gap-2">
               <Calendar size={14} /> {formattedDate} · {formattedTime}
             </p>
-            {/* Motivational message – visible on both mobile and desktop */}
-            <p className="text-sm text-white/40 italic mt-2">"{dailyQuote}"</p>
+            {/* Motivational quote – shown on both mobile and desktop */}
+            <p className="text-xs lg:text-sm text-white/40 italic mt-1">"{dailyQuote}"</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/10">
-              <Smile size={16} className="text-yellow-400" />
-              <span className="text-xs text-white/70">{user?.mood || 'Neutral'}</span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Mood badge – visible on all screens but hidden on very small if needed */}
+            <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-2.5 py-1 border border-white/10">
+              <Smile size={14} className="text-yellow-400" />
+              <span className="text-xs text-white/70 hidden xs:inline">{user?.mood || 'Neutral'}</span>
             </div>
             <HolographicAvatar />
           </div>
@@ -736,7 +737,7 @@ export default function DashboardPage() {
             </Link>
           </Card>
 
-          {/* ===== MOOD CARD (new) ===== */}
+          {/* MOOD CARD */}
           <Card className="mb-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
@@ -761,7 +762,7 @@ export default function DashboardPage() {
             </button>
           </Card>
 
-          {/* ===== AI SUGGESTIONS CARD (new) ===== */}
+          {/* AI SUGGESTIONS CARD */}
           <Card className="mb-4">
             <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-3">
               <Brain size={18} className="text-amber-400" /> AI Suggestions
@@ -904,7 +905,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ============================================================= */}
-        {/* DESKTOP LAYOUT – unchanged (already has all cards) */}
+        {/* DESKTOP LAYOUT – already has all cards */}
         {/* ============================================================= */}
         <div className="hidden lg:block">
           {/* Daily Progress Stats */}
@@ -1093,7 +1094,7 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            {/* Right Column – includes Mood, AI Suggestions, etc. */}
+            {/* Right Column */}
             <div className="space-y-6">
               {/* Mood */}
               <Card>
