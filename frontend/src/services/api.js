@@ -1,4 +1,5 @@
 ﻿// frontend/src/services/api.js
+// v2 – added get/post methods for Orbit
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const handleResponse = async (res) => {
