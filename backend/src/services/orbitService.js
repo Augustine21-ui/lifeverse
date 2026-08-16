@@ -8,7 +8,6 @@ import { generateOrbitActivity } from './aiService.js';
 // ============================================================
 
 const XP_CONFIG = {
-  // Cortex
   quiz: { base: 30, bonus: 10 },
   flashcards: { base: 20, bonus: 5 },
   memory_match: { base: 25, bonus: 8 },
@@ -17,16 +16,12 @@ const XP_CONFIG = {
   fill_blanks: { base: 30, bonus: 10 },
   match_pairs: { base: 25, bonus: 8 },
   puzzles: { base: 40, bonus: 15 },
-
-  // CluePath
   detective_mission: { base: 45, bonus: 20 },
   story_adventure: { base: 40, bonus: 15 },
   escape_challenge: { base: 50, bonus: 25 },
   solve_clues: { base: 35, bonus: 15 },
   educational_riddles: { base: 30, bonus: 10 },
   rapid_fire: { base: 25, bonus: 8 },
-
-  // Pathfinder
   knowledge_maze: { base: 40, bonus: 15 },
   hidden_object: { base: 30, bonus: 10 },
   reading_mission: { base: 35, bonus: 12 },
@@ -34,8 +29,6 @@ const XP_CONFIG = {
   interactive_diagram: { base: 30, bonus: 10 },
   sequence_builder: { base: 30, bonus: 10 },
   concept_maps: { base: 35, bonus: 12 },
-
-  // Reflex
   answer_shooter: { base: 20, bonus: 5 },
   bubble_pop: { base: 15, bonus: 3 },
   lightning_tap: { base: 15, bonus: 3 },
@@ -64,30 +57,25 @@ export const endSession = async (sessionId, score, totalQuestions, correctAnswer
     const session = await models.getSession(sessionId);
     if (!session) throw new Error('Session not found');
 
-    // Calculate XP
     const xpConfig = XP_CONFIG[session.activity_type] || { base: 25, bonus: 5 };
     const percentage = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0;
     const xpEarned = Math.round(xpConfig.base + (percentage / 100) * xpConfig.bonus);
 
-    // Update session
     const completed = await models.completeSession(
       sessionId, score, totalQuestions, correctAnswers, timeSpent, xpEarned
     );
 
-    // Update mastery
     await models.updateMastery(
       session.user_id, session.subject, session.topic,
       percentage >= 60, xpEarned
     );
 
-    // Save activity history
     await models.saveActivityHistory(
       session.user_id, sessionId, session.activity_type, session.orbit_type,
       session.subject, session.topic, score, totalQuestions, correctAnswers,
       timeSpent, xpEarned
     );
 
-    // Award XP to user
     await db.query(
       `UPDATE users SET xp = xp + $1, level = FLOOR((xp + $1) / 500) + 1 WHERE id = $2`,
       [xpEarned, session.user_id]
@@ -101,7 +89,7 @@ export const endSession = async (sessionId, score, totalQuestions, correctAnswer
 };
 
 // ============================================================
-// ACTIVITY GENERATION (using new AI generators)
+// ACTIVITY GENERATION (single definition)
 // ============================================================
 
 export const generateActivity = async (sessionId, activityType) => {
@@ -109,7 +97,6 @@ export const generateActivity = async (sessionId, activityType) => {
     const session = await models.getSession(sessionId);
     if (!session) throw new Error('Session not found');
 
-    // Get user context
     const userResult = await db.query(
       `SELECT id, full_name, education_level, course, learning_style FROM users WHERE id = $1`,
       [session.user_id]
@@ -123,16 +110,12 @@ export const generateActivity = async (sessionId, activityType) => {
       learningStyle: user.learning_style || 'visual'
     };
 
-    // Generate content using the new AI generators
     const content = await generateOrbitActivity(activityType, context);
 
-    // Save activity
     const activity = await models.saveActivity(sessionId, activityType, content);
-
     return activity;
   } catch (error) {
     console.error('Error generating orbit activity:', error);
-    // Fallback mock
     return generateMockActivity(sessionId, activityType);
   }
 };
@@ -143,19 +126,14 @@ export const generateActivity = async (sessionId, activityType) => {
 
 export const submitAnswer = async (activityId, userAnswer, timeTaken) => {
   try {
-    const activity = await db.query(
-      `SELECT * FROM orbit_activities WHERE id = $1`,
-      [activityId]
-    );
+    const activity = await db.query(`SELECT * FROM orbit_activities WHERE id = $1`, [activityId]);
     if (!activity.rows[0]) throw new Error('Activity not found');
 
     const content = activity.rows[0].content;
     const isCorrect = evaluateAnswer(content, userAnswer);
 
-    // Update activity
     const updated = await models.submitActivityAnswer(activityId, userAnswer, isCorrect, timeTaken);
 
-    // Update session
     const session = await models.getSession(activity.rows[0].session_id);
     if (session) {
       const newTotal = session.total_questions + 1;
@@ -169,12 +147,10 @@ export const submitAnswer = async (activityId, userAnswer, timeTaken) => {
         time_spent: session.time_spent + timeTaken
       });
 
-      // Track weakness if incorrect
       if (!isCorrect) {
-        const concept = content.concept || session.topic;
         await models.updateWeakness(
           session.user_id, session.subject, session.topic,
-          concept, false
+          content.concept || session.topic, false
         );
       }
     }
@@ -215,38 +191,32 @@ export const getWeaknesses = async (userId) => {
 export const evaluateAnswer = (content, userAnswer) => {
   if (!content || !userAnswer) return false;
 
-  // Quiz / multiple choice
   if (content.questions && content.questions.length > 0) {
     const question = content.questions[0];
     return userAnswer.correct === question.correct;
   }
 
-  // Flashcards / Q&A
   if (content.flashcards) {
     return userAnswer.answer?.toLowerCase() === content.flashcards[0]?.answer?.toLowerCase();
   }
 
-  // Memory match / pairs
   if (content.pairs) {
-    return userAnswer.match === true; // simplified
+    return userAnswer.match === true;
   }
 
-  // Crossword
   if (content.clues) {
     return userAnswer.answer?.toLowerCase() === content.clues[0]?.answer?.toLowerCase();
   }
 
-  // Rapid fire / quick answer
   if (content.questions && !content.questions[0]?.options) {
     return userAnswer.answer?.toLowerCase() === content.questions[0]?.answer?.toLowerCase();
   }
 
-  // Default fallback
   return false;
 };
 
 // ============================================================
-// MOCK GENERATOR (fallback when AI fails)
+// MOCK GENERATOR (fallback)
 // ============================================================
 
 const generateMockActivity = (sessionId, activityType) => {
@@ -257,7 +227,7 @@ const generateMockActivity = (sessionId, activityType) => {
           question: 'What is the main concept of this topic?',
           options: ['Option A', 'Option B', 'Option C', 'Option D'],
           correct: 0,
-          explanation: 'This is a mock question. Enable AI for real content.'
+          explanation: 'Mock content – enable AI for real questions.'
         }
       ]
     },
