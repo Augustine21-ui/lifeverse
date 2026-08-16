@@ -58,3 +58,5 @@ export const orbitApi = {
     return response.data;
   }
 };
+
+export default orbitApi;
