@@ -6,7 +6,7 @@ import {
   Flame, Calendar, CheckCircle, Clock, Zap, Plus, Trash2, Users, Play,
   Home, User, Rocket, Sparkles, Star, BookOpen, PenTool, Bell, Lightbulb,
   X, Edit2, Calendar as CalendarIcon, Clock as ClockIcon, Bell as BellIcon,
-  Crown, Gift, MessageSquare, Heart, Award, Coffee, Brain, Smile, Zap as ZapIcon,
+  Crown, Gift, MessageSquare, Heart, Award, Coffee, Brain, Smile,
   TrendingUp, Repeat, Target, BarChart2, Menu
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
@@ -16,7 +16,7 @@ import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
 
-// ---- Confetti canvas ----
+// ---- Confetti ----
 function Confetti({ active, onComplete }) {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -135,7 +135,7 @@ const MobileNav = ({ active, navigate }) => {
   );
 };
 
-// ---- Reusable Card Component ----
+// ---- Reusable Card ----
 const Card = ({ children, className = '', gradient = false }) => (
   <div className={`bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 transition-all hover:border-white/20 ${
     gradient ? 'bg-gradient-to-br from-purple-900/30 to-blue-900/30' : ''
@@ -513,9 +513,6 @@ export default function DashboardPage() {
     return null;
   };
 
-  // ===================================================================
-  // RENDER
-  // ===================================================================
   return (
     <div
       className="relative min-h-screen bg-cover bg-center bg-fixed pb-16 lg:pb-0"
@@ -526,7 +523,7 @@ export default function DashboardPage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-4 lg:px-6 lg:py-6">
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
-        {/* ===== WELCOME HEADER with spacing fix for mobile ===== */}
+        {/* ===== WELCOME HEADER – improved mobile spacing ===== */}
         <div className="flex flex-wrap items-start justify-between mb-6 gap-2 pr-2 sm:pr-4 lg:pr-0">
           <div className="flex-1 min-w-0">
             <h1 className="text-xl lg:text-3xl font-bold text-white truncate">
@@ -535,16 +532,18 @@ export default function DashboardPage() {
             <p className="text-xs lg:text-sm text-white/50 mt-0.5 flex items-center gap-2">
               <Calendar size={14} /> {formattedDate} · {formattedTime}
             </p>
-            {/* Motivational quote – shown on both mobile and desktop */}
             <p className="text-xs lg:text-sm text-white/40 italic mt-1">"{dailyQuote}"</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Mood badge – visible on all screens but hidden on very small if needed */}
+          <div className="flex items-center gap-2 flex-shrink-0 ml-1 sm:ml-2">
+            {/* Mood badge */}
             <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-2.5 py-1 border border-white/10">
               <Smile size={14} className="text-yellow-400" />
               <span className="text-xs text-white/70 hidden xs:inline">{user?.mood || 'Neutral'}</span>
             </div>
-            <HolographicAvatar />
+            {/* Avatar – scaled down on mobile */}
+            <div className="scale-90 sm:scale-100 transition-transform">
+              <HolographicAvatar />
+            </div>
           </div>
         </div>
 
@@ -552,7 +551,7 @@ export default function DashboardPage() {
         {renderSubscriptionBanner()}
 
         {/* ============================================================= */}
-        {/* MOBILE LAYOUT */}
+        {/* MOBILE LAYOUT (all cards) */}
         {/* ============================================================= */}
         <div className="lg:hidden">
           {/* Progress Card */}
@@ -737,7 +736,7 @@ export default function DashboardPage() {
             </Link>
           </Card>
 
-          {/* MOOD CARD */}
+          {/* Mood Card */}
           <Card className="mb-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
@@ -762,7 +761,7 @@ export default function DashboardPage() {
             </button>
           </Card>
 
-          {/* AI SUGGESTIONS CARD */}
+          {/* AI Suggestions Card */}
           <Card className="mb-4">
             <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-3">
               <Brain size={18} className="text-amber-400" /> AI Suggestions
@@ -1094,7 +1093,7 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            {/* Right Column */}
+            {/* Right Column – all auxiliary cards */}
             <div className="space-y-6">
               {/* Mood */}
               <Card>
