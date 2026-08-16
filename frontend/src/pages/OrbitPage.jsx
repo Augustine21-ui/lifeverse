@@ -1,307 +1,512 @@
 // frontend/src/pages/OrbitPage.jsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { orbitApi } from '../services/orbitApi';
-import LifeCore from '../components/orbit/LifeCore';
-import OrbitActivities from '../components/orbit/OrbitActivities';
-import OrbitActivityRenderer from '../components/orbit/OrbitActivityRenderer';
-import { Loader2, ArrowLeft } from 'lucide-react';
+// ⚠️ REPLACE ENTIRE FILE WITH THIS
 
-const ORBIT_PLANETS = [
-  { id: 'cortex', name: 'Cortex', icon: '🧠', color: '#8B5CF6' },
-  { id: 'cluepath', name: 'CluePath', icon: '🕵️', color: '#F59E0B' },
-  { id: 'pathfinder', name: 'Pathfinder', icon: '🧭', color: '#10B981' },
-  { id: 'reflex', name: 'Reflex', icon: '⚡', color: '#EF4444' },
-];
-
-// Planet positions (percentage-based)
-const PLANET_POSITIONS = [
-  { top: '12%', left: '50%' },   // Cortex (top)
-  { top: '50%', left: '88%' },   // CluePath (right)
-  { top: '88%', left: '50%' },   // Pathfinder (bottom)
-  { top: '50%', left: '12%' },   // Reflex (left)
-];
+import React, { useState, useEffect, useCallback } from 'react';
+// ✅ IMPORT USING DEFAULT IMPORT
+import orbitApi from '../services/orbitApi';
+import './OrbitPage.css';
 
 const OrbitPage = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const [subject, setSubject] = useState(location.state?.subject || 'Select Subject');
-  const [topic, setTopic] = useState(location.state?.topic || '');
-  const [progress, setProgress] = useState(0);
-  const [selectedOrbit, setSelectedOrbit] = useState(null);
-  const [sessionId, setSessionId] = useState(null);
-  const [activity, setActivity] = useState(null);
+  const [selectedPlanet, setSelectedPlanet] = useState(null);
+  const [session, setSession] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [currentActivity, setCurrentActivity] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [progress, setProgress] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
-  const [sessionResult, setSessionResult] = useState(null);
+  const [userAnswer, setUserAnswer] = useState('');
+  const [apiReady, setApiReady] = useState(false);
 
-  // Auto-launch from StudySphere
+  // Planet configuration
+  const planets = [
+    { id: 'mind', label: 'Mind', color: '#6C63FF', icon: '🧠', bg: 'rgba(108, 99, 255, 0.1)' },
+    { id: 'body', label: 'Body', color: '#FF6B6B', icon: '💪', bg: 'rgba(255, 107, 107, 0.1)' },
+    { id: 'spirit', label: 'Spirit', color: '#4ECDC4', icon: '✨', bg: 'rgba(78, 205, 196, 0.1)' },
+    { id: 'social', label: 'Social', color: '#FFE66D', icon: '🤝', bg: 'rgba(255, 230, 109, 0.1)' },
+  ];
+
+  // ============================================================
+  // CHECK API ON MOUNT
+  // ============================================================
   useEffect(() => {
-    if (location.state?.autoLaunch) {
-      const orbit = location.state.orbitType || 'cortex';
-      const activityType = location.state.activityType || 'quiz';
-      handleOrbitSelect(orbit, activityType);
+    console.log('🔍 OrbitPage mounted');
+    console.log('📦 orbitApi:', Object.keys(orbitApi));
+    console.log('🧪 orbitApi.startSession:', typeof orbitApi.startSession);
+    console.log('🧪 orbitApi.getProgress:', typeof orbitApi.getProgress);
+    
+    // Check if the API methods are available
+    const hasStartSession = typeof orbitApi.startSession === 'function';
+    const hasGetProgress = typeof orbitApi.getProgress === 'function';
+    
+    if (hasStartSession && hasGetProgress) {
+      setApiReady(true);
+      console.log('✅ Orbit API is ready!');
+    } else {
+      console.error('❌ Orbit API is NOT ready!');
+      setError('API not ready. Please refresh the page.');
     }
-  }, [location.state]);
+  }, []);
 
-  // Fetch progress
+  // ============================================================
+  // LOAD PROGRESS
+  // ============================================================
   useEffect(() => {
+    if (!apiReady) return;
+
     const fetchProgress = async () => {
       try {
+        console.log('📈 Fetching progress...');
         const data = await orbitApi.getProgress();
-        if (data.mastery && data.mastery.length > 0) {
-          const matched = data.mastery.find(
-            m => m.subject === subject && m.topic === topic
-          );
-          if (matched) setProgress(matched.mastery_level);
-        }
+        console.log('📊 Progress data:', data);
+        setProgress(data?.progress || null);
       } catch (err) {
-        console.error('Failed to fetch orbit progress:', err);
+        console.warn('⚠️ Could not load progress:', err.message);
+        // Don't set error here - this is non-critical
       }
     };
-    if (subject !== 'Select Subject') fetchProgress();
-  }, [subject, topic]);
+    fetchProgress();
+  }, [apiReady]);
 
-  const handleOrbitSelect = async (orbitId, activityType) => {
-    setLoading(true);
-    try {
-      const session = await orbitApi.startSession(
-        subject || 'General',
-        topic || 'Learning',
-        orbitId,
-        activityType || 'quiz'
-      );
-      setSessionId(session.sessionId);
-      setSelectedOrbit(orbitId);
-      const act = await orbitApi.generateActivity(session.sessionId, activityType || 'quiz');
-      setActivity(act.activity);
-    } catch (error) {
-      console.error('Error starting orbit session:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleActivitySelect = async (activityType) => {
-    if (!sessionId) {
-      await handleOrbitSelect(selectedOrbit, activityType);
+  // ============================================================
+  // HANDLE PLANET CLICK
+  // ============================================================
+  const handlePlanetClick = useCallback(async (planet) => {
+    console.log(`🌍 Clicked planet: ${planet.id} - ${planet.label}`);
+    
+    if (!apiReady) {
+      setError('API is not ready. Please refresh the page.');
       return;
     }
+
+    setSelectedPlanet(planet);
     setLoading(true);
+    setError(null);
+    setShowSummary(false);
+    setActivities([]);
+    setCurrentActivity(null);
+
     try {
-      const act = await orbitApi.generateActivity(sessionId, activityType);
-      setActivity(act.activity);
-    } catch (error) {
-      console.error('Error generating activity:', error);
+      console.log('🚀 Calling orbitApi.startSession...');
+      const result = await orbitApi.startSession(
+        planet.id,
+        `Exploring ${planet.label}`,
+        'exploration',
+        'introduction'
+      );
+      
+      console.log('✅ Session started:', result);
+      setSession(result?.session || null);
+      
+      if (result?.activity) {
+        setActivities([result.activity]);
+        setCurrentActivity(result.activity);
+        console.log('📝 First activity:', result.activity);
+      } else {
+        console.warn('⚠️ No activity returned from startSession');
+      }
+    } catch (err) {
+      console.error('❌ Error starting orbit session:', err);
+      setError(err.message || 'Failed to start Orbit session');
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiReady]);
 
-  const handleActivitySubmit = async (answers) => {
-    if (!activity) return;
+  // ============================================================
+  // GENERATE NEXT ACTIVITY
+  // ============================================================
+  const handleGenerateNext = useCallback(async () => {
+    if (!session) {
+      console.warn('⚠️ No active session to generate activity');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      await orbitApi.submitAnswer(activity.id, answers, 30);
-      const progressData = await orbitApi.getProgress();
-      if (progressData.mastery && progressData.mastery.length > 0) {
-        const mastered = progressData.mastery.find(
-          m => m.subject === subject && m.topic === topic
-        );
-        if (mastered) setProgress(mastered.mastery_level);
+      console.log(`🎯 Generating next activity for session: ${session.id}`);
+      const result = await orbitApi.generateActivity(session.id);
+      
+      if (result?.activity) {
+        setActivities(prev => [...prev, result.activity]);
+        setCurrentActivity(result.activity);
+        setUserAnswer('');
+        console.log('📝 New activity generated:', result.activity);
+      } else {
+        console.warn('⚠️ No activity returned from generateActivity');
       }
-      setActivity(null);
-    } catch (error) {
-      console.error('Submit error:', error);
+    } catch (err) {
+      console.error('❌ Error generating activity:', err);
+      setError(err.message || 'Failed to generate next activity');
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [session]);
 
-  const handleBack = () => {
-    if (activity) {
-      setActivity(null);
-    } else if (selectedOrbit) {
-      setSelectedOrbit(null);
-    } else {
-      navigate('/dashboard');
+  // ============================================================
+  // SUBMIT ANSWER
+  // ============================================================
+  const handleSubmitAnswer = useCallback(async () => {
+    if (!session || !currentActivity) {
+      console.warn('⚠️ No session or activity to submit');
+      return;
     }
-  };
 
-  const handleEndSession = async () => {
-    if (!sessionId) return;
+    if (!userAnswer.trim()) {
+      setError('Please enter an answer');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      const result = await orbitApi.endSession(sessionId, 0, 0, 0, 0);
-      setSessionResult(result);
-      setShowSummary(true);
-    } catch (error) {
-      console.error('Error ending session:', error);
+      console.log(`✅ Submitting answer for activity: ${currentActivity.id}`);
+      const result = await orbitApi.submitActivity(
+        session.id,
+        currentActivity.id,
+        userAnswer
+      );
+
+      console.log('📊 Submit result:', result);
+      
+      // Show feedback
+      if (result.isCorrect !== undefined) {
+        const message = result.isCorrect 
+          ? '✅ Correct! Well done!' 
+          : `❌ ${result.feedback || 'Incorrect. Keep learning!'}`;
+        alert(message);
+      }
+
+      // Move to next activity
+      await handleGenerateNext();
+    } catch (err) {
+      console.error('❌ Error submitting answer:', err);
+      setError(err.message || 'Failed to submit answer');
+    } finally {
+      setLoading(false);
     }
+  }, [session, currentActivity, userAnswer, handleGenerateNext]);
+
+  // ============================================================
+  // END SESSION
+  // ============================================================
+  const handleEndSession = useCallback(async () => {
+    if (!session) {
+      console.warn('⚠️ No session to end');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log(`🏁 Ending session: ${session.id}`);
+      await orbitApi.endSession(session.id);
+      setShowSummary(true);
+      setSession(null);
+      setCurrentActivity(null);
+      
+      // Reload progress
+      try {
+        const data = await orbitApi.getProgress();
+        setProgress(data?.progress || null);
+      } catch (e) {
+        console.warn('⚠️ Could not reload progress:', e.message);
+      }
+    } catch (err) {
+      console.error('❌ Error ending session:', err);
+      setError(err.message || 'Failed to end session');
+    } finally {
+      setLoading(false);
+    }
+  }, [session]);
+
+  // ============================================================
+  // RESET
+  // ============================================================
+  const handleReset = useCallback(() => {
+    setSelectedPlanet(null);
+    setSession(null);
+    setActivities([]);
+    setCurrentActivity(null);
+    setShowSummary(false);
+    setError(null);
+    setUserAnswer('');
+  }, []);
+
+  // ============================================================
+  // RENDER ACTIVITY CONTENT
+  // ============================================================
+  const renderActivityContent = (activity) => {
+    if (!activity) {
+      return <p>No activity data available</p>;
+    }
+
+    let content = activity.content;
+    if (typeof content === 'string') {
+      try {
+        content = JSON.parse(content);
+      } catch (e) {
+        // If it's not valid JSON, use it as a string
+        return <p>{content}</p>;
+      }
+    }
+
+    if (!content || typeof content !== 'object') {
+      return <p>Invalid activity content</p>;
+    }
+
+    return (
+      <div className="activity-content">
+        {content.title && <h3>{content.title}</h3>}
+        {content.description && <p>{content.description}</p>}
+        
+        {content.questions && content.questions.length > 0 && (
+          <div className="questions-container">
+            {content.questions.map((q, idx) => (
+              <div key={idx} className="question-item">
+                <p><strong>Q{idx + 1}:</strong> {q.question}</p>
+                {q.options && (
+                  <ul className="options-list">
+                    {q.options.map((opt, optIdx) => (
+                      <li key={optIdx}>{opt}</li>
+                    ))}
+                  </ul>
+                )}
+                {q.explanation && (
+                  <p className="explanation">💡 {q.explanation}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
-  // ---- Render ----
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-black/80">
-        <Loader2 className="animate-spin text-brand-500" size={48} />
-      </div>
-    );
-  }
-
-  if (showSummary && sessionResult) {
-    return (
-      <div className="min-h-screen bg-cover bg-center bg-fixed" style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}>
-        <div className="absolute inset-0 bg-black/60 z-0" />
-        <div className="relative z-10 max-w-2xl mx-auto px-4 py-8">
-          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-8 border border-white/10 text-center">
-            <h2 className="text-2xl font-bold text-white mb-4">🎉 Session Complete</h2>
-            <p className="text-white/60">Score: {sessionResult.score}%</p>
-            <p className="text-white/60">XP Earned: {sessionResult.xpEarned}</p>
-            <button
-              onClick={() => { setShowSummary(false); setSessionResult(null); setSelectedOrbit(null); setSessionId(null); }}
-              className="mt-6 px-6 py-3 bg-brand-500 text-white rounded-xl hover:opacity-90 transition"
-            >
-              Continue Learning
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (activity) {
-    return (
-      <div className="min-h-screen bg-cover bg-center bg-fixed" style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}>
-        <div className="absolute inset-0 bg-black/60 z-0" />
-        <div className="relative z-10 max-w-4xl mx-auto px-4 py-6">
-          <OrbitActivityRenderer
-            activity={activity}
-            onSubmit={handleActivitySubmit}
-            onBack={handleBack}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (selectedOrbit) {
-    const planet = ORBIT_PLANETS.find(p => p.id === selectedOrbit);
-    return (
-      <div className="min-h-screen bg-cover bg-center bg-fixed" style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}>
-        <div className="absolute inset-0 bg-black/60 z-0" />
-        <div className="relative z-10 max-w-4xl mx-auto px-4 py-6">
-          <button onClick={handleBack} className="flex items-center gap-2 text-white/60 hover:text-white mb-4 transition">
-            <ArrowLeft size={18} /> Back to Solar System
-          </button>
-          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
-            <div className="flex items-center gap-4 mb-6">
-              <span className="text-3xl">{planet?.icon}</span>
-              <div>
-                <h2 className="text-xl font-bold text-white">{planet?.name} Orbit</h2>
-                <p className="text-sm text-white/40">Select an activity to start learning</p>
-              </div>
-            </div>
-            <OrbitActivities
-              orbitType={selectedOrbit}
-              onSelectActivity={handleActivitySelect}
-            />
-            <button
-              onClick={handleEndSession}
-              className="mt-6 text-sm text-white/30 hover:text-white/60 transition"
-            >
-              End Session
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ---- Solar System View ----
+  // ============================================================
+  // MAIN RENDER
+  // ============================================================
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black">
-      {/* Cosmic background with stars */}
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-900/40 via-black to-blue-900/20 z-0" />
-      <div className="absolute inset-0 z-0">
-        {[...Array(200)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-white animate-twinkle"
-            style={{
-              width: Math.random() * 3 + 1 + 'px',
-              height: Math.random() * 3 + 1 + 'px',
-              top: Math.random() * 100 + '%',
-              left: Math.random() * 100 + '%',
-              opacity: Math.random() * 0.8 + 0.2,
-              animationDelay: Math.random() * 5 + 's',
-              animationDuration: Math.random() * 3 + 2 + 's',
-            }}
-          />
-        ))}
+    <div className="orbit-page">
+      {/* Header */}
+      <header className="orbit-header">
+        <h1>🚀 Orbit Learning</h1>
+        {progress && (
+          <div className="progress-stats">
+            <span>📚 {progress.sessions?.total_sessions || 0} sessions</span>
+            <span>⭐ {progress.sessions?.total_score || 0} XP</span>
+            <span>🏆 {progress.mastery?.length || 0} topics</span>
+          </div>
+        )}
+      </header>
+
+      {/* API Status */}
+      {!apiReady && (
+        <div className="api-status">
+          <span>⏳ Loading API...</span>
+        </div>
+      )}
+
+      {/* Solar System */}
+      <div className="solar-system">
+        <div className="orbit-rings">
+          <div className="ring ring-1"></div>
+          <div className="ring ring-2"></div>
+          <div className="ring ring-3"></div>
+        </div>
+
+        <div className="life-core" onClick={() => !session && handleReset()}>
+          <span className="core-icon">☀️</span>
+          <span className="core-label">Life Core</span>
+          {session && <span className="core-status">Active</span>}
+        </div>
+
+        <div className="planets-container">
+          {planets.map((planet, index) => (
+            <button
+              key={planet.id}
+              className={`planet ${selectedPlanet?.id === planet.id ? 'active' : ''} 
+                         ${session ? 'disabled' : ''}`}
+              style={{ 
+                '--planet-color': planet.color,
+                '--planet-bg': planet.bg,
+                animationDelay: `${index * 0.5}s`,
+              }}
+              onClick={() => handlePlanetClick(planet)}
+              disabled={loading || !!session || !apiReady}
+              title={
+                !apiReady ? 'Loading API...' :
+                session ? 'Complete current session first' : 
+                `Start ${planet.label} orbit`
+              }
+            >
+              <div className="planet-glow"></div>
+              <span className="planet-icon">{planet.icon}</span>
+              <span className="planet-label">{planet.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Back button */}
-      <button
-        onClick={() => navigate('/dashboard')}
-        className="absolute top-6 left-6 z-20 text-white/40 hover:text-white transition flex items-center gap-2 text-sm"
-      >
-        <ArrowLeft size={18} /> Dashboard
-      </button>
-
-      {/* Solar System Container */}
-      <div className="relative z-10 flex items-center justify-center min-h-screen px-4">
-        <div className="relative w-full max-w-4xl aspect-square">
-          {/* Rotating Orbit Rings */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-[10%] border border-white/10 rounded-full animate-spin-slow" />
-            <div className="absolute inset-[20%] border border-white/5 rounded-full animate-spin-reverse" style={{ animationDuration: '25s' }} />
-            <div className="absolute inset-[30%] border border-white/5 rounded-full animate-spin-slow" style={{ animationDuration: '20s' }} />
-          </div>
-
-          {/* Planets */}
-          {ORBIT_PLANETS.map((planet, index) => {
-            const pos = PLANET_POSITIONS[index] || { top: '50%', left: '50%' };
-            return (
-              <div
-                key={planet.id}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer hover:scale-110 transition-transform duration-300"
-                style={{ top: pos.top, left: pos.left }}
-                onClick={() => handleOrbitSelect(planet.id)}
-              >
-                <div className="flex flex-col items-center">
-                  <div
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-3xl sm:text-4xl shadow-2xl"
-                    style={{
-                      background: `radial-gradient(circle at 30% 30%, ${planet.color}80, ${planet.color}30)`,
-                      boxShadow: `0 0 40px ${planet.color}40, inset 0 0 30px ${planet.color}20`,
-                      border: `2px solid ${planet.color}60`,
-                    }}
-                  >
-                    <span className="relative z-10">{planet.icon}</span>
-                  </div>
-                  <span className="text-xs sm:text-sm font-medium text-white/80 mt-2 text-center">{planet.name}</span>
-                  <span className="text-[10px] text-white/30">0 activities</span>
+      {/* Session Content */}
+      {(session || showSummary) && !error && (
+        <div className="session-container">
+          {showSummary ? (
+            <div className="session-summary">
+              <h2>🎉 Session Complete!</h2>
+              <div className="summary-stats">
+                <div className="stat-item">
+                  <span className="stat-value">{activities.length}</span>
+                  <span className="stat-label">Activities</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-value">{session?.subject || 'N/A'}</span>
+                  <span className="stat-label">Subject</span>
                 </div>
               </div>
-            );
-          })}
+              <button onClick={handleReset} className="btn-primary">
+                Start New Session
+              </button>
+            </div>
+          ) : (
+            <div className="session-content">
+              <div className="session-header">
+                <div className="session-info">
+                  <h2>
+                    {session?.subject || 'Unknown'} - {session?.topic || 'Exploring'}
+                  </h2>
+                  <span className="session-status">Active</span>
+                </div>
+                <div className="session-actions">
+                  <span className="activity-count">
+                    Activity {activities.length}
+                  </span>
+                  <button 
+                    onClick={handleEndSession} 
+                    className="btn-danger"
+                    disabled={loading}
+                  >
+                    End Session
+                  </button>
+                </div>
+              </div>
 
-          {/* Life Core – centered */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
-            <LifeCore
-              subject={subject}
-              topic={topic}
-              progress={progress}
-              onBack={null}
-            />
+              {/* Current Activity */}
+              {currentActivity && (
+                <div className="activity-container">
+                  <div className="activity-card">
+                    <div className="activity-badge">
+                      {currentActivity.activity_type || 'Challenge'}
+                    </div>
+                    {renderActivityContent(currentActivity)}
+                  </div>
+
+                  {/* Answer Input */}
+                  <div className="answer-section">
+                    <textarea
+                      value={userAnswer}
+                      onChange={(e) => setUserAnswer(e.target.value)}
+                      placeholder="Type your answer here..."
+                      className="answer-input"
+                      rows={3}
+                      disabled={loading}
+                    />
+                    <button 
+                      onClick={handleSubmitAnswer}
+                      className="btn-primary"
+                      disabled={loading || !userAnswer.trim()}
+                    >
+                      {loading ? 'Submitting...' : 'Submit Answer →'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Generate Next Button */}
+              {currentActivity && (
+                <button 
+                  onClick={handleGenerateNext}
+                  className="btn-secondary"
+                  disabled={loading}
+                >
+                  {loading ? 'Loading...' : 'Skip & Generate Next →'}
+                </button>
+              )}
+
+              {/* Activity History */}
+              {activities.length > 1 && (
+                <div className="activity-history">
+                  <h4>📜 Activity History</h4>
+                  <div className="history-list">
+                    {activities.slice(0, -1).map((act, idx) => (
+                      <div key={act.id || idx} className="history-item">
+                        <span className="history-num">#{idx + 1}</span>
+                        <span className="history-type">{act.activity_type || 'Activity'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="spinner"></div>
+          <p>Orbiting...</p>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="error-container">
+          <div className="error-message">
+            <span className="error-icon">⚠️</span>
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="error-dismiss">
+              ✕
+            </button>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Footer hint */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10 text-xs text-white/20 text-center">
-        Tap a planet to explore its learning activities
-      </div>
+      {/* Welcome Section */}
+      {!session && !showSummary && !loading && !error && apiReady && (
+        <div className="welcome-section">
+          <p className="welcome-text">
+            🌍 Click a planet to start your orbit journey!
+          </p>
+          <div className="feature-grid">
+            <div className="feature-item">
+              <span>🧠</span>
+              <p>AI-Powered Learning</p>
+            </div>
+            <div className="feature-item">
+              <span>🎮</span>
+              <p>Gamified Experience</p>
+            </div>
+            <div className="feature-item">
+              <span>📊</span>
+              <p>Track Your Progress</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Not Ready */}
+      {!apiReady && !loading && (
+        <div className="welcome-section">
+          <p className="welcome-text">⏳ Initializing Orbit...</p>
+          <p style={{ fontSize: '0.8rem', opacity: 0.5 }}>
+            If this takes too long, try refreshing the page.
+          </p>
+        </div>
+      )}
     </div>
   );
 };
