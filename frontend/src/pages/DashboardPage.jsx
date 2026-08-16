@@ -523,7 +523,9 @@ export default function DashboardPage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-4 lg:px-6 lg:py-6">
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
-        {/* ===== WELCOME HEADER – improved mobile spacing ===== */}
+        {/* ============================================================= */}
+        {/* HEADER – with z-index fix for avatar */}
+        {/* ============================================================= */}
         <div className="flex flex-wrap items-start justify-between mb-6 gap-2 pr-2 sm:pr-4 lg:pr-0">
           <div className="flex-1 min-w-0">
             <h1 className="text-xl lg:text-3xl font-bold text-white truncate">
@@ -534,14 +536,14 @@ export default function DashboardPage() {
             </p>
             <p className="text-xs lg:text-sm text-white/40 italic mt-1">"{dailyQuote}"</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0 ml-1 sm:ml-2">
+          <div className="flex items-center gap-2 flex-shrink-0 ml-1 sm:ml-2 z-20 relative">
             {/* Mood badge */}
             <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-2.5 py-1 border border-white/10">
               <Smile size={14} className="text-yellow-400" />
               <span className="text-xs text-white/70 hidden xs:inline">{user?.mood || 'Neutral'}</span>
             </div>
-            {/* Avatar – scaled down on mobile */}
-            <div className="scale-90 sm:scale-100 transition-transform">
+            {/* Avatar – with higher z-index */}
+            <div className="scale-90 sm:scale-100 transition-transform z-50 relative">
               <HolographicAvatar />
             </div>
           </div>
@@ -551,7 +553,7 @@ export default function DashboardPage() {
         {renderSubscriptionBanner()}
 
         {/* ============================================================= */}
-        {/* MOBILE LAYOUT (all cards) */}
+        {/* MOBILE LAYOUT */}
         {/* ============================================================= */}
         <div className="lg:hidden">
           {/* Progress Card */}
@@ -904,7 +906,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ============================================================= */}
-        {/* DESKTOP LAYOUT – already has all cards */}
+        {/* DESKTOP LAYOUT – all cards present */}
         {/* ============================================================= */}
         <div className="hidden lg:block">
           {/* Daily Progress Stats */}
@@ -1093,7 +1095,7 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            {/* Right Column – all auxiliary cards */}
+            {/* Right Column */}
             <div className="space-y-6">
               {/* Mood */}
               <Card>
