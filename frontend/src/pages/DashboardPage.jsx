@@ -1,4 +1,3 @@
-// ✅ Replace your current DashboardPage.jsx with this responsive version
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -7,8 +6,7 @@ import {
   Flame, Calendar, CheckCircle, Clock, Zap, Plus, Trash2, Users, Play,
   Home, User, Rocket, Sparkles, Star, BookOpen, PenTool, Bell, Lightbulb,
   X, Edit2, Calendar as CalendarIcon, Clock as ClockIcon, Bell as BellIcon,
-  Crown, Gift, MessageSquare, Heart, Target, Brain, Coffee, BarChart2,
-  Repeat, Award, TrendingUp, Menu
+  Crown, Gift, MessageSquare, Heart, Award, Coffee
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import QuizModal from '../components/QuizModal';
@@ -17,7 +15,7 @@ import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
 
-// ---- Confetti (unchanged) ----
+// ---- Confetti canvas (unchanged) ----
 function Confetti({ active, onComplete }) {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -102,7 +100,7 @@ const MOCK_NOTIFICATIONS = [
   { id: 4, message: 'Bridge message from your parent', type: 'bridge' },
 ];
 
-// ---- Mobile Bottom Navigation (hidden on desktop) ----
+// ---- Mobile Navigation ----
 const MobileNav = ({ active, navigate }) => {
   const navItems = [
     { id: 'home', icon: Home, label: 'Home', path: '/dashboard' },
@@ -141,7 +139,7 @@ export default function DashboardPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  // ---- All state (unchanged) ----
+  // ---- State (unchanged) ----
   const [stats, setStats] = useState({ totalXP: 0, todayXP: 0, streakDays: 0, rank: '#?', completed: 0 });
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -285,7 +283,7 @@ export default function DashboardPage() {
     loadFocusRemaining();
   }, []);
 
-  // ---- Focus Session ----
+  // ---- Focus Session (unchanged) ----
   const startFocusSession = () => {
     if (!focusTopic.trim() || focusRemaining <= 0) return;
     setFocusMode(true);
@@ -319,7 +317,7 @@ export default function DashboardPage() {
 
   const selectDuration = (mins) => setSelectedDuration(mins);
 
-  // ---- Task functions ----
+  // ---- Task functions (unchanged) ----
   const handleAddTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
@@ -503,7 +501,7 @@ export default function DashboardPage() {
   };
 
   // ===================================================================
-  // 📱 RENDER – Responsive: Mobile on small, Desktop on large
+  // RENDER
   // ===================================================================
   return (
     <div
@@ -518,12 +516,8 @@ export default function DashboardPage() {
         {/* ===== HERO (shared) ===== */}
         <div className="flex flex-wrap items-start justify-between mb-4 gap-2">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-white">
-              👋 {displayName}
-            </h1>
-            <p className="text-xs text-white/50 mt-0.5">
-              {formattedDate} · {formattedTime}
-            </p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-white">👋 {displayName}</h1>
+            <p className="text-xs text-white/50 mt-0.5">{formattedDate} · {formattedTime}</p>
             <p className="text-xs text-white/30 italic mt-1 hidden lg:block">"{dailyQuote}"</p>
           </div>
           <HolographicAvatar />
@@ -532,9 +526,11 @@ export default function DashboardPage() {
         {/* ===== Subscription Banner ===== */}
         {renderSubscriptionBanner()}
 
-        {/* ===== MOBILE LAYOUT (visible on small screens) ===== */}
+        {/* ============================================================= */}
+        {/* MOBILE LAYOUT (visible on small screens) */}
+        {/* ============================================================= */}
         <div className="lg:hidden">
-          {/* XP + Streak Card */}
+          {/* Progress Card */}
           <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 mb-4 border border-white/5">
             <div className="flex items-center justify-between">
               <div>
@@ -561,87 +557,107 @@ export default function DashboardPage() {
                 <div className="text-lg font-semibold text-white">{tasksDoneToday}/{totalTasks}</div>
               </div>
             </div>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
+              <div className="flex items-center gap-1">
+                <Clock size={14} className="text-cyan-400" />
+                <span className="text-xs text-white/60">{Math.floor(studyTime / 60)}h {studyTime % 60}m</span>
+                <span className="text-[10px] text-white/30">today</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Award size={14} className="text-yellow-400" />
+                <span className="text-xs text-white/60">#{stats.rank || 'N/A'}</span>
+              </div>
+            </div>
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-4 gap-2 mb-4">
+          <div className="grid grid-cols-5 gap-2 mb-4">
             <button onClick={() => navigate('/orbit')} className="bg-purple-500/20 backdrop-blur-sm border border-purple-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-purple-500/30 transition">
-              <Rocket size={20} className="text-purple-400" />
-              <span className="text-[10px] text-white/70">Orbit</span>
-            </button>
-            <button onClick={() => document.getElementById('focus-input')?.focus()} className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-cyan-500/30 transition">
-              <Clock size={20} className="text-cyan-400" />
-              <span className="text-[10px] text-white/70">Focus</span>
-            </button>
-            <button onClick={() => document.getElementById('task-input')?.focus()} className="bg-green-500/20 backdrop-blur-sm border border-green-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-green-500/30 transition">
-              <Plus size={20} className="text-green-400" />
-              <span className="text-[10px] text-white/70">Add Task</span>
+              <Rocket size={18} className="text-purple-400" />
+              <span className="text-[9px] text-white/70">Orbit</span>
             </button>
             <button onClick={() => navigate('/momentum')} className="bg-pink-500/20 backdrop-blur-sm border border-pink-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-pink-500/30 transition">
-              <Users size={20} className="text-pink-400" />
-              <span className="text-[10px] text-white/70">Social</span>
+              <Users size={18} className="text-pink-400" />
+              <span className="text-[9px] text-white/70">Social</span>
+            </button>
+            <button onClick={() => document.getElementById('task-input')?.focus()} className="bg-green-500/20 backdrop-blur-sm border border-green-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-green-500/30 transition">
+              <Plus size={18} className="text-green-400" />
+              <span className="text-[9px] text-white/70">Add Task</span>
+            </button>
+            <button onClick={() => navigate('/studysphere')} className="bg-blue-500/20 backdrop-blur-sm border border-blue-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-blue-500/30 transition">
+              <BookOpen size={18} className="text-blue-400" />
+              <span className="text-[9px] text-white/70">Study</span>
+            </button>
+            <button onClick={() => navigate('/bridge')} className="bg-amber-500/20 backdrop-blur-sm border border-amber-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-amber-500/30 transition">
+              <Users size={18} className="text-amber-400" />
+              <span className="text-[9px] text-white/70">Bridge</span>
             </button>
           </div>
 
-          {/* Focus + Tasks (compact row) */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/5">
-              <h3 className="text-xs font-semibold text-white/70 flex items-center gap-1.5 mb-2">
-                <Clock size={14} className="text-cyan-400" /> Focus
-              </h3>
-              <div className="flex gap-1 mb-2">
-                {[10, 25, 45].map((mins) => (
-                  <button
-                    key={mins}
-                    onClick={() => selectDuration(mins)}
-                    className={`flex-1 py-1 text-[10px] rounded-lg transition ${
-                      selectedDuration === mins
-                        ? 'bg-brand-500 text-white'
-                        : 'bg-white/5 text-white/50 hover:bg-white/10'
-                    }`}
-                  >
-                    {mins}m
-                  </button>
-                ))}
-              </div>
-              <input
-                id="focus-input"
-                type="text"
-                className="w-full bg-white/5 text-white text-xs rounded-lg px-2 py-1.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                placeholder="Topic..."
-                value={focusTopic}
-                onChange={(e) => setFocusTopic(e.target.value)}
-              />
-              <button
-                onClick={startFocusSession}
-                disabled={!focusTopic.trim() || focusRemaining <= 0}
-                className="w-full mt-2 py-1.5 rounded-lg bg-gradient-to-r from-brand-500 to-violet-600 text-white text-xs font-medium hover:opacity-90 transition disabled:opacity-50"
-              >
-                <Play size={12} className="inline mr-1" /> Start
-              </button>
-              <p className="text-[9px] text-white/30 text-center mt-1">
-                {focusRemaining > 0 ? `${focusRemaining} left today` : 'Limit reached'}
-              </p>
-            </div>
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/5">
-              <h3 className="text-xs font-semibold text-white/70 flex items-center gap-1.5 mb-2">
-                <CheckCircle size={14} className="text-green-400" /> Tasks
-              </h3>
-              <form onSubmit={handleAddTask} className="flex gap-1 mb-2">
-                <input
-                  id="task-input"
-                  type="text"
-                  className="flex-1 bg-white/5 text-white text-xs rounded-lg px-2 py-1.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                  placeholder="Add task..."
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                />
-                <button type="submit" disabled={actionLoading} className="px-2 py-1.5 bg-brand-500 text-white rounded-lg text-xs hover:opacity-90 transition">
-                  <Plus size={12} />
+          {/* Focus Session */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/5 mb-4">
+            <h3 className="text-xs font-semibold text-white/70 flex items-center gap-1.5 mb-2">
+              <Clock size={14} className="text-cyan-400" /> Focus Session
+            </h3>
+            <div className="flex gap-1 mb-2">
+              {[10, 25, 45].map((mins) => (
+                <button
+                  key={mins}
+                  onClick={() => selectDuration(mins)}
+                  className={`flex-1 py-1 text-[10px] rounded-lg transition ${
+                    selectedDuration === mins ? 'bg-brand-500 text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'
+                  }`}
+                >
+                  {mins}m
                 </button>
-              </form>
+              ))}
+            </div>
+            <input
+              id="focus-input"
+              type="text"
+              className="w-full bg-white/5 text-white text-xs rounded-lg px-2 py-1.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
+              placeholder="What do you want to focus on?"
+              value={focusTopic}
+              onChange={(e) => setFocusTopic(e.target.value)}
+            />
+            <button
+              onClick={startFocusSession}
+              disabled={!focusTopic.trim() || focusRemaining <= 0}
+              className="w-full mt-2 py-1.5 rounded-lg bg-gradient-to-r from-brand-500 to-violet-600 text-white text-xs font-medium hover:opacity-90 transition disabled:opacity-50"
+            >
+              <Play size={12} className="inline mr-1" /> Start Focus Session
+            </button>
+            <p className="text-[9px] text-white/30 text-center mt-1">
+              {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
+            </p>
+          </div>
+
+          {/* Today's Tasks */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/5 mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-xs font-semibold text-white/70 flex items-center gap-1.5">
+                <CheckCircle size={14} className="text-green-400" /> Today's Tasks
+              </h3>
+              <span className="text-[10px] text-white/30">{tasksDoneToday}/{totalTasks} done</span>
+            </div>
+            <form onSubmit={handleAddTask} className="flex gap-1 mb-2">
+              <input
+                id="task-input"
+                type="text"
+                className="flex-1 bg-white/5 text-white text-xs rounded-lg px-2 py-1.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                placeholder="Add a task..."
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+              />
+              <button type="submit" disabled={actionLoading} className="px-2 py-1.5 bg-brand-500 text-white rounded-lg text-xs hover:opacity-90 transition">
+                <Plus size={12} />
+              </button>
+            </form>
+            {tasks.length === 0 ? (
+              <p className="text-xs text-white/40 text-center py-2">✨ No tasks for today</p>
+            ) : (
               <div className="space-y-1 max-h-24 overflow-y-auto">
-                {tasks.slice(0, 3).map((task) => (
+                {tasks.slice(0, 4).map((task) => (
                   <div key={task.id} className="flex items-center gap-1.5 bg-white/5 rounded-lg px-2 py-1">
                     <button
                       onClick={() => !task.is_completed && handleTaskComplete(task)}
@@ -657,11 +673,11 @@ export default function DashboardPage() {
                     <span className="text-[9px] text-white/30">{task.xp_reward}XP</span>
                   </div>
                 ))}
-                {tasks.length > 3 && (
-                  <p className="text-[9px] text-white/30 text-center">+{tasks.length - 3} more</p>
+                {tasks.length > 4 && (
+                  <p className="text-[9px] text-white/30 text-center">+{tasks.length - 4} more</p>
                 )}
               </div>
-            </div>
+            )}
           </div>
 
           {/* Social Buzz */}
@@ -675,7 +691,7 @@ export default function DashboardPage() {
             <GlanceTicker posts={feedPosts} loading={feedLoading} />
           </div>
 
-          {/* Orbit card */}
+          {/* Orbit */}
           <div className="bg-gradient-to-br from-purple-900/40 to-blue-900/40 backdrop-blur-sm rounded-xl p-4 border border-purple-500/30 mb-4">
             <div className="flex items-center justify-between">
               <div>
@@ -693,9 +709,56 @@ export default function DashboardPage() {
               Launch Orbit 🚀
             </Link>
           </div>
+
+          {/* Notifications */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/5 mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-xs font-semibold text-white/70 flex items-center gap-1.5">
+                <Bell size={14} className="text-blue-400" /> Notifications
+              </h3>
+              <span className="text-[10px] text-white/30">{notifications.length} new</span>
+            </div>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {notifications.slice(0, 3).map((n) => (
+                <div key={n.id} className="flex items-start gap-2 p-2 bg-white/5 rounded-lg">
+                  <span className="text-xs text-white/80 flex-1">{n.message}</span>
+                  <button onClick={() => clearNotification(n.id)} className="text-white/20 hover:text-white">
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              {notifications.length > 3 && (
+                <p className="text-[10px] text-white/30 text-center">+{notifications.length - 3} more</p>
+              )}
+            </div>
+          </div>
+
+          {/* Today's Schedule */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/5 mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-xs font-semibold text-white/70 flex items-center gap-1.5">
+                <Calendar size={14} className="text-violet-400" /> Today's Schedule
+              </h3>
+              <Link to="/studysphere" className="text-[10px] text-brand-400 hover:underline">View all →</Link>
+            </div>
+            {todayEntries.length === 0 ? (
+              <p className="text-xs text-white/40 text-center py-2">No classes scheduled</p>
+            ) : (
+              <div className="space-y-1">
+                {todayEntries.slice(0, 3).map((entry, idx) => (
+                  <div key={idx} className="flex items-center gap-3 text-xs">
+                    <span className="text-white/40 w-16">{entry.start_time?.slice(0,5) || '—'}</span>
+                    <span className="text-white/80">{entry.subject_name || entry.title || 'Class'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* ===== DESKTOP LAYOUT (visible on large screens) ===== */}
+        {/* ============================================================= */}
+        {/* DESKTOP LAYOUT (visible on large screens) – unchanged */}
+        {/* ============================================================= */}
         <div className="hidden lg:block">
           {/* Daily Progress Stats */}
           <div className="grid grid-cols-4 gap-4 mb-6">
@@ -735,10 +798,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Desktop Grid: 2 columns (left 2/3, right 1/3) */}
+          {/* Desktop Grid (2 columns) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-              {/* Focus + Tasks (desktop version) */}
+              {/* Focus + Tasks row */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="card p-5">
                   <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 text-white">
@@ -851,7 +914,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Social Buzz (desktop version) */}
+              {/* Social Buzz (desktop) */}
               <div className="card p-5">
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center gap-2">
@@ -863,7 +926,7 @@ export default function DashboardPage() {
                 <GlanceTicker posts={feedPosts} loading={feedLoading} />
               </div>
 
-              {/* Orbit (desktop version) */}
+              {/* Orbit (desktop) */}
               <div className="card p-5 bg-gradient-to-br from-purple-900/40 to-blue-900/40 border border-purple-500/30">
                 <div className="flex items-start justify-between">
                   <div>
@@ -886,7 +949,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Right column (1/3) – desktop auxiliary */}
+            {/* Right column (1/3) */}
             <div className="space-y-6">
               {/* Mood */}
               <div className="card p-5">
@@ -1043,10 +1106,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ===== Mobile Bottom Navigation (hidden on desktop) ===== */}
+        {/* ===== Mobile Bottom Navigation ===== */}
         <MobileNav active="home" navigate={navigate} />
 
-        {/* ===== Modals (edit task & quiz) ===== */}
+        {/* ===== Modals ===== */}
         {showEditModal && editingTask && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
             <div className="bg-gray-800 rounded-xl p-5 max-w-sm w-full">
