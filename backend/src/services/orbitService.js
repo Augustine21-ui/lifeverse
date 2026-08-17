@@ -1,5 +1,5 @@
 // backend/src/services/orbitService.js
-// ✅ ENHANCED - Full support for all Cortex activities
+// ✅ COMPLETE - Full support for all Cortex activities with submitAnswer
 
 import db from '../config/db.js';
 import * as models from '../models/orbitModels.js';
@@ -170,6 +170,95 @@ export const generateActivity = async (sessionId, activityType) => {
     console.error('❌ Error generating orbit activity:', error);
     // Fallback to simple mock
     return generateSimpleMock(sessionId, activityType);
+  }
+};
+
+// ============================================================
+// ANSWER SUBMISSION - ✅ ADDED THIS FUNCTION
+// ============================================================
+
+export const submitAnswer = async (activityId, userAnswer, timeTaken) => {
+  try {
+    console.log('✅ submitAnswer called');
+    console.log('📥 activityId:', activityId);
+    console.log('📥 userAnswer:', userAnswer);
+    console.log('📥 timeTaken:', timeTaken);
+
+    // Get the activity
+    const activityResult = await db.query(
+      `SELECT * FROM orbit_activities WHERE id = $1`,
+      [activityId]
+    );
+    
+    if (activityResult.rows.length === 0) {
+      throw new Error('Activity not found');
+    }
+
+    const activity = activityResult.rows[0];
+    const content = activity.content;
+    
+    // Evaluate the answer
+    const isCorrect = evaluateAnswer(content, userAnswer);
+    console.log(`📊 Answer is ${isCorrect ? 'correct' : 'incorrect'}`);
+
+    // Update the activity with the answer
+    const updatedResult = await db.query(
+      `UPDATE orbit_activities 
+       SET 
+         user_answer = $1,
+         is_correct = $2,
+         time_taken = $3
+       WHERE id = $4
+       RETURNING *`,
+      [JSON.stringify(userAnswer), isCorrect, timeTaken || 0, activityId]
+    );
+
+    // Get the session to update stats
+    const sessionResult = await db.query(
+      `SELECT * FROM orbit_sessions WHERE id = $1`,
+      [activity.session_id]
+    );
+
+    if (sessionResult.rows.length > 0) {
+      const currentSession = sessionResult.rows[0];
+      const newTotal = (currentSession.total_questions || 0) + 1;
+      const newCorrect = (currentSession.correct_answers || 0) + (isCorrect ? 1 : 0);
+      const newScore = Math.round((newCorrect / newTotal) * 100);
+
+      await db.query(
+        `UPDATE orbit_sessions 
+         SET 
+           total_questions = $1,
+           correct_answers = $2,
+           score = $3,
+           time_spent = $4
+         WHERE id = $5`,
+        [newTotal, newCorrect, newScore, (currentSession.time_spent || 0) + (timeTaken || 0), sessionResult.rows[0].id]
+      );
+
+      // Track weakness if incorrect
+      if (!isCorrect) {
+        const concept = content?.concept || content?.topic || currentSession.topic;
+        await db.query(
+          `INSERT INTO orbit_weaknesses 
+           (user_id, subject, topic, concept, difficulty, encountered_count, last_encountered, mastered)
+           VALUES ($1, $2, $3, $4, 'medium', 1, NOW(), false)
+           ON CONFLICT (user_id, subject, topic, concept) 
+           DO UPDATE SET 
+             encountered_count = orbit_weaknesses.encountered_count + 1,
+             last_encountered = NOW()`,
+          [currentSession.user_id, currentSession.subject, currentSession.topic, concept]
+        );
+      }
+    }
+
+    return { 
+      isCorrect, 
+      updated: updatedResult.rows[0] 
+    };
+  } catch (error) {
+    console.error('❌ Error submitting answer:', error);
+    throw error;
   }
 };
 
@@ -558,15 +647,28 @@ export const getWeaknesses = async (userId) => {
 };
 
 // ============================================================
-// EXPORT ALL
+// EXPORT ALL FUNCTIONS
 // ============================================================
 
-// ✅ GOOD - Only export what exists
+// ✅ All functions are now defined and exported
 export default {
   startSession,
   endSession,
   generateActivity,
-  submitAnswer: submitAnswer,  // ← Make sure this exists!
+  submitAnswer,    // ← ✅ Now defined!
+  getProgress,
+  getWeaknesses,
+  evaluateAnswer,
+  ORBIT_ACTIVITIES,
+  XP_CONFIG
+};
+
+// Also export named exports for compatibility
+export {
+  startSession,
+  endSession,
+  generateActivity,
+  submitAnswer,    // ← ✅ Now defined!
   getProgress,
   getWeaknesses,
   evaluateAnswer,
