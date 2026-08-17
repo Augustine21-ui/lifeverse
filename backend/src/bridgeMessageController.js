@@ -1,5 +1,5 @@
 ﻿// backend/src/bridgeMessageController.js
-import { query } from './config/db.js';  // ✅ Fixed import path
+import pool from './config/db.js';
 
 // Helper function to generate unique ID for conversations
 const generateId = () => {
@@ -9,7 +9,7 @@ const generateId = () => {
 // Get or create a conversation between two users
 const getOrCreateConversation = async (user1Id, user2Id) => {
   // Check if conversation already exists
-  let conv = await query(
+  let conv = await pool.query(
     `SELECT id FROM bridge_conversations 
      WHERE (user1_id = $1 AND user2_id = $2) 
      OR (user1_id = $2 AND user2_id = $1)`,
@@ -18,7 +18,7 @@ const getOrCreateConversation = async (user1Id, user2Id) => {
   
   if (conv.rows.length === 0) {
     // Create new conversation
-    conv = await query(
+    conv = await pool.query(
       `INSERT INTO bridge_conversations (user1_id, user2_id) 
        VALUES ($1, $2) RETURNING id`,
       [user1Id, user2Id]
@@ -52,7 +52,7 @@ const checkConnection = async (userId1, userId2, role) => {
     return false;
   }
   
-  const result = await query(queryStr, [userId1, userId2]);
+  const result = await pool.query(queryStr, [userId1, userId2]);
   return result.rows.length > 0;
 };
 
@@ -72,7 +72,7 @@ export const sendMessage = async (req, res) => {
     const userRole = req.user.role;
     
     // Check if recipient exists
-    const recipientRes = await query('SELECT role FROM users WHERE id = $1', [toUserId]);
+    const recipientRes = await pool.query('SELECT role FROM users WHERE id = $1', [toUserId]);
     if (recipientRes.rows.length === 0) {
       return res.status(404).json({ error: 'Recipient not found' });
     }
@@ -88,7 +88,7 @@ export const sendMessage = async (req, res) => {
         return res.status(403).json({ error: 'Not connected to this user' });
       }
       conversationId = await getOrCreateConversation(userId, toUserId);
-      await query(
+      await pool.query(
         `INSERT INTO bridge_messages (conversation_id, sender_id, receiver_id, content) 
          VALUES ($1, $2, $3, $4)`,
         [conversationId, userId, toUserId, content]
@@ -102,7 +102,7 @@ export const sendMessage = async (req, res) => {
           return res.status(403).json({ error: 'Not connected to this student' });
         }
         conversationId = await getOrCreateConversation(toUserId, userId);
-        await query(
+        await pool.query(
           `INSERT INTO bridge_messages (conversation_id, sender_id, receiver_id, content) 
            VALUES ($1, $2, $3, $4)`,
           [conversationId, userId, toUserId, content]
@@ -110,7 +110,7 @@ export const sendMessage = async (req, res) => {
       } else {
         // Teacher/Parent -> Teacher/Parent (peer)
         conversationId = await getOrCreateConversation(userId, toUserId);
-        await query(
+        await pool.query(
           `INSERT INTO bridge_messages (conversation_id, sender_id, receiver_id, content) 
            VALUES ($1, $2, $3, $4)`,
           [conversationId, userId, toUserId, content]
@@ -139,7 +139,7 @@ export const getConversations = async (req, res) => {
     
     if (role === 'student') {
       // Student conversations with teachers/parents
-      const result = await query(`
+      const result = await pool.query(`
         SELECT 
           c.id,
           CASE 
@@ -175,7 +175,7 @@ export const getConversations = async (req, res) => {
       
     } else if (role === 'parent' || role === 'teacher') {
       // Teacher/Parent conversations with students and other adults
-      const result = await query(`
+      const result = await pool.query(`
         SELECT 
           c.id,
           CASE 
@@ -228,7 +228,7 @@ export const getMessagesByConversation = async (req, res) => {
   
   try {
     // Check if user has access to this conversation
-    const accessCheck = await query(
+    const accessCheck = await pool.query(
       `SELECT * FROM bridge_conversations 
        WHERE id = $1 AND (user1_id = $2 OR user2_id = $2)`,
       [conversationId, userId]
@@ -239,7 +239,7 @@ export const getMessagesByConversation = async (req, res) => {
     }
     
     // Get messages
-    const messages = await query(`
+    const messages = await pool.query(`
       SELECT 
         m.*,
         u.full_name as sender_name,
@@ -251,7 +251,7 @@ export const getMessagesByConversation = async (req, res) => {
     `, [conversationId]);
     
     // Mark messages as read
-    await query(
+    await pool.query(
       `UPDATE bridge_messages 
        SET read = TRUE, read_at = NOW() 
        WHERE conversation_id = $1 AND receiver_id = $2 AND read = FALSE`,
@@ -281,7 +281,7 @@ export const getPeerContacts = async (req, res) => {
     
     if (role === 'teacher') {
       // Get parents connected to the same students
-      const result = await query(`
+      const result = await pool.query(`
         SELECT DISTINCT 
           u.id, u.full_name, u.username, u.role
         FROM bridge_connections bc1
@@ -295,7 +295,7 @@ export const getPeerContacts = async (req, res) => {
       contacts = result.rows;
     } else {
       // Get teachers connected to the same students
-      const result = await query(`
+      const result = await pool.query(`
         SELECT DISTINCT 
           u.id, u.full_name, u.username, u.role
         FROM bridge_connections bc1
@@ -332,7 +332,7 @@ export const getOrCreatePeerConversation = async (req, res) => {
     const conversationId = await getOrCreateConversation(currentUserId, otherUserId);
     
     // Get messages
-    const messages = await query(`
+    const messages = await pool.query(`
       SELECT 
         m.*,
         u.full_name as sender_name,
@@ -364,7 +364,7 @@ export const getMessages = async (req, res) => {
     let conversations = [];
     
     // Get all conversations for the user
-    const result = await query(`
+    const result = await pool.query(`
       SELECT 
         c.id,
         CASE 
@@ -414,7 +414,7 @@ export const markMessageAsRead = async (req, res) => {
   
   try {
     // Check if user is the receiver of this message
-    const check = await query(
+    const check = await pool.query(
       `SELECT * FROM bridge_messages 
        WHERE id = $1 AND receiver_id = $2`,
       [messageId, userId]
@@ -424,7 +424,7 @@ export const markMessageAsRead = async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to mark this message as read' });
     }
     
-    await query(
+    await pool.query(
       `UPDATE bridge_messages 
        SET read = TRUE, read_at = NOW() 
        WHERE id = $1`,
@@ -445,7 +445,7 @@ export const getUnreadCount = async (req, res) => {
   const userId = req.user.id;
   
   try {
-    const result = await query(
+    const result = await pool.query(
       `SELECT COUNT(*) as unread_count 
        FROM bridge_messages 
        WHERE receiver_id = $1 AND read = FALSE`,
