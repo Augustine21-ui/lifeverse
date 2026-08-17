@@ -1,5 +1,5 @@
 // backend/src/controllers/bridgeController.js
-import pool from '../config/db.js';  // ✅ Fixed: using pool instead of db
+import pool from '../config/db.js';
 
 // ============================================================
 // FIXED FUNCTIONS - Using correct table names
@@ -24,7 +24,7 @@ export const getStudentProgress = async (req, res) => {
   }
 };
 
-// Get teacher's students - FIXED to use bridge_connections
+// Get teacher's students
 export const getTeacherStudents = async (req, res) => {
   const teacherId = req.user.id;
   try {
@@ -40,14 +40,13 @@ export const getTeacherStudents = async (req, res) => {
   }
 };
 
-// Generate connection code - FIXED to use bridge_codes
+// Generate connection code
 export const generateConnectionCode = async (req, res) => {
   const userId = req.user.id;
   const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   
   try {
-    // Check if user already has an active code
     const existing = await pool.query(
       'SELECT * FROM bridge_codes WHERE user_id = $1 AND expires_at > NOW() AND used = FALSE',
       [userId]
@@ -57,7 +56,6 @@ export const generateConnectionCode = async (req, res) => {
       return res.json({ code: existing.rows[0].code });
     }
     
-    // Generate new code
     await pool.query(
       'INSERT INTO bridge_codes (code, user_id, type, expires_at) VALUES ($1, $2, $3, $4)',
       [code, userId, 'student', expiresAt]
@@ -69,13 +67,12 @@ export const generateConnectionCode = async (req, res) => {
   }
 };
 
-// Link student - FIXED to use bridge_connections
+// Link student
 export const linkStudent = async (req, res) => {
   const userId = req.user.id;
   const { code } = req.body;
   
   try {
-    // Find the code
     const codeRes = await pool.query(
       'SELECT user_id FROM bridge_codes WHERE code = $1 AND expires_at > NOW() AND used = FALSE',
       [code]
@@ -88,7 +85,6 @@ export const linkStudent = async (req, res) => {
     const studentId = codeRes.rows[0].user_id;
     const role = req.user.role;
     
-    // Check if already connected
     let existingConnection;
     if (role === 'parent') {
       existingConnection = await pool.query(
@@ -106,7 +102,6 @@ export const linkStudent = async (req, res) => {
       return res.status(400).json({ error: 'Already connected to this student' });
     }
     
-    // Create connection
     let success = false;
     if (role === 'parent') {
       await pool.query(
@@ -122,15 +117,12 @@ export const linkStudent = async (req, res) => {
       success = true;
     }
     
-    // Mark code as used
     if (success) {
       await pool.query(
         'UPDATE bridge_codes SET used = TRUE, used_by = $1, used_at = NOW() WHERE code = $2',
         [userId, code]
       );
       
-      // Create conversation
-      const conversationId = Date.now().toString() + '-' + Math.random().toString(36).substring(2, 6);
       await pool.query(
         'INSERT INTO bridge_conversations (user1_id, user2_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
         [userId, studentId]
@@ -146,7 +138,7 @@ export const linkStudent = async (req, res) => {
   }
 };
 
-// Get parent's child - FIXED to use bridge_connections
+// Get parent's child
 export const getParentChild = async (req, res) => {
   const parentId = req.user.id;
   try {
@@ -162,14 +154,13 @@ export const getParentChild = async (req, res) => {
   }
 };
 
-// Get student progress by ID - FIXED to check permissions
+// Get student progress by ID
 export const getStudentProgressById = async (req, res) => {
   const studentId = parseInt(req.params.id);
   const viewerId = req.user.id;
   const viewerRole = req.user.role;
   
   try {
-    // Check if viewer has access to this student
     let accessCheck;
     if (viewerRole === 'teacher') {
       accessCheck = await pool.query(
@@ -182,7 +173,6 @@ export const getStudentProgressById = async (req, res) => {
         [viewerId, studentId, 'active']
       );
     } else if (viewerRole === 'student' && viewerId === studentId) {
-      // Students can view their own progress
       accessCheck = { rows: [{ id: studentId }] };
     }
     
@@ -248,7 +238,7 @@ export const createAnnouncement = async (req, res) => {
 };
 
 // ============================================================
-// NEW BRIDGE FEATURES (with fixed table names)
+// NEW BRIDGE FEATURES
 // ============================================================
 
 // ------- Helper -------
@@ -284,12 +274,15 @@ export const updatePrivacySettings = async (req, res) => {
   }
 };
 
-// ------- Teacher: Report Cards -------
+// ============================================================
+// TEACHER: REPORT CARDS - ONLY ONE VERSION
+// ============================================================
 export const uploadReportCard = async (req, res) => {
-  const { studentId, title, fileUrl } = req.body;
+  const { studentId, title, fileUrl, description, grade, subject } = req.body;
   const teacherId = req.user.id;
-  if (!studentId || !title || !fileUrl) {
-    return res.status(400).json({ error: 'Missing fields' });
+  
+  if (!studentId || !title) {
+    return res.status(400).json({ error: 'Missing required fields' });
   }
   
   // Verify teacher is connected to this student
@@ -303,15 +296,84 @@ export const uploadReportCard = async (req, res) => {
   }
   
   try {
-    await pool.query(
-      `INSERT INTO report_cards (student_id, title, file_url, uploaded_by)
-       VALUES ($1, $2, $3, $4)`,
-      [studentId, title, fileUrl, teacherId]
+    const result = await pool.query(
+      `INSERT INTO report_cards (student_id, title, description, file_url, grade, subject, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [studentId, title, description || '', fileUrl || '', grade || '', subject || '', teacherId]
     );
-    await createNotification(studentId, 'report_card', 'New report card uploaded', `Your report card for ${title} is ready.`);
-    res.json({ success: true });
+    
+    // Create notification for parent
+    const parentResult = await pool.query(
+      'SELECT parent_id FROM bridge_connections WHERE student_id = $1 AND status = $2',
+      [studentId, 'active']
+    );
+    
+    if (parentResult.rows.length > 0) {
+      await createNotification(
+        parentResult.rows[0].parent_id,
+        'report_card',
+        'New Report Card',
+        `A new report card for ${title} has been uploaded for your child.`
+      );
+    }
+    
+    await createNotification(
+      studentId,
+      'report_card',
+      'New Report Card',
+      `Your report card for ${title} is ready to view.`
+    );
+    
+    res.json({ success: true, reportCard: result.rows[0] });
   } catch (err) {
-    console.error(err);
+    console.error('Upload report card error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get report cards
+export const getReportCards = async (req, res) => {
+  const viewerId = req.user.id;
+  const viewerRole = req.user.role;
+  const { studentId } = req.params;
+  
+  try {
+    // Verify access
+    let hasAccess = false;
+    if (viewerRole === 'parent') {
+      const check = await pool.query(
+        'SELECT * FROM bridge_connections WHERE parent_id = $1 AND student_id = $2 AND status = $3',
+        [viewerId, studentId, 'active']
+      );
+      hasAccess = check.rows.length > 0;
+    } else if (viewerRole === 'teacher') {
+      const check = await pool.query(
+        'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
+        [viewerId, studentId, 'active']
+      );
+      hasAccess = check.rows.length > 0;
+    } else if (viewerRole === 'student' && parseInt(viewerId) === parseInt(studentId)) {
+      hasAccess = true;
+    }
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const result = await pool.query(
+      `SELECT 
+        rc.*,
+        u.full_name as uploaded_by_name
+      FROM report_cards rc
+      LEFT JOIN users u ON rc.uploaded_by = u.id
+      WHERE rc.student_id = $1
+      ORDER BY rc.created_at DESC`,
+      [studentId]
+    );
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get report cards error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -321,7 +383,6 @@ export const createAssignment = async (req, res) => {
   const { studentId, title, description, dueDate } = req.body;
   const teacherId = req.user.id;
   
-  // Verify teacher is connected to this student
   const check = await pool.query(
     'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
     [teacherId, studentId, 'active']
@@ -350,7 +411,6 @@ export const giveFeedback = async (req, res) => {
   const { studentId, subject, content, grade } = req.body;
   const teacherId = req.user.id;
   
-  // Verify teacher is connected to this student
   const check = await pool.query(
     'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
     [teacherId, studentId, 'active']
@@ -414,7 +474,6 @@ export const sendEncouragement = async (req, res) => {
   const { studentId, content } = req.body;
   const senderId = req.user.id;
   
-  // Verify sender is connected to this student
   const check = await pool.query(
     'SELECT * FROM bridge_connections WHERE (teacher_id = $1 OR parent_id = $1) AND student_id = $2 AND status = $3',
     [senderId, studentId, 'active']
@@ -457,16 +516,12 @@ export const getEncouragementWall = async (req, res) => {
 };
 
 // ------- Parent Dashboard - FIXED -------
-// backend/src/controllers/bridgeController.js
-
-// ------- Parent Dashboard - FIXED -------
 export const getParentChildProgress = async (req, res) => {
   const parentId = req.user.id;
   
   try {
     console.log('Getting parent child progress for parent:', parentId);
     
-    // Get the child using the same query as getChild
     const childResult = await pool.query(
       `SELECT 
         u.id, u.full_name, u.email, u.xp, u.level, u.streak_days
@@ -479,7 +534,6 @@ export const getParentChildProgress = async (req, res) => {
     
     console.log('Child result:', childResult.rows);
     
-    // If no child found, return null student
     if (childResult.rows.length === 0) {
       return res.json({ 
         student: null, 
@@ -492,9 +546,8 @@ export const getParentChildProgress = async (req, res) => {
     }
 
     const student = childResult.rows[0];
-    console.log('Found student:', student);
     
-    // Get assignments (if table exists)
+    // Get assignments
     let assignments = [];
     try {
       const assignmentsResult = await pool.query(
@@ -506,7 +559,7 @@ export const getParentChildProgress = async (req, res) => {
       console.log('Assignments table might not exist:', err.message);
     }
     
-    // Get feedback (if table exists)
+    // Get feedback
     let feedback = [];
     try {
       const feedbackResult = await pool.query(
@@ -522,7 +575,7 @@ export const getParentChildProgress = async (req, res) => {
       console.log('Feedback table might not exist:', err.message);
     }
     
-    // Get report cards (if table exists)
+    // Get report cards
     let reportCards = [];
     try {
       const reportCardsResult = await pool.query(
@@ -538,7 +591,7 @@ export const getParentChildProgress = async (req, res) => {
       console.log('Report cards table might not exist:', err.message);
     }
     
-    // Get encouragement (if table exists)
+    // Get encouragement
     let encouragement = [];
     try {
       const encouragementResult = await pool.query(
@@ -554,7 +607,6 @@ export const getParentChildProgress = async (req, res) => {
       console.log('Encouragement table might not exist:', err.message);
     }
 
-    // Simple subject trends (mock)
     const subjects = ['Mathematics', 'Science', 'English', 'History'];
     const trendOptions = ['Improving', 'Stable', 'Needs Attention'];
     const trends = subjects.map(s => ({
@@ -562,17 +614,14 @@ export const getParentChildProgress = async (req, res) => {
       trend: trendOptions[Math.floor(Math.random() * trendOptions.length)]
     }));
 
-    const responseData = {
+    res.json({
       student,
       assignments,
       feedback,
       reportCards,
       encouragement,
       trends,
-    };
-    
-    console.log('Sending response:', { student: responseData.student?.full_name, assignments: assignments.length, feedback: feedback.length });
-    res.json(responseData);
+    });
   } catch (err) {
     console.error('Get parent child progress error:', err);
     res.status(500).json({ error: err.message });
@@ -605,204 +654,47 @@ export const markNotificationRead = async (req, res) => {
   }
 };
 
-// backend/src/controllers/bridgeController.js
-
-// Get report cards for a student (Parent/Teacher view)
-export const getReportCards = async (req, res) => {
-  const viewerId = req.user.id;
-  const viewerRole = req.user.role;
-  const { studentId } = req.params;
-  
+// ------- Debug -------
+export const debugConnections = async (req, res) => {
   try {
-    // Verify access
-    let hasAccess = false;
+    const userId = req.user.id;
+    const userRole = req.user.role;
     
-    if (viewerRole === 'parent') {
-      const check = await pool.query(
-        'SELECT * FROM bridge_connections WHERE parent_id = $1 AND student_id = $2 AND status = $3',
-        [viewerId, studentId, 'active']
+    let connections;
+    if (userRole === 'parent') {
+      connections = await pool.query(
+        `SELECT 
+          bc.*,
+          u.full_name as student_name,
+          u.email as student_email
+         FROM bridge_connections bc
+         JOIN users u ON bc.student_id = u.id
+         WHERE bc.parent_id = $1`,
+        [userId]
       );
-      hasAccess = check.rows.length > 0;
-    } else if (viewerRole === 'teacher') {
-      const check = await pool.query(
-        'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
-        [viewerId, studentId, 'active']
+    } else if (userRole === 'teacher') {
+      connections = await pool.query(
+        `SELECT 
+          bc.*,
+          u.full_name as student_name,
+          u.email as student_email
+         FROM bridge_connections bc
+         JOIN users u ON bc.student_id = u.id
+         WHERE bc.teacher_id = $1`,
+        [userId]
       );
-      hasAccess = check.rows.length > 0;
-    } else if (viewerRole === 'student' && parseInt(viewerId) === parseInt(studentId)) {
-      hasAccess = true;
+    } else {
+      connections = { rows: [] };
     }
     
-    if (!hasAccess) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    
-    const result = await pool.query(
-      `SELECT 
-        rc.*,
-        u.full_name as uploaded_by_name
-      FROM report_cards rc
-      LEFT JOIN users u ON rc.uploaded_by = u.id
-      WHERE rc.student_id = $1
-      ORDER BY rc.created_at DESC`,
-      [studentId]
-    );
-    
-    res.json(result.rows);
+    res.json({
+      role: userRole,
+      userId: userId,
+      connections: connections.rows,
+      count: connections.rows.length
+    });
   } catch (err) {
-    console.error('Get report cards error:', err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Upload report card (Teacher only)
-export const uploadReportCard = async (req, res) => {
-  const teacherId = req.user.id;
-  const { studentId, title, description, fileUrl, grade, subject } = req.body;
-  
-  if (!studentId || !title) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-  
-  try {
-    // Verify teacher is connected to this student
-    const check = await pool.query(
-      'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
-      [teacherId, studentId, 'active']
-    );
-    
-    if (check.rows.length === 0) {
-      return res.status(403).json({ error: 'Not connected to this student' });
-    }
-    
-    const result = await pool.query(
-      `INSERT INTO report_cards (student_id, title, description, file_url, grade, subject, uploaded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [studentId, title, description || '', fileUrl || '', grade || '', subject || '', teacherId]
-    );
-    
-    // Create notification for parent
-    const parentResult = await pool.query(
-      'SELECT parent_id FROM bridge_connections WHERE student_id = $1 AND status = $2',
-      [studentId, 'active']
-    );
-    
-    if (parentResult.rows.length > 0) {
-      await createNotification(
-        parentResult.rows[0].parent_id,
-        'report_card',
-        'New Report Card',
-        `A new report card for ${title} has been uploaded for your child.`
-      );
-    }
-    
-    // Create notification for student
-    await createNotification(
-      studentId,
-      'report_card',
-      'New Report Card',
-      `Your report card for ${title} is ready to view.`
-    );
-    
-    res.json({ success: true, reportCard: result.rows[0] });
-  } catch (err) {
-    console.error('Upload report card error:', err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Get assignments for a student
-export const getAssignments = async (req, res) => {
-  const viewerId = req.user.id;
-  const viewerRole = req.user.role;
-  const { studentId } = req.params;
-  
-  try {
-    // Verify access (same as report cards)
-    let hasAccess = false;
-    
-    if (viewerRole === 'parent') {
-      const check = await pool.query(
-        'SELECT * FROM bridge_connections WHERE parent_id = $1 AND student_id = $2 AND status = $3',
-        [viewerId, studentId, 'active']
-      );
-      hasAccess = check.rows.length > 0;
-    } else if (viewerRole === 'teacher') {
-      const check = await pool.query(
-        'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
-        [viewerId, studentId, 'active']
-      );
-      hasAccess = check.rows.length > 0;
-    } else if (viewerRole === 'student' && parseInt(viewerId) === parseInt(studentId)) {
-      hasAccess = true;
-    }
-    
-    if (!hasAccess) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    
-    const result = await pool.query(
-      `SELECT 
-        a.*,
-        u.full_name as teacher_name
-      FROM assignments a
-      LEFT JOIN users u ON a.teacher_id = u.id
-      WHERE a.student_id = $1
-      ORDER BY a.due_date ASC, a.created_at DESC`,
-      [studentId]
-    );
-    
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Get assignments error:', err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Get feedback for a student
-export const getFeedback = async (req, res) => {
-  const viewerId = req.user.id;
-  const viewerRole = req.user.role;
-  const { studentId } = req.params;
-  
-  try {
-    // Verify access
-    let hasAccess = false;
-    
-    if (viewerRole === 'parent') {
-      const check = await pool.query(
-        'SELECT * FROM bridge_connections WHERE parent_id = $1 AND student_id = $2 AND status = $3',
-        [viewerId, studentId, 'active']
-      );
-      hasAccess = check.rows.length > 0;
-    } else if (viewerRole === 'teacher') {
-      const check = await pool.query(
-        'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
-        [viewerId, studentId, 'active']
-      );
-      hasAccess = check.rows.length > 0;
-    } else if (viewerRole === 'student' && parseInt(viewerId) === parseInt(studentId)) {
-      hasAccess = true;
-    }
-    
-    if (!hasAccess) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    
-    const result = await pool.query(
-      `SELECT 
-        f.*,
-        u.full_name as teacher_name
-      FROM academic_feedback f
-      LEFT JOIN users u ON f.teacher_id = u.id
-      WHERE f.student_id = $1
-      ORDER BY f.created_at DESC`,
-      [studentId]
-    );
-    
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Get feedback error:', err);
+    console.error('Debug connections error:', err);
     res.status(500).json({ error: err.message });
   }
 };
