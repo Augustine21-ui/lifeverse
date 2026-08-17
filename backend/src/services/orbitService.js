@@ -157,30 +157,9 @@ export const generateActivity = async (sessionId, activityType) => {
     );
     const user = userResult.rows[0] || {};
 
-    const context = {
-      subject: session.subject,
-      topic: session.topic,
-      orbitType: session.orbit_type,
-      grade: user.education_level || 'University',
-      learningStyle: user.learning_style || 'visual'
-    };
-
-    // Try AI generation first
-    let content = null;
-    try {
-      console.log(`🤖 Attempting AI generation for ${activityType}...`);
-      content = await generateOrbitActivity(activityType, context);
-      console.log(`✅ AI generation successful`);
-    } catch (aiError) {
-      console.warn(`⚠️ AI generation failed: ${aiError.message}`);
-      content = null;
-    }
-
-    // If AI failed, use mock content
-    if (!content) {
-      console.log(`📝 Using mock content for ${activityType}`);
-      content = generateMockContent(activityType, session.subject, session.topic);
-    }
+    // ✅ SKIP AI - Always use mock content
+    console.log(`📝 Generating mock content for ${activityType}`);
+    const content = generateMockContent(activityType, session.subject, session.topic);
 
     // Save activity
     const activity = await models.saveActivity(sessionId, activityType, content);
