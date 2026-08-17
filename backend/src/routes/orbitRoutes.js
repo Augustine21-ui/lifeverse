@@ -31,4 +31,15 @@ router.get('/weaknesses', getWeaknesses);
 // Legacy feedback endpoint
 router.post('/feedback', feedback);
 
+router.post('/session/end-debug', async (req, res) => {
+  console.log('🔍 Debug endpoint called');
+  console.log('📥 Body:', req.body);
+  console.log('👤 User:', req.user);
+  res.json({ 
+    success: true, 
+    message: 'Debug endpoint',
+    received: req.body 
+  });
+});
+
 export default router;
