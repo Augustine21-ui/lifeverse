@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
-import { Loader2, Users, User, Megaphone, Copy, Send, X } from 'lucide-react';
+import { Loader2, Users, User, Megaphone, Copy, Send, X, LinkIcon, RefreshCw, Check } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
 export default function BridgePage() {
@@ -30,6 +30,8 @@ export default function BridgePage() {
   const [peerMessages, setPeerMessages] = useState([]);
   const [peerMessageText, setPeerMessageText] = useState('');
   const [sendingPeer, setSendingPeer] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [codeExpiry, setCodeExpiry] = useState(null);
   const messagesEndRef = useRef(null);
   const peerMessagesEndRef = useRef(null);
   const pollInterval = useRef(null);
@@ -43,6 +45,7 @@ export default function BridgePage() {
       if (user?.role === 'student') {
         const codeRes = await api.getBridgeCode();
         setConnectionCode(codeRes?.code || '');
+        setCodeExpiry(codeRes?.expires_at || null);
         await loadConversations();
       } else if (user?.role === 'teacher') {
         const studentsList = await api.getBridgeStudents();
@@ -73,7 +76,6 @@ export default function BridgePage() {
         setConversations([]);
         return;
       }
-      // For students, show all conversations; for teachers/parents, filter only student-partner conversations in main list
       let filtered = convs;
       if (user?.role !== 'student') {
         filtered = convs.filter(conv => conv.partner_role === 'student');
@@ -85,7 +87,6 @@ export default function BridgePage() {
         partnerRole: conv.partner_role,
         last_message: conv.last_message,
       }));
-      // Deduplicate by id
       const unique = [];
       const seen = new Set();
       for (const conv of mapped) {
@@ -193,6 +194,7 @@ export default function BridgePage() {
     try {
       const res = await api.getBridgeCode();
       setConnectionCode(res.code);
+      setCodeExpiry(res.expires_at || null);
       showToast('Your connection code is ready!');
     } catch (err) {
       showToast(err.message, 'error');
@@ -201,9 +203,25 @@ export default function BridgePage() {
     }
   };
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(connectionCode);
-    showToast('Code copied to clipboard');
+  const copyCode = async () => {
+    if (!connectionCode) return;
+    try {
+      await navigator.clipboard.writeText(connectionCode);
+      setCopied(true);
+      showToast('Code copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Fallback
+      const input = document.createElement('input');
+      input.value = connectionCode;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setCopied(true);
+      showToast('Code copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const connectStudent = async () => {
@@ -276,6 +294,15 @@ export default function BridgePage() {
     }
   };
 
+  // Calculate days until expiry
+  const getDaysUntilExpiry = () => {
+    if (!codeExpiry) return null;
+    const now = new Date();
+    const expiry = new Date(codeExpiry);
+    const diff = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
+
   if (loading) return <div className="p-6 flex justify-center"><Loader2 className="animate-spin" size={40} /></div>;
 
   return (
@@ -300,16 +327,59 @@ export default function BridgePage() {
 
       {user?.role === 'student' && (
         <div className="card p-5">
-          <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">📋 Your Connection Code</h2>
+          <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
+            <LinkIcon size={20} className="text-brand-400" /> Your Connection Code
+          </h2>
+          
           {connectionCode ? (
-            <div className="flex items-center gap-3">
-              <code className="bg-white/10 px-3 py-1 rounded text-lg font-mono">{connectionCode}</code>
-              <button onClick={copyCode} className="btn-secondary flex items-center gap-1"><Copy size={14} /> Copy</button>
-            </div>
+            <>
+              {/* Connection code with copy button inside the input */}
+              <div className="mt-3 flex items-center bg-black/30 rounded-xl border border-white/10 overflow-hidden focus-within:border-brand-500/50 transition">
+                <code className="flex-1 px-4 py-3 text-2xl font-mono font-bold text-brand-400 tracking-wider bg-transparent outline-none">
+                  {connectionCode}
+                </code>
+                <button
+                  onClick={copyCode}
+                  className={`px-4 py-3 transition flex items-center gap-2 border-l border-white/10 ${
+                    copied ? 'text-green-400' : 'text-white/60 hover:text-white hover:bg-white/10'
+                  }`}
+                  title="Copy code"
+                >
+                  {copied ? <Check size={18} /> : <Copy size={18} />}
+                  <span className="text-sm hidden sm:inline">{copied ? 'Copied!' : 'Copy'}</span>
+                </button>
+              </div>
+              
+              <p className="mt-3 text-sm text-white/60">
+                Share this code with your parent or teacher so they can connect with you on Bridge.
+              </p>
+              
+              <div className="mt-2 flex items-center gap-4 text-xs">
+                <span className="text-white/30 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                  Active
+                </span>
+                {getDaysUntilExpiry() !== null && (
+                  <span className="text-white/30">
+                    Expires in {getDaysUntilExpiry()} days
+                  </span>
+                )}
+              </div>
+              
+              <button
+                onClick={generateCode}
+                disabled={generating}
+                className="mt-3 text-xs text-white/30 hover:text-white/60 transition flex items-center gap-1"
+              >
+                {generating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                {generating ? 'Generating...' : 'Regenerate code'}
+              </button>
+            </>
           ) : (
-            <button onClick={generateCode} disabled={generating} className="btn-primary">{generating ? <Loader2 size={16} className="animate-spin" /> : 'Generate Code'}</button>
+            <button onClick={generateCode} disabled={generating} className="btn-primary">
+              {generating ? <Loader2 size={16} className="animate-spin" /> : 'Generate Code'}
+            </button>
           )}
-          <p className="text-sm text-white/40 mt-3">Share this code with your parent or teacher.</p>
         </div>
       )}
 
@@ -317,8 +387,16 @@ export default function BridgePage() {
         <div className="card p-5">
           <h2 className="text-xl font-semibold mb-3">Connect a Student</h2>
           <div className="flex gap-2">
-            <input type="text" className="input flex-1" placeholder="Enter student's connection code" value={inputCode} onChange={(e) => setInputCode(e.target.value.toUpperCase())} />
-            <button onClick={connectStudent} disabled={linking} className="btn-primary">{linking ? <Loader2 size={16} className="animate-spin" /> : 'Connect'}</button>
+            <input 
+              type="text" 
+              className="input flex-1" 
+              placeholder="Enter student's connection code" 
+              value={inputCode} 
+              onChange={(e) => setInputCode(e.target.value.toUpperCase())} 
+            />
+            <button onClick={connectStudent} disabled={linking} className="btn-primary">
+              {linking ? <Loader2 size={16} className="animate-spin" /> : 'Connect'}
+            </button>
           </div>
         </div>
       )}
