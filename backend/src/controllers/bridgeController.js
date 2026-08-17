@@ -457,56 +457,124 @@ export const getEncouragementWall = async (req, res) => {
 };
 
 // ------- Parent Dashboard - FIXED -------
+// backend/src/controllers/bridgeController.js
+
+// ------- Parent Dashboard - FIXED -------
 export const getParentChildProgress = async (req, res) => {
   const parentId = req.user.id;
+  
   try {
-    const child = await pool.query(
-      `SELECT u.id, u.full_name, u.xp, u.level, u.streak_days
-       FROM bridge_connections bc
-       JOIN users u ON bc.student_id = u.id
-       WHERE bc.parent_id = $1 AND bc.status = 'active'`,
+    console.log('Getting parent child progress for parent:', parentId);
+    
+    // Get the child using the same query as getChild
+    const childResult = await pool.query(
+      `SELECT 
+        u.id, u.full_name, u.email, u.xp, u.level, u.streak_days
+      FROM bridge_connections bc
+      JOIN users u ON bc.student_id = u.id
+      WHERE bc.parent_id = $1 AND bc.status = 'active'
+      LIMIT 1`,
       [parentId]
     );
     
-    if (child.rows.length === 0) {
-      return res.json({ student: null, assignments: [], feedback: [], reportCards: [], encouragement: [], trends: [] });
+    console.log('Child result:', childResult.rows);
+    
+    // If no child found, return null student
+    if (childResult.rows.length === 0) {
+      return res.json({ 
+        student: null, 
+        assignments: [], 
+        feedback: [], 
+        reportCards: [], 
+        encouragement: [], 
+        trends: [] 
+      });
     }
 
-    const student = child.rows[0];
-    const assignments = await pool.query(
-      `SELECT * FROM assignments WHERE student_id = $1 ORDER BY due_date DESC LIMIT 5`,
-      [student.id]
-    );
-    const feedback = await pool.query(
-      `SELECT * FROM academic_feedback WHERE student_id = $1 ORDER BY created_at DESC LIMIT 5`,
-      [student.id]
-    );
-    const reportCards = await pool.query(
-      `SELECT * FROM report_cards WHERE student_id = $1 ORDER BY uploaded_at DESC LIMIT 3`,
-      [student.id]
-    );
-    const encouragement = await pool.query(
-      `SELECT * FROM encouragement_wall WHERE student_id = $1 ORDER BY created_at DESC LIMIT 5`,
-      [student.id]
-    );
+    const student = childResult.rows[0];
+    console.log('Found student:', student);
+    
+    // Get assignments (if table exists)
+    let assignments = [];
+    try {
+      const assignmentsResult = await pool.query(
+        `SELECT * FROM assignments WHERE student_id = $1 ORDER BY due_date DESC LIMIT 10`,
+        [student.id]
+      );
+      assignments = assignmentsResult.rows;
+    } catch (err) {
+      console.log('Assignments table might not exist:', err.message);
+    }
+    
+    // Get feedback (if table exists)
+    let feedback = [];
+    try {
+      const feedbackResult = await pool.query(
+        `SELECT af.*, u.full_name as teacher_name 
+         FROM academic_feedback af
+         LEFT JOIN users u ON af.teacher_id = u.id
+         WHERE af.student_id = $1 
+         ORDER BY af.created_at DESC LIMIT 10`,
+        [student.id]
+      );
+      feedback = feedbackResult.rows;
+    } catch (err) {
+      console.log('Feedback table might not exist:', err.message);
+    }
+    
+    // Get report cards (if table exists)
+    let reportCards = [];
+    try {
+      const reportCardsResult = await pool.query(
+        `SELECT rc.*, u.full_name as uploaded_by_name 
+         FROM report_cards rc
+         LEFT JOIN users u ON rc.uploaded_by = u.id
+         WHERE rc.student_id = $1 
+         ORDER BY rc.created_at DESC LIMIT 10`,
+        [student.id]
+      );
+      reportCards = reportCardsResult.rows;
+    } catch (err) {
+      console.log('Report cards table might not exist:', err.message);
+    }
+    
+    // Get encouragement (if table exists)
+    let encouragement = [];
+    try {
+      const encouragementResult = await pool.query(
+        `SELECT e.*, u.full_name as sender_name
+         FROM encouragement_wall e
+         JOIN users u ON e.sender_id = u.id
+         WHERE e.student_id = $1
+         ORDER BY e.created_at DESC LIMIT 10`,
+        [student.id]
+      );
+      encouragement = encouragementResult.rows;
+    } catch (err) {
+      console.log('Encouragement table might not exist:', err.message);
+    }
 
-    // Simple subject trends (mock – you can replace with real data)
-    const subjects = ['Mathematics', 'Science', 'English'];
+    // Simple subject trends (mock)
+    const subjects = ['Mathematics', 'Science', 'English', 'History'];
+    const trendOptions = ['Improving', 'Stable', 'Needs Attention'];
     const trends = subjects.map(s => ({
       subject: s,
-      trend: Math.random() > 0.5 ? 'Improving' : Math.random() > 0.3 ? 'Stable' : 'Needs Attention'
+      trend: trendOptions[Math.floor(Math.random() * trendOptions.length)]
     }));
 
-    res.json({
+    const responseData = {
       student,
-      assignments: assignments.rows,
-      feedback: feedback.rows,
-      reportCards: reportCards.rows,
-      encouragement: encouragement.rows,
+      assignments,
+      feedback,
+      reportCards,
+      encouragement,
       trends,
-    });
+    };
+    
+    console.log('Sending response:', { student: responseData.student?.full_name, assignments: assignments.length, feedback: feedback.length });
+    res.json(responseData);
   } catch (err) {
-    console.error(err);
+    console.error('Get parent child progress error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -533,6 +601,208 @@ export const markNotificationRead = async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// backend/src/controllers/bridgeController.js
+
+// Get report cards for a student (Parent/Teacher view)
+export const getReportCards = async (req, res) => {
+  const viewerId = req.user.id;
+  const viewerRole = req.user.role;
+  const { studentId } = req.params;
+  
+  try {
+    // Verify access
+    let hasAccess = false;
+    
+    if (viewerRole === 'parent') {
+      const check = await pool.query(
+        'SELECT * FROM bridge_connections WHERE parent_id = $1 AND student_id = $2 AND status = $3',
+        [viewerId, studentId, 'active']
+      );
+      hasAccess = check.rows.length > 0;
+    } else if (viewerRole === 'teacher') {
+      const check = await pool.query(
+        'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
+        [viewerId, studentId, 'active']
+      );
+      hasAccess = check.rows.length > 0;
+    } else if (viewerRole === 'student' && parseInt(viewerId) === parseInt(studentId)) {
+      hasAccess = true;
+    }
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const result = await pool.query(
+      `SELECT 
+        rc.*,
+        u.full_name as uploaded_by_name
+      FROM report_cards rc
+      LEFT JOIN users u ON rc.uploaded_by = u.id
+      WHERE rc.student_id = $1
+      ORDER BY rc.created_at DESC`,
+      [studentId]
+    );
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get report cards error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Upload report card (Teacher only)
+export const uploadReportCard = async (req, res) => {
+  const teacherId = req.user.id;
+  const { studentId, title, description, fileUrl, grade, subject } = req.body;
+  
+  if (!studentId || !title) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  try {
+    // Verify teacher is connected to this student
+    const check = await pool.query(
+      'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
+      [teacherId, studentId, 'active']
+    );
+    
+    if (check.rows.length === 0) {
+      return res.status(403).json({ error: 'Not connected to this student' });
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO report_cards (student_id, title, description, file_url, grade, subject, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [studentId, title, description || '', fileUrl || '', grade || '', subject || '', teacherId]
+    );
+    
+    // Create notification for parent
+    const parentResult = await pool.query(
+      'SELECT parent_id FROM bridge_connections WHERE student_id = $1 AND status = $2',
+      [studentId, 'active']
+    );
+    
+    if (parentResult.rows.length > 0) {
+      await createNotification(
+        parentResult.rows[0].parent_id,
+        'report_card',
+        'New Report Card',
+        `A new report card for ${title} has been uploaded for your child.`
+      );
+    }
+    
+    // Create notification for student
+    await createNotification(
+      studentId,
+      'report_card',
+      'New Report Card',
+      `Your report card for ${title} is ready to view.`
+    );
+    
+    res.json({ success: true, reportCard: result.rows[0] });
+  } catch (err) {
+    console.error('Upload report card error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get assignments for a student
+export const getAssignments = async (req, res) => {
+  const viewerId = req.user.id;
+  const viewerRole = req.user.role;
+  const { studentId } = req.params;
+  
+  try {
+    // Verify access (same as report cards)
+    let hasAccess = false;
+    
+    if (viewerRole === 'parent') {
+      const check = await pool.query(
+        'SELECT * FROM bridge_connections WHERE parent_id = $1 AND student_id = $2 AND status = $3',
+        [viewerId, studentId, 'active']
+      );
+      hasAccess = check.rows.length > 0;
+    } else if (viewerRole === 'teacher') {
+      const check = await pool.query(
+        'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
+        [viewerId, studentId, 'active']
+      );
+      hasAccess = check.rows.length > 0;
+    } else if (viewerRole === 'student' && parseInt(viewerId) === parseInt(studentId)) {
+      hasAccess = true;
+    }
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const result = await pool.query(
+      `SELECT 
+        a.*,
+        u.full_name as teacher_name
+      FROM assignments a
+      LEFT JOIN users u ON a.teacher_id = u.id
+      WHERE a.student_id = $1
+      ORDER BY a.due_date ASC, a.created_at DESC`,
+      [studentId]
+    );
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get assignments error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Get feedback for a student
+export const getFeedback = async (req, res) => {
+  const viewerId = req.user.id;
+  const viewerRole = req.user.role;
+  const { studentId } = req.params;
+  
+  try {
+    // Verify access
+    let hasAccess = false;
+    
+    if (viewerRole === 'parent') {
+      const check = await pool.query(
+        'SELECT * FROM bridge_connections WHERE parent_id = $1 AND student_id = $2 AND status = $3',
+        [viewerId, studentId, 'active']
+      );
+      hasAccess = check.rows.length > 0;
+    } else if (viewerRole === 'teacher') {
+      const check = await pool.query(
+        'SELECT * FROM bridge_connections WHERE teacher_id = $1 AND student_id = $2 AND status = $3',
+        [viewerId, studentId, 'active']
+      );
+      hasAccess = check.rows.length > 0;
+    } else if (viewerRole === 'student' && parseInt(viewerId) === parseInt(studentId)) {
+      hasAccess = true;
+    }
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const result = await pool.query(
+      `SELECT 
+        f.*,
+        u.full_name as teacher_name
+      FROM academic_feedback f
+      LEFT JOIN users u ON f.teacher_id = u.id
+      WHERE f.student_id = $1
+      ORDER BY f.created_at DESC`,
+      [studentId]
+    );
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get feedback error:', err);
     res.status(500).json({ error: err.message });
   }
 };
