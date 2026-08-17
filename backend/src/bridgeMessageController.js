@@ -128,91 +128,46 @@ export const sendMessage = async (req, res) => {
 };
 
 // ============================================================
-// GET CONVERSATIONS
+// GET CONVERSATIONS - FIXED: removed c.student_id
 // ============================================================
 export const getConversations = async (req, res) => {
   const userId = req.user.id;
-  const role = req.user.role;
   
   try {
-    let conversations = [];
-    
-    if (role === 'student') {
-      // Student conversations with teachers/parents
-      const result = await pool.query(`
-        SELECT 
-          c.id,
-          CASE 
-            WHEN c.user1_id = $1 THEN c.user2_id 
-            ELSE c.user1_id 
-          END as partner_id,
-          u.full_name as partner_name,
-          u.role as partner_role,
-          (
-            SELECT content FROM bridge_messages 
-            WHERE conversation_id = c.id 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          ) as last_message,
-          (
-            SELECT COUNT(*) FROM bridge_messages 
-            WHERE conversation_id = c.id AND receiver_id = $1 AND read = FALSE
-          ) as unread_count
-        FROM bridge_conversations c
-        JOIN users u ON (
-          (c.user1_id = $1 AND u.id = c.user2_id) OR 
-          (c.user2_id = $1 AND u.id = c.user1_id)
-        )
-        WHERE c.user1_id = $1 OR c.user2_id = $1
-        ORDER BY (
-          SELECT created_at FROM bridge_messages 
+    const result = await pool.query(`
+      SELECT 
+        c.id,
+        CASE 
+          WHEN c.user1_id = $1 THEN c.user2_id 
+          ELSE c.user1_id 
+        END as partner_id,
+        u.full_name as partner_name,
+        u.role as partner_role,
+        (
+          SELECT content FROM bridge_messages 
           WHERE conversation_id = c.id 
           ORDER BY created_at DESC 
           LIMIT 1
-        ) DESC NULLS LAST
-      `, [userId]);
-      conversations = result.rows;
-      
-    } else if (role === 'parent' || role === 'teacher') {
-      // Teacher/Parent conversations with students and other adults
-      const result = await pool.query(`
-        SELECT 
-          c.id,
-          CASE 
-            WHEN c.user1_id = $1 THEN c.user2_id 
-            ELSE c.user1_id 
-          END as partner_id,
-          u.full_name as partner_name,
-          u.role as partner_role,
-          (
-            SELECT content FROM bridge_messages 
-            WHERE conversation_id = c.id 
-            ORDER BY created_at DESC 
-            LIMIT 1
-          ) as last_message,
-          (
-            SELECT COUNT(*) FROM bridge_messages 
-            WHERE conversation_id = c.id AND receiver_id = $1 AND read = FALSE
-          ) as unread_count
-        FROM bridge_conversations c
-        JOIN users u ON (
-          (c.user1_id = $1 AND u.id = c.user2_id) OR 
-          (c.user2_id = $1 AND u.id = c.user1_id)
-        )
-        WHERE c.user1_id = $1 OR c.user2_id = $1
-        ORDER BY (
-          SELECT created_at FROM bridge_messages 
-          WHERE conversation_id = c.id 
-          ORDER BY created_at DESC 
-          LIMIT 1
-        ) DESC NULLS LAST
-      `, [userId]);
-      conversations = result.rows;
-    } else {
-      return res.status(403).json({ error: 'Invalid role' });
-    }
+        ) as last_message,
+        (
+          SELECT COUNT(*) FROM bridge_messages 
+          WHERE conversation_id = c.id AND receiver_id = $1 AND read = FALSE
+        ) as unread_count
+      FROM bridge_conversations c
+      JOIN users u ON (
+        (c.user1_id = $1 AND u.id = c.user2_id) OR 
+        (c.user2_id = $1 AND u.id = c.user1_id)
+      )
+      WHERE c.user1_id = $1 OR c.user2_id = $1
+      ORDER BY (
+        SELECT created_at FROM bridge_messages 
+        WHERE conversation_id = c.id 
+        ORDER BY created_at DESC 
+        LIMIT 1
+      ) DESC NULLS LAST
+    `, [userId]);
     
-    res.json(conversations);
+    res.json(result.rows);
   } catch (err) {
     console.error('Get conversations error:', err);
     res.status(500).json({ error: err.message });
@@ -280,7 +235,6 @@ export const getPeerContacts = async (req, res) => {
     let contacts = [];
     
     if (role === 'teacher') {
-      // Get parents connected to the same students
       const result = await pool.query(`
         SELECT DISTINCT 
           u.id, u.full_name, u.username, u.role
@@ -294,7 +248,6 @@ export const getPeerContacts = async (req, res) => {
       `, [userId]);
       contacts = result.rows;
     } else {
-      // Get teachers connected to the same students
       const result = await pool.query(`
         SELECT DISTINCT 
           u.id, u.full_name, u.username, u.role
@@ -328,10 +281,8 @@ export const getOrCreatePeerConversation = async (req, res) => {
   }
   
   try {
-    // Get or create conversation
     const conversationId = await getOrCreateConversation(currentUserId, otherUserId);
     
-    // Get messages
     const messages = await pool.query(`
       SELECT 
         m.*,
@@ -358,12 +309,8 @@ export const getOrCreatePeerConversation = async (req, res) => {
 // ============================================================
 export const getMessages = async (req, res) => {
   const userId = req.user.id;
-  const role = req.user.role;
   
   try {
-    let conversations = [];
-    
-    // Get all conversations for the user
     const result = await pool.query(`
       SELECT 
         c.id,
@@ -397,8 +344,7 @@ export const getMessages = async (req, res) => {
       ) DESC NULLS LAST
     `, [userId]);
     
-    conversations = result.rows;
-    res.json(conversations);
+    res.json(result.rows);
   } catch (err) {
     console.error('Get messages error:', err);
     res.status(500).json({ error: err.message });
@@ -413,7 +359,6 @@ export const markMessageAsRead = async (req, res) => {
   const { messageId } = req.params;
   
   try {
-    // Check if user is the receiver of this message
     const check = await pool.query(
       `SELECT * FROM bridge_messages 
        WHERE id = $1 AND receiver_id = $2`,
