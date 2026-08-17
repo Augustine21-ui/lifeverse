@@ -1,9 +1,9 @@
 // frontend/src/pages/OrbitPage.jsx
-// ✅ Updated - Shows activity selection after clicking a planet
+// ✅ COMPLETE - With Activity Selection
 
 import React, { useState, useEffect, useCallback } from 'react';
 import orbitApi from '../services/orbitApi';
-import OrbitActivities from '../components/orbit/OrbitActivities';  // ← ADD THIS IMPORT
+import OrbitActivities from '../components/orbit/OrbitActivities';  // ← IMPORT THIS
 import './OrbitPage.css';
 
 const OrbitPage = () => {
@@ -62,13 +62,10 @@ const OrbitPage = () => {
       setProgress(data?.progress || null);
     } catch (err) {
       console.warn('⚠️ Could not load progress:', err.message);
-      if (err.message?.includes('column')) {
-        console.warn('⚠️ Database missing columns - run ALTER TABLE commands');
-      }
     }
   };
 
-  // ✅ UPDATED: Handle planet click - show activity selection
+  // ✅ Handle planet click - show activity selection
   const handlePlanetClick = useCallback((planet) => {
     if (!apiReady) {
       setError('API is not ready. Please refresh the page.');
@@ -76,16 +73,17 @@ const OrbitPage = () => {
     }
 
     setSelectedPlanet(planet);
-    setShowActivitySelection(true);  // ← Show activity selection
+    setShowActivitySelection(true);  // ← SHOW ACTIVITY SELECTION
     setSelectedActivity(null);
     setSession(null);
     setActivities([]);
     setCurrentActivity(null);
     setError(null);
     setShowSummary(false);
+    setUserAnswer('');
   }, [apiReady]);
 
-  // ✅ NEW: Handle activity selection
+  // ✅ Handle activity selection
   const handleActivitySelect = useCallback(async (activityType) => {
     if (!selectedPlanet) return;
 
@@ -119,7 +117,7 @@ const OrbitPage = () => {
     } catch (err) {
       console.error('❌ Error starting session:', err);
       setError(err.message || 'Failed to start Orbit session');
-      setShowActivitySelection(true);  // Show selection again on error
+      setShowActivitySelection(true);
     } finally {
       setLoading(false);
     }
@@ -325,13 +323,13 @@ const OrbitPage = () => {
             <button
               key={planet.id}
               className={`planet ${selectedPlanet?.id === planet.id ? 'active' : ''} 
-                         ${session ? 'disabled' : ''}`}
+                         ${session || showActivitySelection ? 'disabled' : ''}`}
               style={{ 
                 '--planet-color': planet.color,
                 '--planet-bg': planet.bg,
               }}
               onClick={() => handlePlanetClick(planet)}
-              disabled={loading || !!session || !apiReady}
+              disabled={loading || !!session || !apiReady || showActivitySelection}
             >
               <div className="planet-glow"></div>
               <span className="planet-icon">{planet.icon}</span>
@@ -342,7 +340,7 @@ const OrbitPage = () => {
         </div>
       </div>
 
-      {/* ✅ NEW: Activity Selection */}
+      {/* ✅ ACTIVITY SELECTION - USING YOUR COMPONENT */}
       {showActivitySelection && selectedPlanet && !session && (
         <div className="activity-selection-container">
           <button 
@@ -364,6 +362,7 @@ const OrbitPage = () => {
                 </div>
               </div>
             </div>
+            {/* ✅ YOUR OrbitActivities COMPONENT */}
             <OrbitActivities
               orbitType={selectedPlanet.id}
               onSelectActivity={handleActivitySelect}
