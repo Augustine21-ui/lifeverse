@@ -582,11 +582,12 @@ export const getWeaknesses = async (userId) => {
 // EXPORT ALL
 // ============================================================
 
+// ✅ GOOD - Only export what exists
 export default {
   startSession,
   endSession,
   generateActivity,
-  submitAnswer,
+  submitAnswer: submitAnswer,  // ← Make sure this exists!
   getProgress,
   getWeaknesses,
   evaluateAnswer,
