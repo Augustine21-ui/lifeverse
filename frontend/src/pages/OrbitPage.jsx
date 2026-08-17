@@ -1,20 +1,23 @@
 // frontend/src/pages/OrbitPage.jsx
-// ✅ Complete fix - All state defined properly
+// ✅ Updated - Shows activity selection after clicking a planet
 
 import React, { useState, useEffect, useCallback } from 'react';
 import orbitApi from '../services/orbitApi';
+import OrbitActivities from '../components/orbit/OrbitActivities';  // ← ADD THIS IMPORT
 import './OrbitPage.css';
 
 const OrbitPage = () => {
   // ✅ ALL STATE DEFINED HERE
   const [selectedPlanet, setSelectedPlanet] = useState(null);
-  const [session, setSession] = useState(null);  // ← CRITICAL: MUST BE HERE
+  const [selectedActivity, setSelectedActivity] = useState(null);  // ← ADDED
+  const [session, setSession] = useState(null);
   const [activities, setActivities] = useState([]);
   const [currentActivity, setCurrentActivity] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [showActivitySelection, setShowActivitySelection] = useState(false);  // ← ADDED
   const [userAnswer, setUserAnswer] = useState('');
   const [apiReady, setApiReady] = useState(false);
 
@@ -59,39 +62,49 @@ const OrbitPage = () => {
       setProgress(data?.progress || null);
     } catch (err) {
       console.warn('⚠️ Could not load progress:', err.message);
-      // Don't set error here - progress is non-critical
       if (err.message?.includes('column')) {
         console.warn('⚠️ Database missing columns - run ALTER TABLE commands');
       }
     }
   };
 
-  // Handle planet click
-  const handlePlanetClick = useCallback(async (planet) => {
+  // ✅ UPDATED: Handle planet click - show activity selection
+  const handlePlanetClick = useCallback((planet) => {
     if (!apiReady) {
       setError('API is not ready. Please refresh the page.');
       return;
     }
 
     setSelectedPlanet(planet);
-    setLoading(true);
-    setError(null);
-    setShowSummary(false);
+    setShowActivitySelection(true);  // ← Show activity selection
+    setSelectedActivity(null);
+    setSession(null);
     setActivities([]);
     setCurrentActivity(null);
+    setError(null);
+    setShowSummary(false);
+  }, [apiReady]);
+
+  // ✅ NEW: Handle activity selection
+  const handleActivitySelect = useCallback(async (activityType) => {
+    if (!selectedPlanet) return;
+
+    setSelectedActivity(activityType);
+    setShowActivitySelection(false);
+    setLoading(true);
+    setError(null);
 
     try {
-      console.log(`🚀 Starting ${planet.label} orbit...`);
+      console.log(`🚀 Starting ${selectedPlanet.label} with ${activityType}...`);
       const result = await orbitApi.startSession(
-        planet.id,
-        `Exploring ${planet.label}`,
-        planet.id,
-        'introduction'
+        selectedPlanet.id,
+        `Exploring ${selectedPlanet.label}`,
+        selectedPlanet.id,
+        activityType
       );
       
       console.log('✅ Session started:', result);
       
-      // ✅ SAFELY set session
       if (result?.session) {
         setSession(result.session);
       } else {
@@ -99,7 +112,6 @@ const OrbitPage = () => {
         setError('Failed to create session');
       }
       
-      // ✅ SAFELY set activity
       if (result?.activity) {
         setActivities([result.activity]);
         setCurrentActivity(result.activity);
@@ -107,14 +119,14 @@ const OrbitPage = () => {
     } catch (err) {
       console.error('❌ Error starting session:', err);
       setError(err.message || 'Failed to start Orbit session');
+      setShowActivitySelection(true);  // Show selection again on error
     } finally {
       setLoading(false);
     }
-  }, [apiReady]);
+  }, [selectedPlanet]);
 
   // Generate next activity
   const handleGenerateNext = useCallback(async () => {
-    // ✅ Check if session exists before using it
     if (!session) {
       console.warn('⚠️ No active session');
       setError('No active session. Start a new session first.');
@@ -126,7 +138,7 @@ const OrbitPage = () => {
 
     try {
       console.log(`🎯 Generating next activity...`);
-      const result = await orbitApi.generateActivity(session.id, 'quiz');
+      const result = await orbitApi.generateActivity(session.id, selectedActivity || 'quiz');
       
       if (result?.activity) {
         setActivities(prev => [...prev, result.activity]);
@@ -139,11 +151,10 @@ const OrbitPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, selectedActivity]);
 
   // Submit answer
   const handleSubmitAnswer = useCallback(async () => {
-    // ✅ Check if session and currentActivity exist
     if (!session) {
       setError('No active session. Start a new session first.');
       return;
@@ -187,7 +198,6 @@ const OrbitPage = () => {
 
   // End session
   const handleEndSession = useCallback(async () => {
-    // ✅ Check if session exists
     if (!session) {
       setError('No active session to end.');
       return;
@@ -218,10 +228,12 @@ const OrbitPage = () => {
   // Reset
   const handleReset = useCallback(() => {
     setSelectedPlanet(null);
+    setSelectedActivity(null);
     setSession(null);
     setActivities([]);
     setCurrentActivity(null);
     setShowSummary(false);
+    setShowActivitySelection(false);
     setError(null);
     setUserAnswer('');
   }, []);
@@ -259,6 +271,19 @@ const OrbitPage = () => {
                     ))}
                   </ul>
                 )}
+                {q.explanation && (
+                  <p className="explanation">💡 {q.explanation}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {content.cards && content.cards.length > 0 && (
+          <div className="flashcards-container">
+            {content.cards.map((card, idx) => (
+              <div key={idx} className="flashcard-item">
+                <strong>{card.term}</strong>
+                <p>{card.definition}</p>
               </div>
             ))}
           </div>
@@ -317,7 +342,37 @@ const OrbitPage = () => {
         </div>
       </div>
 
-      {/* Session Content - Only render if session exists */}
+      {/* ✅ NEW: Activity Selection */}
+      {showActivitySelection && selectedPlanet && !session && (
+        <div className="activity-selection-container">
+          <button 
+            className="back-btn"
+            onClick={() => {
+              setShowActivitySelection(false);
+              setSelectedPlanet(null);
+            }}
+          >
+            ← Back to Planets
+          </button>
+          <div className="orbit-activities-wrapper">
+            <div className="orbit-activities-header">
+              <div className="orbit-activities-title">
+                <span className="orbit-icon">{selectedPlanet.icon}</span>
+                <div>
+                  <h3>{selectedPlanet.label}</h3>
+                  <p>{selectedPlanet.subtitle}</p>
+                </div>
+              </div>
+            </div>
+            <OrbitActivities
+              orbitType={selectedPlanet.id}
+              onSelectActivity={handleActivitySelect}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Session Content */}
       {session && !showSummary && (
         <div className="session-container">
           <div className="session-content">
@@ -325,6 +380,11 @@ const OrbitPage = () => {
               <div className="session-info">
                 <h2>{selectedPlanet?.label} - {selectedPlanet?.subtitle}</h2>
                 <span className="session-status">Active</span>
+                {selectedActivity && (
+                  <span className="activity-type-badge">
+                    {selectedActivity.replace('_', ' ').toUpperCase()}
+                  </span>
+                )}
               </div>
               <button onClick={handleEndSession} className="btn-danger" disabled={loading}>
                 End Session
@@ -380,6 +440,10 @@ const OrbitPage = () => {
               <span className="stat-value">{activities.length}</span>
               <span className="stat-label">Activities</span>
             </div>
+            <div className="stat-item">
+              <span className="stat-value">{selectedPlanet?.label}</span>
+              <span className="stat-label">Orbit</span>
+            </div>
           </div>
           <button onClick={handleReset} className="btn-primary">
             Start New Session
@@ -407,7 +471,7 @@ const OrbitPage = () => {
       )}
 
       {/* Welcome */}
-      {!session && !showSummary && !loading && !error && apiReady && (
+      {!session && !showActivitySelection && !showSummary && !loading && !error && apiReady && (
         <div className="welcome-section">
           <p className="welcome-text">🌍 Click a planet to start your orbit journey!</p>
           <div className="feature-grid">
