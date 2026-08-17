@@ -663,15 +663,3 @@ export default {
   XP_CONFIG
 };
 
-// Also export named exports for compatibility
-export {
-  startSession,
-  endSession,
-  generateActivity,
-  submitAnswer,    // ← ✅ Now defined!
-  getProgress,
-  getWeaknesses,
-  evaluateAnswer,
-  ORBIT_ACTIVITIES,
-  XP_CONFIG
-};
