@@ -1,9 +1,5 @@
-﻿// backend/src/controllers/bridgeMessageController.js
-import { query } from '../config/db.js';
-
-// ============================================================
-// BRIDGE MESSAGE CONTROLLER - Using Correct Table Structure
-// ============================================================
+﻿// backend/src/bridgeMessageController.js
+import { query } from './config/db.js';  // ✅ Fixed import path
 
 // Helper function to generate unique ID for conversations
 const generateId = () => {
@@ -113,7 +109,6 @@ export const sendMessage = async (req, res) => {
         );
       } else {
         // Teacher/Parent -> Teacher/Parent (peer)
-        // For peer conversations, we don't need to check connections
         conversationId = await getOrCreateConversation(userId, toUserId);
         await query(
           `INSERT INTO bridge_messages (conversation_id, sender_id, receiver_id, content) 
