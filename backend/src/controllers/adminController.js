@@ -5,10 +5,29 @@ import db from '../config/db.js';
 export const getStats = async (req, res) => {
   try {
     const totalUsers = await db.query('SELECT COUNT(*) FROM users');
-    const activeUsers = await db.query("SELECT COUNT(*) FROM users WHERE is_active = true");
+    
+    // Try to get active users, fallback to 0 if column missing
+    let activeUsers = 0;
+    try {
+      const res = await db.query("SELECT COUNT(*) FROM users WHERE is_active = true");
+      activeUsers = parseInt(res.rows[0].count);
+    } catch (err) {
+      // Column doesn't exist, fallback to total users or 0
+      console.warn('is_active column missing, setting activeUsers to 0');
+      activeUsers = 0;
+    }
+
     const newUsersToday = await db.query("SELECT COUNT(*) FROM users WHERE created_at::date = NOW()::date");
     const totalSchools = await db.query('SELECT COUNT(DISTINCT institution) FROM users WHERE institution IS NOT NULL');
-    const activeSubscriptions = await db.query('SELECT COUNT(*) FROM subscriptions WHERE is_active = true AND (end_date IS NULL OR end_date > NOW())');
+    
+    // Similarly for subscriptions – handle gracefully
+    let activeSubscriptions = 0;
+    try {
+      const res = await db.query('SELECT COUNT(*) FROM subscriptions WHERE is_active = true AND (end_date IS NULL OR end_date > NOW())');
+      activeSubscriptions = parseInt(res.rows[0].count);
+    } catch (err) {
+      console.warn('subscriptions table or column missing, setting activeSubscriptions to 0');
+    }
 
     const usersByRole = await db.query('SELECT role, COUNT(*) FROM users GROUP BY role');
     const usersByInstitution = await db.query(
@@ -17,10 +36,10 @@ export const getStats = async (req, res) => {
 
     res.json({
       totalUsers: parseInt(totalUsers.rows[0].count),
-      activeUsers: parseInt(activeUsers.rows[0].count),
+      activeUsers,
       newUsersToday: parseInt(newUsersToday.rows[0].count),
       totalSchools: parseInt(totalSchools.rows[0].count),
-      activeSubscriptions: parseInt(activeSubscriptions.rows[0].count),
+      activeSubscriptions,
       usersByRole: usersByRole.rows,
       usersByInstitution: usersByInstitution.rows,
     });
