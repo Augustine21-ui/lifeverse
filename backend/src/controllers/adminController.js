@@ -1,3 +1,4 @@
+// backend/src/controllers/adminController.js
 import db from '../config/db.js';
 
 // ---------- Dashboard Stats ----------
@@ -10,7 +11,9 @@ export const getStats = async (req, res) => {
     const activeSubscriptions = await db.query('SELECT COUNT(*) FROM subscriptions WHERE is_active = true AND (end_date IS NULL OR end_date > NOW())');
 
     const usersByRole = await db.query('SELECT role, COUNT(*) FROM users GROUP BY role');
-    const usersByInstitution = await db.query('SELECT institution, COUNT(*) FROM users WHERE institution IS NOT NULL GROUP BY institution ORDER BY COUNT DESC LIMIT 10');
+    const usersByInstitution = await db.query(
+      'SELECT institution, COUNT(*) FROM users WHERE institution IS NOT NULL GROUP BY institution ORDER BY COUNT DESC LIMIT 10'
+    );
 
     res.json({
       totalUsers: parseInt(totalUsers.rows[0].count),
@@ -22,7 +25,7 @@ export const getStats = async (req, res) => {
       usersByInstitution: usersByInstitution.rows,
     });
   } catch (err) {
-    console.error(err);
+    console.error('getStats error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -62,7 +65,7 @@ export const getUsers = async (req, res) => {
     const users = await db.query(query, params);
     res.json({ users: users.rows, total, page: parseInt(page), totalPages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error(err);
+    console.error('getUsers error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -79,7 +82,7 @@ export const updateUser = async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error('updateUser error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -91,7 +94,7 @@ export const deleteUser = async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
+    console.error('deleteUser error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -127,7 +130,7 @@ export const getSubscriptions = async (req, res) => {
     const subs = await db.query(query, params);
     res.json({ subscriptions: subs.rows, total, page: parseInt(page), totalPages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error(err);
+    console.error('getSubscriptions error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -144,7 +147,7 @@ export const updateSubscription = async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Subscription not found' });
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error('updateSubscription error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -159,7 +162,7 @@ export const createSubscription = async (req, res) => {
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error('createSubscription error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -169,35 +172,63 @@ export const getPerformance = async (req, res) => {
   try {
     // Average XP per user
     const avgXp = await db.query('SELECT AVG(xp) FROM users');
-    // Total tasks completed
-    const tasksCompleted = await db.query('SELECT COUNT(*) FROM tasks WHERE is_completed = true');
-    // Total challenges completed
-    const challengesCompleted = await db.query("SELECT COUNT(*) FROM user_challenges WHERE status = 'approved'");
-    // Active users last 7 days (dummy – you need to track last_login or activity)
-    const activeLast7Days = await db.query("SELECT COUNT(*) FROM users WHERE last_login > NOW() - INTERVAL '7 days'");
+    
+    // Total tasks completed – use orbit_sessions if tasks table doesn't exist
+    let tasksCompleted = 0;
+    try {
+      const tasksRes = await db.query("SELECT COUNT(*) FROM orbit_sessions WHERE status = 'completed'");
+      tasksCompleted = parseInt(tasksRes.rows[0].count);
+    } catch (err) {
+      // Fallback: if table doesn't exist, keep 0
+      console.warn('orbit_sessions table not found – tasksCompleted set to 0');
+    }
+
+    // Total challenges completed – use orbit_challenges if user_challenges doesn't exist
+    let challengesCompleted = 0;
+    try {
+      const challengesRes = await db.query("SELECT COUNT(*) FROM orbit_challenges WHERE status = 'completed'");
+      challengesCompleted = parseInt(challengesRes.rows[0].count);
+    } catch (err) {
+      console.warn('orbit_challenges table not found – challengesCompleted set to 0');
+    }
+
+    // Active users last 7 days (needs `last_login` column)
+    let activeLast7Days = 0;
+    try {
+      const activeRes = await db.query("SELECT COUNT(*) FROM users WHERE last_login > NOW() - INTERVAL '7 days'");
+      activeLast7Days = parseInt(activeRes.rows[0].count);
+    } catch (err) {
+      console.warn('last_login column missing – activeLast7Days set to 0');
+    }
+
     // Top learners by XP
     const topLearners = await db.query('SELECT full_name, username, xp FROM users ORDER BY xp DESC LIMIT 10');
 
     res.json({
       avgXp: parseFloat(avgXp.rows[0].avg) || 0,
-      tasksCompleted: parseInt(tasksCompleted.rows[0].count),
-      challengesCompleted: parseInt(challengesCompleted.rows[0].count),
-      activeLast7Days: parseInt(activeLast7Days.rows[0].count),
+      tasksCompleted,
+      challengesCompleted,
+      activeLast7Days,
       topLearners: topLearners.rows,
     });
   } catch (err) {
-    console.error(err);
+    console.error('getPerformance error:', err);
     res.status(500).json({ error: err.message });
   }
 };
 
-// ---------- Announcements ----------
+// ---------- Announcements (using bridge_announcements) ----------
 export const getAnnouncements = async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM announcements ORDER BY created_at DESC');
+    const result = await db.query(`
+      SELECT a.*, u.full_name as author_name 
+      FROM bridge_announcements a
+      JOIN users u ON a.user_id = u.id
+      ORDER BY a.created_at DESC
+    `);
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
+    console.error('getAnnouncements error:', err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -207,13 +238,13 @@ export const createAnnouncement = async (req, res) => {
   const userId = req.user.id;
   try {
     const result = await db.query(
-      `INSERT INTO announcements (author_id, title, content, target_roles)
+      `INSERT INTO bridge_announcements (user_id, title, content, target_roles)
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [userId, title, content, target_roles]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error('createAnnouncement error:', err);
     res.status(500).json({ error: err.message });
   }
 };
