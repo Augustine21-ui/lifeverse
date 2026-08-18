@@ -130,7 +130,6 @@ export default function AppLayout() {
     { to: '/ai-tutor', icon: Bot, label: 'AI Tutor' },
   ] : [];
 
-  const studySphereItems = allStudySphereItems;
 
   // ---- Premium-only nav items ----
   const premiumNavItems = isStudent ? [
