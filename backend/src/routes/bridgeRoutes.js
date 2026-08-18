@@ -31,6 +31,7 @@ import {
   getPeerContacts,
   getOrCreatePeerConversation,
 } from '../bridgeMessageController.js';
+import * as bridgeController from '../controllers/bridgeController.js';
 
 const router = express.Router();
 
@@ -83,5 +84,6 @@ router.get('/bridge/parent-child-progress', getParentChildProgress);
 // --- Notifications ---
 router.get('/bridge/notifications', getNotifications);
 router.put('/bridge/notifications/:id/read', markNotificationRead);
+router.get('/peer-contacts', bridgeController.getPeerContacts);
 
 export default router;

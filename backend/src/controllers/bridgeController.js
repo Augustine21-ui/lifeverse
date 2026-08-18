@@ -698,3 +698,36 @@ export const debugConnections = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const getPeerContacts = async (req, res) => {
+  const userId = req.user.id;
+  const role = req.user.role;
+  if (role !== 'parent' && role !== 'teacher') {
+    return res.status(403).json({ error: 'Not allowed' });
+  }
+  try {
+    let contacts = [];
+    if (role === 'parent') {
+      // Get teachers connected to the same students as this parent
+      const result = await pool.query(`
+        SELECT DISTINCT 
+          u.id, u.full_name, u.username, u.role
+        FROM bridge_connections bc1
+        JOIN bridge_connections bc2 ON bc1.student_id = bc2.student_id
+        JOIN users u ON bc2.teacher_id = u.id
+        WHERE bc1.parent_id = $1 
+        AND bc1.status = 'active' 
+        AND bc2.status = 'active'
+        AND bc2.teacher_id IS NOT NULL
+      `, [userId]);
+      contacts = result.rows;
+    } else {
+      // For teachers, get parents connected to the same students (existing logic)
+      // ...
+    }
+    res.json(contacts);
+  } catch (err) {
+    console.error('Get peer contacts error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
