@@ -6,7 +6,7 @@ import {
   Loader2, User, BookOpen, FileText, MessageCircle, 
   TrendingUp, TrendingDown, Minus, Heart, Bell, Send, 
   Download, Eye, Calendar, Award, File, Settings, 
-  Sun, Moon, LogOut, RefreshCw, AlertCircle, Bridge
+  Sun, Moon, LogOut, RefreshCw, AlertCircle, Link2
 } from 'lucide-react';
 import PageBackground from '../components/PageBackground';
 import { Link, useNavigate } from 'react-router-dom';
@@ -401,13 +401,13 @@ export default function ParentDashboard() {
               <p className="text-white/60">Support your child's academic journey</p>
             </div>
             <div className="flex items-center gap-3">
-              {/* ✅ Bridge Button */}
+              {/* ✅ Bridge Button - Using Link2 icon */}
               <Link
                 to="/bridge"
                 className="p-2 rounded-lg bg-brand-500/20 hover:bg-brand-500/30 transition border border-brand-500/30 flex items-center gap-2 text-brand-400 hover:text-brand-300"
                 title="Go to Bridge"
               >
-                <Bridge className="w-5 h-5" />
+                <Link2 className="w-5 h-5" />
                 <span className="hidden sm:inline text-sm font-medium">Bridge</span>
               </Link>
               
