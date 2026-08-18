@@ -34,6 +34,16 @@ import SubjectDetailPage from './pages/SubjectDetailPage';
 import AcademicOnboarding from './pages/AcademicOnboarding';
 import SubscriptionPage from './pages/SubscriptionPage';
 
+// ===== NotFound Component =====
+const NotFound = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
+    <h1 className="text-6xl font-bold mb-4">404</h1>
+    <p className="text-xl text-white/60">Page not found</p>
+    <a href="/" className="mt-6 btn-primary">Go Home</a>
+  </div>
+);
+
+// ===== Auth Guards =====
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div></div>;
@@ -75,7 +85,7 @@ export default function App() {
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
       <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
 
-      {/* ✅ Protected layout – wraps child routes */}
+      {/* Protected layout */}
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route index element={<RoleBasedRedirect />} />
         <Route path="dashboard" element={
@@ -116,6 +126,9 @@ export default function App() {
           </RequireRole>
         } />
       </Route>
+
+      {/* ✅ Catch‑all 404 – must be last */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
