@@ -631,7 +631,7 @@ export default function BridgePage() {
   }
 
   // ============================================================
-  // TEACHER VIEW - Enhanced with Parents Tab
+  // TEACHER VIEW - Enhanced with Connection Input
   // ============================================================
   if (user?.role === 'teacher') {
     // Filter parent contacts from peerContacts
@@ -653,6 +653,32 @@ export default function BridgePage() {
                 <Megaphone size={16} />
                 New Announcement
               </button>
+            </div>
+          </div>
+
+          {/* ===== CONNECT A STUDENT - ADDED ===== */}
+          <div className="card p-4 border-brand-500/30 bg-brand-500/5">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <LinkIcon size={18} className="text-brand-400" />
+                  Connect a Student
+                </h3>
+                <p className="text-sm text-white/60">Enter the student's connection code to link them to your class.</p>
+              </div>
+              <div className="flex gap-2 flex-1 min-w-[250px]">
+                <input
+                  type="text"
+                  className="input flex-1"
+                  placeholder="Enter student's connection code"
+                  value={inputCode}
+                  onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+                  maxLength={10}
+                />
+                <button onClick={connectStudent} disabled={linking} className="btn-primary whitespace-nowrap">
+                  {linking ? <Loader2 size={16} className="animate-spin" /> : 'Connect'}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -682,7 +708,7 @@ export default function BridgePage() {
                 <div className="card p-8 text-center text-white/40">
                   <Users size={40} className="mx-auto mb-3 opacity-50" />
                   <p className="text-lg font-medium text-white/60">No students connected yet</p>
-                  <p className="text-sm">Share your connection code or ask students to connect.</p>
+                  <p className="text-sm">Use the connection code input above to connect with students.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
