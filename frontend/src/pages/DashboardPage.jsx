@@ -1,3 +1,4 @@
+// frontend/src/pages/DashboardPage.jsx
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -7,7 +8,7 @@ import {
   Home, User, Rocket, Sparkles, Star, BookOpen, PenTool, Bell, Lightbulb,
   X, Edit2, Calendar as CalendarIcon, Clock as ClockIcon, Bell as BellIcon,
   Crown, Gift, MessageSquare, Heart, Award, Coffee, Brain, Smile,
-  TrendingUp, Repeat, Target, BarChart2, Menu
+  TrendingUp, Repeat, Target, BarChart2, Menu, Sun, Moon
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import QuizModal from '../components/QuizModal';
@@ -16,6 +17,7 @@ import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
 import OrbitProgressCard from '../components/orbit/OrbitProgressCard';
+import { useTheme } from '../context/ThemeContext';
 
 // ---- Confetti ----
 function Confetti({ active, onComplete }) {
@@ -149,6 +151,7 @@ export default function DashboardPage() {
   const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   // ---- State ----
   const [stats, setStats] = useState({ totalXP: 0, todayXP: 0, streakDays: 0, rank: '#?', completed: 0 });
@@ -525,7 +528,7 @@ export default function DashboardPage() {
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
         {/* ============================================================= */}
-        {/* HEADER – with z-index fix for avatar */}
+        {/* HEADER – with theme toggle */}
         {/* ============================================================= */}
         <div className="flex flex-wrap items-start justify-between mb-6 gap-2 pr-2 sm:pr-4 lg:pr-0">
           <div className="flex-1 min-w-0">
@@ -538,6 +541,15 @@ export default function DashboardPage() {
             <p className="text-xs lg:text-sm text-white/40 italic mt-1">"{dailyQuote}"</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 ml-1 sm:ml-2 z-20 relative">
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 hover:bg-white/20 transition"
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun size={18} className="text-yellow-400" /> : <Moon size={18} className="text-slate-400" />}
+            </button>
+
             {/* Mood badge */}
             <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-2.5 py-1 border border-white/10">
               <Smile size={14} className="text-yellow-400" />

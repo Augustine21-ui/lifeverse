@@ -11,10 +11,12 @@ import {
 } from 'lucide-react';
 import PageBackground from '../components/PageBackground';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext'; // <- import global theme
 
 export default function ParentDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme(); // <- use global theme
   
   // State
   const [data, setData] = useState(null);
@@ -26,7 +28,6 @@ export default function ParentDashboard() {
   const [selectedTab, setSelectedTab] = useState('overview');
   const [selectedReportCard, setSelectedReportCard] = useState(null);
   const [showReportCardModal, setShowReportCardModal] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
@@ -45,7 +46,6 @@ export default function ParentDashboard() {
   // Load data on mount
   useEffect(() => {
     loadData();
-    loadThemePreference();
     return () => {
       if (pollInterval.current) clearInterval(pollInterval.current);
     };
@@ -61,59 +61,6 @@ export default function ParentDashboard() {
     };
   }, [selectedConversation]);
 
-  // Load theme preference
-  const loadThemePreference = () => {
-    try {
-      const savedTheme = localStorage.getItem('parentDashboardTheme');
-      if (savedTheme !== null) {
-        setIsDarkMode(savedTheme === 'dark');
-        applyTheme(savedTheme === 'dark');
-      } else {
-        setIsDarkMode(true);
-        applyTheme(true);
-      }
-    } catch (err) {
-      console.log('Theme loading error:', err);
-    }
-  };
-
-  // Apply theme
-  const applyTheme = (dark) => {
-    const root = document.documentElement;
-    if (dark) {
-      root.style.setProperty('--bg-primary', '#0a0a0f');
-      root.style.setProperty('--bg-secondary', '#1a1a2e');
-      root.style.setProperty('--text-primary', '#ffffff');
-      root.style.setProperty('--text-secondary', '#a0a0b0');
-      root.style.setProperty('--border-color', 'rgba(255,255,255,0.1)');
-      root.classList.add('dark');
-      root.classList.remove('light');
-    } else {
-      root.style.setProperty('--bg-primary', '#f0f0f5');
-      root.style.setProperty('--bg-secondary', '#ffffff');
-      root.style.setProperty('--text-primary', '#1a1a2e');
-      root.style.setProperty('--text-secondary', '#4a4a5e');
-      root.style.setProperty('--border-color', 'rgba(0,0,0,0.1)');
-      root.classList.add('light');
-      root.classList.remove('dark');
-    }
-  };
-
-  // Toggle theme
-  const toggleTheme = async () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
-    applyTheme(newTheme);
-    localStorage.setItem('parentDashboardTheme', newTheme ? 'dark' : 'light');
-    try {
-      const settings = await api.getPrivacySettings() || {};
-      settings.theme = newTheme ? 'dark' : 'light';
-      await api.updatePrivacySettings(settings);
-    } catch (err) {
-      console.log('Could not save theme to server:', err);
-    }
-  };
-
   const startPolling = () => {
     if (pollInterval.current) clearInterval(pollInterval.current);
     pollInterval.current = setInterval(() => {
@@ -126,7 +73,6 @@ export default function ParentDashboard() {
     try {
       const convs = await api.getBridgeConversations();
       if (!Array.isArray(convs)) return;
-      // For parent, show all conversations (with students and teachers)
       const mapped = convs.map(conv => ({
         id: conv.id,
         partnerId: parseInt(conv.partner_id, 10),
@@ -196,7 +142,6 @@ export default function ParentDashboard() {
 
   const startNewChat = async (peerId) => {
     try {
-      // Get or create conversation with peer
       const data = await api.getOrCreatePeerConversation(peerId);
       const conv = {
         id: data.conversationId,
@@ -206,7 +151,6 @@ export default function ParentDashboard() {
         last_message: '',
         unread_count: 0,
       };
-      // Add to conversations if not exists
       if (!conversations.find(c => c.id === conv.id)) {
         setConversations(prev => [conv, ...prev]);
       }
@@ -232,7 +176,6 @@ export default function ParentDashboard() {
     }, 15000);
 
     try {
-      // Get child
       let child = null;
       try {
         child = await api.getBridgeChild();
@@ -251,7 +194,6 @@ export default function ParentDashboard() {
       if (!child || !child.id) {
         setData({ student: null, assignments: [], feedback: [], reportCards: [], encouragement: [], trends: [] });
       } else {
-        // Get progress data
         let progressData = null;
         try {
           progressData = await api.getParentChildProgress();
@@ -274,7 +216,6 @@ export default function ParentDashboard() {
         }
       }
 
-      // Fetch notifications
       try {
         const notifData = await api.getNotifications();
         setNotifications(notifData || []);
@@ -283,7 +224,6 @@ export default function ParentDashboard() {
         setNotifications([]);
       }
 
-      // Load conversations and peer contacts
       await loadConversations();
       await loadPeerContacts();
 
@@ -354,12 +294,6 @@ export default function ParentDashboard() {
   const viewStudentProgress = async (studentId) => {
     try {
       const progress = await api.getBridgeStudentProgress(studentId);
-      setSelectedReportCard(null); // reuse modal or create new state? For simplicity, we'll just show an alert with data.
-      // Or we can open a modal with progress details.
-      // Let's use the existing progress modal from BridgePage but we'll create a simple one.
-      // For now, we'll navigate to a progress page or show in a modal.
-      // Since we don't have a dedicated progress modal in ParentDashboard, we can use the studentProgress state.
-      // I'll add a new state for studentProgress.
       setStudentProgress(progress);
       setSelectedStudent(data.student);
     } catch (err) {
@@ -433,10 +367,10 @@ export default function ParentDashboard() {
 
   const { student, assignments = [], feedback = [], reportCards = [], encouragement = [], trends = [] } = data;
 
-  // Settings Modal
+  // Settings Modal (uses global theme)
   const SettingsModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowSettingsModal(false)}>
-      <div className={`rounded-xl max-w-md w-full p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-white'} border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`rounded-xl max-w-md w-full p-6 ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -454,13 +388,9 @@ export default function ParentDashboard() {
           </h4>
           <div className="flex gap-3">
             <button
-              onClick={() => {
-                setIsDarkMode(true);
-                applyTheme(true);
-                localStorage.setItem('parentDashboardTheme', 'dark');
-              }}
+              onClick={() => toggleTheme()}
               className={`flex-1 p-3 rounded-lg border-2 transition ${
-                isDarkMode 
+                theme === 'dark' 
                   ? 'border-brand-500 bg-brand-500/20' 
                   : 'border-white/10 hover:border-white/30'
               }`}
@@ -469,13 +399,9 @@ export default function ParentDashboard() {
               <div className="text-sm">Dark</div>
             </button>
             <button
-              onClick={() => {
-                setIsDarkMode(false);
-                applyTheme(false);
-                localStorage.setItem('parentDashboardTheme', 'light');
-              }}
+              onClick={() => toggleTheme()}
               className={`flex-1 p-3 rounded-lg border-2 transition ${
-                !isDarkMode 
+                theme === 'light' 
                   ? 'border-brand-500 bg-brand-500/20' 
                   : 'border-white/10 hover:border-white/30'
               }`}
@@ -514,7 +440,7 @@ export default function ParentDashboard() {
     const teachers = peerContacts.filter(p => p.role === 'teacher' || p.role === 'parent');
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowNewChatModal(false)}>
-        <div className={`rounded-xl max-w-md w-full p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-white'} border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
+        <div className={`rounded-xl max-w-md w-full p-6 ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-bold">New Conversation</h3>
             <button onClick={() => setShowNewChatModal(false)} className="text-white/40 hover:text-white">
@@ -552,7 +478,7 @@ export default function ParentDashboard() {
     if (!studentProgress || !selectedStudent) return null;
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setStudentProgress(null)}>
-        <div className={`rounded-xl max-w-md w-full p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-white'} border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
+        <div className={`rounded-xl max-w-md w-full p-6 ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-bold">📊 {selectedStudent.full_name}'s Progress</h3>
             <button onClick={() => setStudentProgress(null)} className="text-white/40 hover:text-white">
@@ -584,7 +510,7 @@ export default function ParentDashboard() {
   };
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark' : 'light'}`}>
+    <div className={`min-h-screen ${theme === 'dark' ? 'dark' : 'light'}`}>
       <PageBackground imageUrl="/parent-bg.jpg">
         <div className="p-6 max-w-6xl mx-auto">
           {/* Header */}
@@ -594,6 +520,15 @@ export default function ParentDashboard() {
               <p className="text-white/60">Support your child's academic journey</p>
             </div>
             <div className="flex items-center gap-3">
+              {/* Theme Toggle Button */}
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition border border-white/10"
+                title="Toggle theme"
+              >
+                {theme === 'dark' ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-slate-400" />}
+              </button>
+
               <Link
                 to="/bridge"
                 className="p-2 rounded-lg bg-brand-500/20 hover:bg-brand-500/30 transition border border-brand-500/30 flex items-center gap-2 text-brand-400 hover:text-brand-300"
@@ -602,6 +537,7 @@ export default function ParentDashboard() {
                 <Link2 className="w-5 h-5" />
                 <span className="hidden sm:inline text-sm font-medium">Bridge</span>
               </Link>
+
               <button
                 onClick={() => setShowSettingsModal(true)}
                 className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition border border-white/10"
@@ -609,6 +545,7 @@ export default function ParentDashboard() {
               >
                 <Settings className="w-5 h-5 text-white/60 hover:text-white" />
               </button>
+
               <div className="relative">
                 <Bell className="text-white/60 hover:text-white cursor-pointer" size={24} />
                 {notifications.some(n => !n.is_read) && (
@@ -1033,7 +970,7 @@ export default function ParentDashboard() {
           {/* Report Card Modal */}
           {showReportCardModal && selectedReportCard && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowReportCardModal(false)}>
-              <div className={`rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-white'} border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
+              <div className={`rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-2xl font-bold">{selectedReportCard.title}</h3>

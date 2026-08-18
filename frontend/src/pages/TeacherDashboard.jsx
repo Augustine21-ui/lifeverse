@@ -12,9 +12,12 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import PageBackground from '../components/PageBackground';
+import { useTheme } from '../context/ThemeContext'; // <- import global theme
 
 export default function TeacherDashboard() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme(); // <- use global theme
+  
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -22,71 +25,10 @@ export default function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
-
-  // Theme state
-  const [isDarkMode, setIsDarkMode] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-
-  // Load theme preference on mount
-  useEffect(() => {
-    loadThemePreference();
-  }, []);
-
-  const loadThemePreference = () => {
-    try {
-      const savedTheme = localStorage.getItem('teacherDashboardTheme');
-      if (savedTheme !== null) {
-        setIsDarkMode(savedTheme === 'dark');
-        applyTheme(savedTheme === 'dark');
-      } else {
-        // Default to dark
-        setIsDarkMode(true);
-        applyTheme(true);
-      }
-    } catch (err) {
-      console.log('Theme loading error:', err);
-    }
-  };
-
-  const applyTheme = (dark) => {
-    const root = document.documentElement;
-    if (dark) {
-      root.style.setProperty('--bg-primary', '#0a0a0f');
-      root.style.setProperty('--bg-secondary', '#1a1a2e');
-      root.style.setProperty('--text-primary', '#ffffff');
-      root.style.setProperty('--text-secondary', '#a0a0b0');
-      root.style.setProperty('--border-color', 'rgba(255,255,255,0.1)');
-      root.classList.add('dark');
-      root.classList.remove('light');
-    } else {
-      root.style.setProperty('--bg-primary', '#f0f0f5');
-      root.style.setProperty('--bg-secondary', '#ffffff');
-      root.style.setProperty('--text-primary', '#1a1a2e');
-      root.style.setProperty('--text-secondary', '#4a4a5e');
-      root.style.setProperty('--border-color', 'rgba(0,0,0,0.1)');
-      root.classList.add('light');
-      root.classList.remove('dark');
-    }
-  };
-
-  const toggleTheme = async () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
-    applyTheme(newTheme);
-    localStorage.setItem('teacherDashboardTheme', newTheme ? 'dark' : 'light');
-    
-    try {
-      const settings = await api.getPrivacySettings() || {};
-      settings.theme = newTheme ? 'dark' : 'light';
-      await api.updatePrivacySettings(settings);
-    } catch (err) {
-      console.log('Could not save theme to server:', err);
-    }
-  };
 
   const handleLogout = () => {
     logout();
-    // navigate to login handled by auth context
   };
 
   const loadData = async () => {
@@ -140,10 +82,10 @@ export default function TeacherDashboard() {
     </div>
   );
 
-  // Settings Modal Component
+  // Settings Modal (uses global theme)
   const SettingsModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowSettingsModal(false)}>
-      <div className={`rounded-xl max-w-md w-full p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-white'} border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`rounded-xl max-w-md w-full p-6 ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'} border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -154,7 +96,6 @@ export default function TeacherDashboard() {
           </button>
         </div>
 
-        {/* Theme Toggle */}
         <div className="mb-6">
           <h4 className="font-semibold mb-3 flex items-center gap-2">
             <Palette className="w-4 h-4" />
@@ -162,13 +103,9 @@ export default function TeacherDashboard() {
           </h4>
           <div className="flex gap-3">
             <button
-              onClick={() => {
-                setIsDarkMode(true);
-                applyTheme(true);
-                localStorage.setItem('teacherDashboardTheme', 'dark');
-              }}
+              onClick={() => toggleTheme()}
               className={`flex-1 p-3 rounded-lg border-2 transition ${
-                isDarkMode 
+                theme === 'dark' 
                   ? 'border-brand-500 bg-brand-500/20' 
                   : 'border-white/10 hover:border-white/30'
               }`}
@@ -177,13 +114,9 @@ export default function TeacherDashboard() {
               <div className="text-sm">Dark</div>
             </button>
             <button
-              onClick={() => {
-                setIsDarkMode(false);
-                applyTheme(false);
-                localStorage.setItem('teacherDashboardTheme', 'light');
-              }}
+              onClick={() => toggleTheme()}
               className={`flex-1 p-3 rounded-lg border-2 transition ${
-                !isDarkMode 
+                theme === 'light' 
                   ? 'border-brand-500 bg-brand-500/20' 
                   : 'border-white/10 hover:border-white/30'
               }`}
@@ -194,7 +127,6 @@ export default function TeacherDashboard() {
           </div>
         </div>
 
-        {/* User Info */}
         <div className="border-t border-white/10 pt-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold">
@@ -207,7 +139,6 @@ export default function TeacherDashboard() {
           </div>
         </div>
 
-        {/* Logout Button */}
         <button
           onClick={handleLogout}
           className="w-full btn-secondary flex items-center justify-center gap-2 text-red-400 hover:text-red-300 border-red-400/20 hover:border-red-400/40"
@@ -220,10 +151,10 @@ export default function TeacherDashboard() {
   );
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark' : 'light'}`}>
+    <div className={`min-h-screen ${theme === 'dark' ? 'dark' : 'light'}`}>
       <PageBackground imageUrl="/teacher-bg.jpg">
         <div className="max-w-7xl mx-auto p-6 space-y-6">
-          {/* Header with Bridge and Settings */}
+          {/* Header with Bridge, Theme Toggle, and Settings */}
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold">👨‍🏫 Teacher Dashboard</h1>
@@ -239,6 +170,16 @@ export default function TeacherDashboard() {
                 <Link2 className="w-5 h-5" />
                 <span className="hidden sm:inline text-sm font-medium">Bridge</span>
               </Link>
+
+              {/* Theme Toggle Button */}
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition border border-white/10"
+                title="Toggle theme"
+              >
+                {theme === 'dark' ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-slate-400" />}
+              </button>
+
               {/* Settings Button */}
               <button
                 onClick={() => setShowSettingsModal(true)}
@@ -247,6 +188,7 @@ export default function TeacherDashboard() {
               >
                 <Settings className="w-5 h-5 text-white/60 hover:text-white" />
               </button>
+
               {/* Notifications */}
               <div className="relative">
                 <Bell className="text-white/60 hover:text-white cursor-pointer" size={24} />
