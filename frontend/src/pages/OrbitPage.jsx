@@ -1,15 +1,103 @@
 // frontend/src/pages/OrbitPage.jsx
-// ✅ COMPLETE - With Activity Selection
+// ✅ COMPLETE - With Activity Selection + Universe Background
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import orbitApi from '../services/orbitApi';
-import OrbitActivities from '../components/orbit/OrbitActivities';  // ← IMPORT THIS
+import OrbitActivities from '../components/orbit/OrbitActivities';
 import './OrbitPage.css';
 
+// ========== UNIVERSE BACKGROUND COMPONENTS ==========
+const Starfield = () => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    let animationId;
+    let stars = [];
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', resize);
+    resize();
+
+    const createStars = () => {
+      stars = [];
+      const count = Math.floor((canvas.width * canvas.height) / 1500);
+      for (let i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: Math.random() * 1.5 + 0.5,
+          brightness: Math.random() * 0.8 + 0.2,
+          speed: Math.random() * 0.02 + 0.005,
+          phase: Math.random() * Math.PI * 2,
+        });
+      }
+    };
+    createStars();
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const time = Date.now() / 1000;
+
+      stars.forEach(star => {
+        const twinkle = Math.sin(time * star.speed + star.phase) * 0.3 + 0.7;
+        const alpha = star.brightness * twinkle;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.fill();
+      });
+
+      // Shooting stars (rare)
+      if (Math.random() < 0.001) {
+        const s = stars[Math.floor(Math.random() * stars.length)];
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(s.x - 40, s.y - 40);
+        ctx.strokeStyle = `rgba(255, 255, 255, 0.8)`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        s.x = Math.random() * canvas.width;
+        s.y = Math.random() * canvas.height;
+      }
+
+      animationId = requestAnimationFrame(draw);
+    };
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener('resize', resize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 w-full h-full pointer-events-none z-0"
+      style={{ background: 'radial-gradient(ellipse at 50% 50%, #0a0e1a 0%, #000000 100%)' }}
+    />
+  );
+};
+
+const NebulaOverlay = () => (
+  <div className="fixed inset-0 pointer-events-none z-0 opacity-30">
+    <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-purple-600/20 blur-3xl animate-pulse" />
+    <div className="absolute bottom-1/3 right-1/4 w-80 h-80 rounded-full bg-blue-600/20 blur-3xl animate-pulse delay-1000" />
+    <div className="absolute top-2/3 left-1/3 w-72 h-72 rounded-full bg-pink-500/15 blur-3xl animate-pulse delay-2000" />
+    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-indigo-500/10 blur-3xl animate-pulse delay-500" />
+  </div>
+);
+// ==================================================
+
 const OrbitPage = () => {
-  // ✅ ALL STATE DEFINED HERE
+  // ✅ ALL YOUR EXISTING STATE
   const [selectedPlanet, setSelectedPlanet] = useState(null);
-  const [selectedActivity, setSelectedActivity] = useState(null);  // ← ADDED
+  const [selectedActivity, setSelectedActivity] = useState(null);
   const [session, setSession] = useState(null);
   const [activities, setActivities] = useState([]);
   const [currentActivity, setCurrentActivity] = useState(null);
@@ -17,11 +105,11 @@ const OrbitPage = () => {
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
-  const [showActivitySelection, setShowActivitySelection] = useState(false);  // ← ADDED
+  const [showActivitySelection, setShowActivitySelection] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
   const [apiReady, setApiReady] = useState(false);
 
-  // Planets
+  // Planets (unchanged)
   const planets = [
     { id: 'cortex', label: 'Cortex', subtitle: 'Knowledge & Memory', color: '#6C63FF', icon: '🧠', bg: 'rgba(108, 99, 255, 0.1)' },
     { id: 'cluepath', label: 'CluePath', subtitle: 'Story & Problem Solving', color: '#FF6B6B', icon: '🕵️', bg: 'rgba(255, 107, 107, 0.1)' },
@@ -29,7 +117,7 @@ const OrbitPage = () => {
     { id: 'reflex', label: 'Reflex', subtitle: 'Educational Arcade', color: '#FFE66D', icon: '⚡', bg: 'rgba(255, 230, 109, 0.1)' },
   ];
 
-  // Check API on mount
+  // ✅ ALL YOUR EXISTING FUNCTIONS (unchanged)
   useEffect(() => {
     const checkApi = async () => {
       try {
@@ -53,7 +141,6 @@ const OrbitPage = () => {
     checkApi();
   }, []);
 
-  // Fetch progress
   const fetchProgress = async () => {
     try {
       console.log('📈 Fetching progress...');
@@ -65,7 +152,6 @@ const OrbitPage = () => {
     }
   };
 
-  // ✅ Handle planet click - show activity selection
   const handlePlanetClick = useCallback((planet) => {
     if (!apiReady) {
       setError('API is not ready. Please refresh the page.');
@@ -73,7 +159,7 @@ const OrbitPage = () => {
     }
 
     setSelectedPlanet(planet);
-    setShowActivitySelection(true);  // ← SHOW ACTIVITY SELECTION
+    setShowActivitySelection(true);
     setSelectedActivity(null);
     setSession(null);
     setActivities([]);
@@ -83,7 +169,6 @@ const OrbitPage = () => {
     setUserAnswer('');
   }, [apiReady]);
 
-  // ✅ Handle activity selection
   const handleActivitySelect = useCallback(async (activityType) => {
     if (!selectedPlanet) return;
 
@@ -123,7 +208,6 @@ const OrbitPage = () => {
     }
   }, [selectedPlanet]);
 
-  // Generate next activity
   const handleGenerateNext = useCallback(async () => {
     if (!session) {
       console.warn('⚠️ No active session');
@@ -151,7 +235,6 @@ const OrbitPage = () => {
     }
   }, [session, selectedActivity]);
 
-  // Submit answer
   const handleSubmitAnswer = useCallback(async () => {
     if (!session) {
       setError('No active session. Start a new session first.');
@@ -194,7 +277,6 @@ const OrbitPage = () => {
     }
   }, [session, currentActivity, userAnswer, handleGenerateNext]);
 
-  // End session
   const handleEndSession = useCallback(async () => {
     if (!session) {
       setError('No active session to end.');
@@ -223,7 +305,6 @@ const OrbitPage = () => {
     }
   }, [session]);
 
-  // Reset
   const handleReset = useCallback(() => {
     setSelectedPlanet(null);
     setSelectedActivity(null);
@@ -236,7 +317,6 @@ const OrbitPage = () => {
     setUserAnswer('');
   }, []);
 
-  // Render activity content
   const renderActivityContent = (activity) => {
     if (!activity) return <p>No activity data</p>;
 
@@ -290,205 +370,212 @@ const OrbitPage = () => {
     );
   };
 
+  // ========== RENDER ==========
   return (
-    <div className="orbit-page">
-      {/* Header */}
-      <header className="orbit-header">
-        <h1>🚀 Orbit Learning</h1>
-        {progress && (
-          <div className="progress-stats">
-            <span>📚 {progress.sessions?.total_sessions || 0} sessions</span>
-            <span>⭐ {progress.sessions?.total_score || 0} XP</span>
-            <span>🏆 {progress.mastery?.length || 0} topics</span>
+    <div className="orbit-page relative min-h-screen bg-transparent">
+      {/* 🌌 Universe Background */}
+      <Starfield />
+      <NebulaOverlay />
+
+      {/* Content – with z-index to sit above background */}
+      <div className="relative z-10">
+        {/* Header */}
+        <header className="orbit-header">
+          <h1>🚀 Orbit Learning</h1>
+          {progress && (
+            <div className="progress-stats">
+              <span>📚 {progress.sessions?.total_sessions || 0} sessions</span>
+              <span>⭐ {progress.sessions?.total_score || 0} XP</span>
+              <span>🏆 {progress.mastery?.length || 0} topics</span>
+            </div>
+          )}
+        </header>
+
+        {/* Solar System */}
+        <div className="solar-system">
+          <div className="orbit-rings">
+            <div className="ring ring-1"></div>
+            <div className="ring ring-2"></div>
+            <div className="ring ring-3"></div>
+          </div>
+
+          <div className="life-core">
+            <span className="core-icon">☀️</span>
+            <span className="core-label">Life Core</span>
+            {session && <span className="core-status">Active</span>}
+          </div>
+
+          <div className="planets-container">
+            {planets.map((planet) => (
+              <button
+                key={planet.id}
+                className={`planet ${selectedPlanet?.id === planet.id ? 'active' : ''} 
+                           ${session || showActivitySelection ? 'disabled' : ''}`}
+                style={{ 
+                  '--planet-color': planet.color,
+                  '--planet-bg': planet.bg,
+                }}
+                onClick={() => handlePlanetClick(planet)}
+                disabled={loading || !!session || !apiReady || showActivitySelection}
+              >
+                <div className="planet-glow"></div>
+                <span className="planet-icon">{planet.icon}</span>
+                <span className="planet-label">{planet.label}</span>
+                <span className="planet-subtitle">{planet.subtitle}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Activity Selection */}
+        {showActivitySelection && selectedPlanet && !session && (
+          <div className="activity-selection-container">
+            <button 
+              className="back-btn"
+              onClick={() => {
+                setShowActivitySelection(false);
+                setSelectedPlanet(null);
+              }}
+            >
+              ← Back to Planets
+            </button>
+            <div className="orbit-activities-wrapper">
+              <div className="orbit-activities-header">
+                <div className="orbit-activities-title">
+                  <span className="orbit-icon">{selectedPlanet.icon}</span>
+                  <div>
+                    <h3>{selectedPlanet.label}</h3>
+                    <p>{selectedPlanet.subtitle}</p>
+                  </div>
+                </div>
+              </div>
+              <OrbitActivities
+                orbitType={selectedPlanet.id}
+                onSelectActivity={handleActivitySelect}
+              />
+            </div>
           </div>
         )}
-      </header>
 
-      {/* Solar System */}
-      <div className="solar-system">
-        <div className="orbit-rings">
-          <div className="ring ring-1"></div>
-          <div className="ring ring-2"></div>
-          <div className="ring ring-3"></div>
-        </div>
-
-        <div className="life-core">
-          <span className="core-icon">☀️</span>
-          <span className="core-label">Life Core</span>
-          {session && <span className="core-status">Active</span>}
-        </div>
-
-        <div className="planets-container">
-          {planets.map((planet) => (
-            <button
-              key={planet.id}
-              className={`planet ${selectedPlanet?.id === planet.id ? 'active' : ''} 
-                         ${session || showActivitySelection ? 'disabled' : ''}`}
-              style={{ 
-                '--planet-color': planet.color,
-                '--planet-bg': planet.bg,
-              }}
-              onClick={() => handlePlanetClick(planet)}
-              disabled={loading || !!session || !apiReady || showActivitySelection}
-            >
-              <div className="planet-glow"></div>
-              <span className="planet-icon">{planet.icon}</span>
-              <span className="planet-label">{planet.label}</span>
-              <span className="planet-subtitle">{planet.subtitle}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ✅ ACTIVITY SELECTION - USING YOUR COMPONENT */}
-      {showActivitySelection && selectedPlanet && !session && (
-        <div className="activity-selection-container">
-          <button 
-            className="back-btn"
-            onClick={() => {
-              setShowActivitySelection(false);
-              setSelectedPlanet(null);
-            }}
-          >
-            ← Back to Planets
-          </button>
-          <div className="orbit-activities-wrapper">
-            <div className="orbit-activities-header">
-              <div className="orbit-activities-title">
-                <span className="orbit-icon">{selectedPlanet.icon}</span>
-                <div>
-                  <h3>{selectedPlanet.label}</h3>
-                  <p>{selectedPlanet.subtitle}</p>
+        {/* Session Content */}
+        {session && !showSummary && (
+          <div className="session-container">
+            <div className="session-content">
+              <div className="session-header">
+                <div className="session-info">
+                  <h2>{selectedPlanet?.label} - {selectedPlanet?.subtitle}</h2>
+                  <span className="session-status">Active</span>
+                  {selectedActivity && (
+                    <span className="activity-type-badge">
+                      {selectedActivity.replace('_', ' ').toUpperCase()}
+                    </span>
+                  )}
                 </div>
+                <button onClick={handleEndSession} className="btn-danger" disabled={loading}>
+                  End Session
+                </button>
               </div>
-            </div>
-            {/* ✅ YOUR OrbitActivities COMPONENT */}
-            <OrbitActivities
-              orbitType={selectedPlanet.id}
-              onSelectActivity={handleActivitySelect}
-            />
-          </div>
-        </div>
-      )}
 
-      {/* Session Content */}
-      {session && !showSummary && (
-        <div className="session-container">
-          <div className="session-content">
-            <div className="session-header">
-              <div className="session-info">
-                <h2>{selectedPlanet?.label} - {selectedPlanet?.subtitle}</h2>
-                <span className="session-status">Active</span>
-                {selectedActivity && (
-                  <span className="activity-type-badge">
-                    {selectedActivity.replace('_', ' ').toUpperCase()}
-                  </span>
-                )}
-              </div>
-              <button onClick={handleEndSession} className="btn-danger" disabled={loading}>
-                End Session
+              {currentActivity && (
+                <div className="activity-container">
+                  <div className="activity-card">
+                    <div className="activity-badge">
+                      {currentActivity.activity_type || 'Activity'}
+                    </div>
+                    {renderActivityContent(currentActivity)}
+                  </div>
+
+                  <div className="answer-section">
+                    <textarea
+                      value={userAnswer}
+                      onChange={(e) => setUserAnswer(e.target.value)}
+                      placeholder="Type your answer here..."
+                      className="answer-input"
+                      rows={3}
+                      disabled={loading}
+                    />
+                    <button 
+                      onClick={handleSubmitAnswer}
+                      className="btn-primary"
+                      disabled={loading || !userAnswer.trim()}
+                    >
+                      {loading ? 'Submitting...' : 'Submit Answer →'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <button 
+                onClick={handleGenerateNext}
+                className="btn-secondary"
+                disabled={loading}
+              >
+                {loading ? 'Loading...' : 'Generate Next Activity →'}
               </button>
             </div>
+          </div>
+        )}
 
-            {currentActivity && (
-              <div className="activity-container">
-                <div className="activity-card">
-                  <div className="activity-badge">
-                    {currentActivity.activity_type || 'Activity'}
-                  </div>
-                  {renderActivityContent(currentActivity)}
-                </div>
-
-                <div className="answer-section">
-                  <textarea
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
-                    placeholder="Type your answer here..."
-                    className="answer-input"
-                    rows={3}
-                    disabled={loading}
-                  />
-                  <button 
-                    onClick={handleSubmitAnswer}
-                    className="btn-primary"
-                    disabled={loading || !userAnswer.trim()}
-                  >
-                    {loading ? 'Submitting...' : 'Submit Answer →'}
-                  </button>
-                </div>
+        {/* Summary */}
+        {showSummary && (
+          <div className="session-summary">
+            <h2>🎉 Session Complete!</h2>
+            <div className="summary-stats">
+              <div className="stat-item">
+                <span className="stat-value">{activities.length}</span>
+                <span className="stat-label">Activities</span>
               </div>
-            )}
-
-            <button 
-              onClick={handleGenerateNext}
-              className="btn-secondary"
-              disabled={loading}
-            >
-              {loading ? 'Loading...' : 'Generate Next Activity →'}
+              <div className="stat-item">
+                <span className="stat-value">{selectedPlanet?.label}</span>
+                <span className="stat-label">Orbit</span>
+              </div>
+            </div>
+            <button onClick={handleReset} className="btn-primary">
+              Start New Session
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Summary */}
-      {showSummary && (
-        <div className="session-summary">
-          <h2>🎉 Session Complete!</h2>
-          <div className="summary-stats">
-            <div className="stat-item">
-              <span className="stat-value">{activities.length}</span>
-              <span className="stat-label">Activities</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-value">{selectedPlanet?.label}</span>
-              <span className="stat-label">Orbit</span>
+        {/* Loading */}
+        {loading && (
+          <div className="loading-overlay">
+            <div className="spinner"></div>
+            <p>Loading...</p>
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="error-container">
+            <div className="error-message">
+              <span className="error-icon">⚠️</span>
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="error-dismiss">✕</button>
             </div>
           </div>
-          <button onClick={handleReset} className="btn-primary">
-            Start New Session
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Loading */}
-      {loading && (
-        <div className="loading-overlay">
-          <div className="spinner"></div>
-          <p>Loading...</p>
-        </div>
-      )}
-
-      {/* Error */}
-      {error && (
-        <div className="error-container">
-          <div className="error-message">
-            <span className="error-icon">⚠️</span>
-            <span>{error}</span>
-            <button onClick={() => setError(null)} className="error-dismiss">✕</button>
-          </div>
-        </div>
-      )}
-
-      {/* Welcome */}
-      {!session && !showActivitySelection && !showSummary && !loading && !error && apiReady && (
-        <div className="welcome-section">
-          <p className="welcome-text">🌍 Click a planet to start your orbit journey!</p>
-          <div className="feature-grid">
-            <div className="feature-item">
-              <span>🧠</span>
-              <p>AI-Powered Learning</p>
-            </div>
-            <div className="feature-item">
-              <span>🎮</span>
-              <p>Gamified Experience</p>
-            </div>
-            <div className="feature-item">
-              <span>📊</span>
-              <p>Track Your Progress</p>
+        {/* Welcome */}
+        {!session && !showActivitySelection && !showSummary && !loading && !error && apiReady && (
+          <div className="welcome-section">
+            <p className="welcome-text">🌍 Click a planet to start your orbit journey!</p>
+            <div className="feature-grid">
+              <div className="feature-item">
+                <span>🧠</span>
+                <p>AI-Powered Learning</p>
+              </div>
+              <div className="feature-item">
+                <span>🎮</span>
+                <p>Gamified Experience</p>
+              </div>
+              <div className="feature-item">
+                <span>📊</span>
+                <p>Track Your Progress</p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
