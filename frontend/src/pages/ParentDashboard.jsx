@@ -6,7 +6,7 @@ import {
   Loader2, User, BookOpen, FileText, MessageCircle, 
   TrendingUp, TrendingDown, Minus, Heart, Bell, Send, 
   Download, Eye, Calendar, Award, File, Settings, 
-  Sun, Moon, LogOut, RefreshCw, AlertCircle
+  Sun, Moon, LogOut, RefreshCw, AlertCircle, Bridge
 } from 'lucide-react';
 import PageBackground from '../components/PageBackground';
 import { Link, useNavigate } from 'react-router-dom';
@@ -394,13 +394,24 @@ export default function ParentDashboard() {
     <div className={`min-h-screen ${isDarkMode ? 'dark' : 'light'}`}>
       <PageBackground imageUrl="/parent-bg.jpg">
         <div className="p-6 max-w-6xl mx-auto">
-          {/* Header */}
+          {/* Header with Bridge Button */}
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-3xl font-bold">👨‍👩‍👧 Parent Dashboard</h1>
               <p className="text-white/60">Support your child's academic journey</p>
             </div>
             <div className="flex items-center gap-3">
+              {/* ✅ Bridge Button */}
+              <Link
+                to="/bridge"
+                className="p-2 rounded-lg bg-brand-500/20 hover:bg-brand-500/30 transition border border-brand-500/30 flex items-center gap-2 text-brand-400 hover:text-brand-300"
+                title="Go to Bridge"
+              >
+                <Bridge className="w-5 h-5" />
+                <span className="hidden sm:inline text-sm font-medium">Bridge</span>
+              </Link>
+              
+              {/* Settings Button */}
               <button
                 onClick={() => setShowSettingsModal(true)}
                 className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition border border-white/10"
@@ -408,6 +419,8 @@ export default function ParentDashboard() {
               >
                 <Settings className="w-5 h-5 text-white/60 hover:text-white" />
               </button>
+              
+              {/* Notification Bell */}
               <div className="relative">
                 <Bell className="text-white/60 hover:text-white cursor-pointer" size={24} />
                 {notifications.some(n => !n.is_read) && (
