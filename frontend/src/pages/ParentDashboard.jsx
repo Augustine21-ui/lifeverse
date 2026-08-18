@@ -1,12 +1,13 @@
 ﻿// frontend/src/pages/ParentDashboard.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
 import { 
   Loader2, User, BookOpen, FileText, MessageCircle, 
   TrendingUp, TrendingDown, Minus, Heart, Bell, Send, 
   Download, Eye, Calendar, Award, File, Settings, 
-  Sun, Moon, LogOut, RefreshCw, AlertCircle, Link2
+  Sun, Moon, LogOut, RefreshCw, AlertCircle, Link2,
+  Users, Plus
 } from 'lucide-react';
 import PageBackground from '../components/PageBackground';
 import { Link, useNavigate } from 'react-router-dom';
@@ -29,19 +30,47 @@ export default function ParentDashboard() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
 
+  // Messaging state
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messageText, setMessageText] = useState('');
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef(null);
+  const pollInterval = useRef(null);
+  const [peerContacts, setPeerContacts] = useState([]);
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [selectedPeer, setSelectedPeer] = useState(null);
+
   // Load data on mount
   useEffect(() => {
     loadData();
     loadThemePreference();
+    return () => {
+      if (pollInterval.current) clearInterval(pollInterval.current);
+    };
   }, []);
 
+  useEffect(() => {
+    if (selectedConversation) {
+      loadMessages(selectedConversation.id);
+      startPolling();
+    }
+    return () => {
+      if (pollInterval.current) clearInterval(pollInterval.current);
+    };
+  }, [selectedConversation]);
+
   // Load theme preference
-  const loadThemePreference = async () => {
+  const loadThemePreference = () => {
     try {
       const savedTheme = localStorage.getItem('parentDashboardTheme');
       if (savedTheme !== null) {
         setIsDarkMode(savedTheme === 'dark');
         applyTheme(savedTheme === 'dark');
+      } else {
+        setIsDarkMode(true);
+        applyTheme(true);
       }
     } catch (err) {
       console.log('Theme loading error:', err);
@@ -76,7 +105,6 @@ export default function ParentDashboard() {
     setIsDarkMode(newTheme);
     applyTheme(newTheme);
     localStorage.setItem('parentDashboardTheme', newTheme ? 'dark' : 'light');
-    
     try {
       const settings = await api.getPrivacySettings() || {};
       settings.theme = newTheme ? 'dark' : 'light';
@@ -86,13 +114,116 @@ export default function ParentDashboard() {
     }
   };
 
+  const startPolling = () => {
+    if (pollInterval.current) clearInterval(pollInterval.current);
+    pollInterval.current = setInterval(() => {
+      if (selectedConversation) loadMessages(selectedConversation.id);
+      loadConversations();
+    }, 5000);
+  };
+
+  const loadConversations = async () => {
+    try {
+      const convs = await api.getBridgeConversations();
+      if (!Array.isArray(convs)) return;
+      // For parent, show all conversations (with students and teachers)
+      const mapped = convs.map(conv => ({
+        id: conv.id,
+        partnerId: parseInt(conv.partner_id, 10),
+        partnerName: `${conv.partner_name} (${conv.partner_role})`,
+        partnerRole: conv.partner_role,
+        last_message: conv.last_message,
+        unread_count: conv.unread_count || 0,
+      }));
+      setConversations(mapped);
+      if (mapped.length > 0 && !selectedConversation) {
+        setSelectedConversation(mapped[0]);
+        await loadMessages(mapped[0].id);
+      } else if (selectedConversation) {
+        const stillExists = mapped.find(c => c.id === selectedConversation.id);
+        if (!stillExists && mapped.length > 0) {
+          setSelectedConversation(mapped[0]);
+          await loadMessages(mapped[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading conversations:', err);
+    }
+  };
+
+  const loadMessages = async (conversationId) => {
+    try {
+      const msgs = await api.getBridgeMessages(conversationId);
+      setMessages(Array.isArray(msgs) ? msgs : []);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch (err) {
+      console.error('Error loading messages:', err);
+      setMessages([]);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!messageText.trim() || !selectedConversation) return;
+    const toUserId = selectedConversation.partnerId;
+    if (!toUserId || isNaN(toUserId)) {
+      alert('Invalid recipient');
+      return;
+    }
+    setSending(true);
+    try {
+      await api.sendBridgeMessage(toUserId, messageText);
+      setMessageText('');
+      await loadMessages(selectedConversation.id);
+      await loadConversations();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to send message');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const loadPeerContacts = async () => {
+    try {
+      const contacts = await api.getBridgePeerContacts();
+      setPeerContacts(Array.isArray(contacts) ? contacts : []);
+    } catch (err) {
+      console.error(err);
+      setPeerContacts([]);
+    }
+  };
+
+  const startNewChat = async (peerId) => {
+    try {
+      // Get or create conversation with peer
+      const data = await api.getOrCreatePeerConversation(peerId);
+      const conv = {
+        id: data.conversationId,
+        partnerId: peerId,
+        partnerName: peerContacts.find(p => p.id === peerId)?.full_name || 'Unknown',
+        partnerRole: peerContacts.find(p => p.id === peerId)?.role || 'teacher',
+        last_message: '',
+        unread_count: 0,
+      };
+      // Add to conversations if not exists
+      if (!conversations.find(c => c.id === conv.id)) {
+        setConversations(prev => [conv, ...prev]);
+      }
+      setSelectedConversation(conv);
+      await loadMessages(conv.id);
+      setShowNewChatModal(false);
+    } catch (err) {
+      console.error(err);
+      alert('Could not start chat');
+    }
+  };
+
   // Main data loading function with timeout
   const loadData = async () => {
     setLoading(true);
     setError(null);
     setLoadingTimeout(false);
 
-    // Set a timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
       setLoadingTimeout(true);
       setLoading(false);
@@ -100,26 +231,15 @@ export default function ParentDashboard() {
     }, 15000);
 
     try {
-      // 1. First, try to get the child data (fastest)
-      console.log('Fetching child data...');
+      // Get child
       let child = null;
-      
       try {
-        const childResponse = await api.getBridgeChild();
-        child = childResponse;
-        console.log('Child data:', child);
+        child = await api.getBridgeChild();
       } catch (childErr) {
-        console.error('Error fetching child:', childErr);
-        // If 404, no child linked - that's fine
         if (childErr.response?.status === 404 || childErr.status === 404) {
-          setData({ 
-            student: null, 
-            assignments: [], 
-            feedback: [], 
-            reportCards: [], 
-            encouragement: [], 
-            trends: [] 
-          });
+          setData({ student: null, assignments: [], feedback: [], reportCards: [], encouragement: [], trends: [] });
+          await loadConversations();
+          await loadPeerContacts();
           setLoading(false);
           clearTimeout(timeoutId);
           return;
@@ -127,65 +247,47 @@ export default function ParentDashboard() {
         throw childErr;
       }
 
-      // If no child, show empty state
       if (!child || !child.id) {
-        setData({ 
-          student: null, 
-          assignments: [], 
-          feedback: [], 
-          reportCards: [], 
-          encouragement: [], 
-          trends: [] 
-        });
-        setLoading(false);
-        clearTimeout(timeoutId);
-        return;
+        setData({ student: null, assignments: [], feedback: [], reportCards: [], encouragement: [], trends: [] });
+      } else {
+        // Get progress data
+        let progressData = null;
+        try {
+          progressData = await api.getParentChildProgress();
+        } catch (progressErr) {
+          console.error('Progress fetch error:', progressErr);
+          progressData = null;
+        }
+
+        if (progressData && progressData.student) {
+          setData(progressData);
+        } else {
+          setData({
+            student: child,
+            assignments: progressData?.assignments || [],
+            feedback: progressData?.feedback || [],
+            reportCards: progressData?.reportCards || [],
+            encouragement: progressData?.encouragement || [],
+            trends: progressData?.trends || []
+          });
+        }
       }
 
-      // 2. Fetch progress data (with fallback)
-      console.log('Fetching progress data...');
-      let progressData = null;
-      
+      // Fetch notifications
       try {
-        progressData = await api.getParentChildProgress();
-        console.log('Progress data:', progressData);
-      } catch (progressErr) {
-        console.error('Progress fetch error:', progressErr);
-        // If progress fails, still show the child
-        progressData = null;
-      }
-
-      // 3. Fetch notifications (non-critical, quick timeout)
-      let notifData = [];
-      try {
-        const notifPromise = api.getNotifications();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Notifications timeout')), 3000)
-        );
-        notifData = await Promise.race([notifPromise, timeoutPromise]);
+        const notifData = await api.getNotifications();
         setNotifications(notifData || []);
       } catch (notifErr) {
         console.error('Notifications error:', notifErr);
         setNotifications([]);
       }
 
-      // 4. Set the data
-      if (progressData && progressData.student) {
-        setData(progressData);
-      } else {
-        setData({
-          student: child,
-          assignments: progressData?.assignments || [],
-          feedback: progressData?.feedback || [],
-          reportCards: progressData?.reportCards || [],
-          encouragement: progressData?.encouragement || [],
-          trends: progressData?.trends || []
-        });
-      }
+      // Load conversations and peer contacts
+      await loadConversations();
+      await loadPeerContacts();
 
       clearTimeout(timeoutId);
       setLoading(false);
-      
     } catch (err) {
       console.error('Error loading dashboard:', err);
       clearTimeout(timeoutId);
@@ -202,7 +304,6 @@ export default function ParentDashboard() {
     try {
       await api.sendEncouragement(data.student.id, encouragementText);
       setEncouragementText('');
-      // Refresh only encouragement data
       const progressData = await api.getParentChildProgress();
       if (progressData) {
         setData(prev => ({
@@ -248,6 +349,26 @@ export default function ParentDashboard() {
     }
     return <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">Upcoming</span>;
   };
+
+  const viewStudentProgress = async (studentId) => {
+    try {
+      const progress = await api.getBridgeStudentProgress(studentId);
+      setSelectedReportCard(null); // reuse modal or create new state? For simplicity, we'll just show an alert with data.
+      // Or we can open a modal with progress details.
+      // Let's use the existing progress modal from BridgePage but we'll create a simple one.
+      // For now, we'll navigate to a progress page or show in a modal.
+      // Since we don't have a dedicated progress modal in ParentDashboard, we can use the studentProgress state.
+      // I'll add a new state for studentProgress.
+      setStudentProgress(progress);
+      setSelectedStudent(data.student);
+    } catch (err) {
+      alert('Failed to load progress');
+    }
+  };
+
+  // Add new state for progress modal
+  const [studentProgress, setStudentProgress] = useState(null);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const handleLogout = () => {
     logout();
@@ -325,7 +446,6 @@ export default function ParentDashboard() {
           </button>
         </div>
 
-        {/* Theme Toggle */}
         <div className="mb-6">
           <h4 className="font-semibold mb-3 flex items-center gap-2">
             <Sun className="w-4 h-4" />
@@ -365,7 +485,6 @@ export default function ParentDashboard() {
           </div>
         </div>
 
-        {/* User Info */}
         <div className="border-t border-white/10 pt-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold">
@@ -378,7 +497,6 @@ export default function ParentDashboard() {
           </div>
         </div>
 
-        {/* Logout Button */}
         <button
           onClick={handleLogout}
           className="w-full btn-secondary flex items-center justify-center gap-2 text-red-400 hover:text-red-300 border-red-400/20 hover:border-red-400/40"
@@ -390,18 +508,91 @@ export default function ParentDashboard() {
     </div>
   );
 
+  // New Chat Modal
+  const NewChatModal = () => {
+    const teachers = peerContacts.filter(p => p.role === 'teacher' || p.role === 'parent');
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowNewChatModal(false)}>
+        <div className={`rounded-xl max-w-md w-full p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-white'} border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold">New Conversation</h3>
+            <button onClick={() => setShowNewChatModal(false)} className="text-white/40 hover:text-white">
+              <X size={20} />
+            </button>
+          </div>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {teachers.length === 0 ? (
+              <p className="text-white/40 text-center py-4">No contacts available</p>
+            ) : (
+              teachers.map(peer => (
+                <button
+                  key={peer.id}
+                  onClick={() => startNewChat(peer.id)}
+                  className="w-full text-left p-3 rounded-lg hover:bg-white/5 transition flex items-center gap-3"
+                >
+                  <div className="w-8 h-8 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-400 font-bold">
+                    {peer.full_name?.[0] || '?'}
+                  </div>
+                  <div>
+                    <p className="font-medium">{peer.full_name}</p>
+                    <p className="text-xs text-white/40 capitalize">{peer.role}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Progress Modal
+  const ProgressModal = () => {
+    if (!studentProgress || !selectedStudent) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setStudentProgress(null)}>
+        <div className={`rounded-xl max-w-md w-full p-6 ${isDarkMode ? 'bg-gray-900' : 'bg-white'} border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold">📊 {selectedStudent.full_name}'s Progress</h3>
+            <button onClick={() => setStudentProgress(null)} className="text-white/40 hover:text-white">
+              <X size={20} />
+            </button>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between p-3 bg-white/5 rounded">
+              <span className="text-white/60">XP</span>
+              <span className="text-xl font-bold text-yellow-400">{studentProgress.xp || 0}</span>
+            </div>
+            <div className="flex justify-between p-3 bg-white/5 rounded">
+              <span className="text-white/60">Level</span>
+              <span className="text-xl font-bold text-brand-400">{studentProgress.level || 1}</span>
+            </div>
+            <div className="flex justify-between p-3 bg-white/5 rounded">
+              <span className="text-white/60">Tasks</span>
+              <span className="text-xl font-bold text-green-400">{studentProgress.tasks || 0}</span>
+            </div>
+            <div className="flex justify-between p-3 bg-white/5 rounded">
+              <span className="text-white/60">Challenges</span>
+              <span className="text-xl font-bold text-purple-400">{studentProgress.challenges || 0}</span>
+            </div>
+            <button className="w-full btn-secondary mt-2" onClick={() => setStudentProgress(null)}>Close</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark' : 'light'}`}>
       <PageBackground imageUrl="/parent-bg.jpg">
         <div className="p-6 max-w-6xl mx-auto">
-          {/* Header with Bridge Button */}
+          {/* Header */}
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-3xl font-bold">👨‍👩‍👧 Parent Dashboard</h1>
               <p className="text-white/60">Support your child's academic journey</p>
             </div>
             <div className="flex items-center gap-3">
-              {/* ✅ Bridge Button - Using Link2 icon */}
               <Link
                 to="/bridge"
                 className="p-2 rounded-lg bg-brand-500/20 hover:bg-brand-500/30 transition border border-brand-500/30 flex items-center gap-2 text-brand-400 hover:text-brand-300"
@@ -410,8 +601,6 @@ export default function ParentDashboard() {
                 <Link2 className="w-5 h-5" />
                 <span className="hidden sm:inline text-sm font-medium">Bridge</span>
               </Link>
-              
-              {/* Settings Button */}
               <button
                 onClick={() => setShowSettingsModal(true)}
                 className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition border border-white/10"
@@ -419,8 +608,6 @@ export default function ParentDashboard() {
               >
                 <Settings className="w-5 h-5 text-white/60 hover:text-white" />
               </button>
-              
-              {/* Notification Bell */}
               <div className="relative">
                 <Bell className="text-white/60 hover:text-white cursor-pointer" size={24} />
                 {notifications.some(n => !n.is_read) && (
@@ -430,7 +617,7 @@ export default function ParentDashboard() {
             </div>
           </div>
 
-          {/* Student Summary */}
+          {/* Student Summary with View Progress */}
           <div className="card p-5 mb-6 flex flex-wrap items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold">
               {(student.full_name?.[0] || 'S').toUpperCase()}
@@ -444,16 +631,19 @@ export default function ParentDashboard() {
                 <p className="text-sm text-white/60">Streak</p>
                 <p className="text-amber-400 font-semibold">🔥 {student.streak_days || 0} days</p>
               </div>
-              <div className="text-center">
-                <p className="text-sm text-white/60">Report Cards</p>
-                <p className="text-brand-400 font-semibold">{reportCards?.length || 0}</p>
-              </div>
+              <button
+                onClick={() => viewStudentProgress(student.id)}
+                className="btn-primary text-sm"
+              >
+                <Eye className="w-4 h-4 inline mr-1" />
+                View Progress
+              </button>
             </div>
           </div>
 
           {/* Tabs */}
           <div className="flex gap-2 mb-6 border-b border-white/10 overflow-x-auto">
-            {['overview', 'report-cards', 'assignments', 'feedback', 'encouragement'].map((tab) => (
+            {['overview', 'report-cards', 'assignments', 'feedback', 'encouragement', 'messages'].map((tab) => (
               <button
                 key={tab}
                 className={`px-4 py-2 capitalize transition whitespace-nowrap ${
@@ -468,6 +658,7 @@ export default function ParentDashboard() {
                 {tab === 'assignments' && '📚 Assignments'}
                 {tab === 'feedback' && '💬 Feedback'}
                 {tab === 'encouragement' && '❤️ Encouragement'}
+                {tab === 'messages' && '💬 Messages'}
               </button>
             ))}
           </div>
@@ -568,7 +759,7 @@ export default function ParentDashboard() {
             </div>
           )}
 
-          {/* Report Cards Tab */}
+          {/* Report Cards Tab - unchanged */}
           {selectedTab === 'report-cards' && (
             <div className="space-y-4">
               {reportCards?.length > 0 ? (
@@ -618,7 +809,7 @@ export default function ParentDashboard() {
             </div>
           )}
 
-          {/* Assignments Tab */}
+          {/* Assignments Tab - unchanged */}
           {selectedTab === 'assignments' && (
             <div className="space-y-4">
               {assignments?.length > 0 ? (
@@ -662,7 +853,7 @@ export default function ParentDashboard() {
             </div>
           )}
 
-          {/* Feedback Tab */}
+          {/* Feedback Tab - unchanged */}
           {selectedTab === 'feedback' && (
             <div className="space-y-4">
               {feedback?.length > 0 ? (
@@ -701,7 +892,7 @@ export default function ParentDashboard() {
             </div>
           )}
 
-          {/* Encouragement Tab */}
+          {/* Encouragement Tab - unchanged */}
           {selectedTab === 'encouragement' && (
             <div className="space-y-4">
               <div className="card p-4">
@@ -753,8 +944,90 @@ export default function ParentDashboard() {
             </div>
           )}
 
-          {/* Settings Modal */}
+          {/* Messages Tab */}
+          {selectedTab === 'messages' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">💬 Messages</h2>
+                <button
+                  onClick={() => setShowNewChatModal(true)}
+                  className="btn-primary text-sm flex items-center gap-1"
+                >
+                  <Plus size={16} />
+                  New Chat
+                </button>
+              </div>
+
+              <div className="card p-4">
+                {conversations.length === 0 ? (
+                  <div className="text-center text-white/40 py-8">
+                    <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p className="font-medium text-white/60">No conversations yet</p>
+                    <p className="text-sm">Start a new chat with a teacher or parent.</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="border-r border-white/10 pr-3 space-y-2 max-h-96 overflow-y-auto">
+                      {conversations.map(conv => (
+                        <button
+                          key={`conv-${conv.id}`}
+                          onClick={() => setSelectedConversation(conv)}
+                          className={`w-full text-left p-2 rounded-lg transition ${
+                            selectedConversation?.id === conv.id ? 'bg-brand-500/20 border border-brand-500/30' : 'hover:bg-white/5'
+                          }`}
+                        >
+                          <p className="font-medium">{conv.partnerName}</p>
+                          <p className="text-xs text-white/40 truncate">{conv.last_message || 'No messages yet'}</p>
+                          {conv.unread_count > 0 && (
+                            <span className="text-xs text-brand-400">({conv.unread_count} unread)</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="md:col-span-2 flex flex-col h-96">
+                      {selectedConversation ? (
+                        <>
+                          <div className="flex-1 overflow-y-auto mb-3 space-y-2 p-2 border border-white/10 rounded-lg">
+                            {messages.length === 0 && <p className="text-white/40 text-center">No messages yet. Send a message to start a conversation.</p>}
+                            {messages.map(msg => (
+                              <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[70%] p-2 rounded-lg ${msg.sender_id === user?.id ? 'bg-brand-500/30 text-white' : 'bg-white/10 text-white'}`}>
+                                  <p className="text-xs text-white/60">{msg.sender_name} ({msg.sender_role})</p>
+                                  <p className="text-sm">{msg.content}</p>
+                                  <p className="text-xs text-white/40 text-right">{new Date(msg.created_at).toLocaleString()}</p>
+                                </div>
+                              </div>
+                            ))}
+                            <div ref={messagesEndRef} />
+                          </div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              className="flex-1 input"
+                              placeholder="Type a message..."
+                              value={messageText}
+                              onChange={(e) => setMessageText(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                            />
+                            <button onClick={sendMessage} disabled={sending} className="btn-primary">
+                              {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center text-white/40 mt-32">Select a conversation to start messaging.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Modals */}
           {showSettingsModal && <SettingsModal />}
+          {showNewChatModal && <NewChatModal />}
+          {studentProgress && selectedStudent && <ProgressModal />}
 
           {/* Report Card Modal */}
           {showReportCardModal && selectedReportCard && (
