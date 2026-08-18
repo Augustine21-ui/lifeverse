@@ -186,9 +186,10 @@ export default function ParentDashboard() {
   const loadPeerContacts = async () => {
     try {
       const contacts = await api.getBridgePeerContacts();
+      console.log('🔍 Peer contacts:', contacts);
       setPeerContacts(Array.isArray(contacts) ? contacts : []);
     } catch (err) {
-      console.error(err);
+      console.error('❌ Error loading peer contacts:', err);
       setPeerContacts([]);
     }
   };
