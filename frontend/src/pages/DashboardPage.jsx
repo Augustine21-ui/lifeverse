@@ -532,7 +532,7 @@ export default function DashboardPage() {
         {/* ============================================================= */}
         <div className="flex flex-wrap items-start justify-between mb-6 gap-2 pr-2 sm:pr-4 lg:pr-0">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl lg:text-3xl font-bold text-white truncate">
+            <h1 className="text-xl lg:text-3xl font-bold text-white break-words">
               {greeting}, {displayName} 👋
             </h1>
             <p className="text-xs lg:text-sm text-white/50 mt-0.5 flex items-center gap-2">
