@@ -8,7 +8,63 @@ import { useSubscription } from '../../hooks/useSubscription';
 
 // ===== Inline TutorAssistant component =====
 function TutorAssistant({ isOpen, onClose }) {
-  // ... (unchanged, keep as is)
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) setTimeout(() => inputRef.current?.focus(), 200);
+  }, [isOpen]);
+
+  const send = async () => {
+    if (!input.trim()) return;
+    const text = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('token') },
+        body: JSON.stringify({ message: text })
+      });
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'No reply' }]);
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Error. Try again.' }]);
+    } finally { setLoading(false); }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className={`fixed right-0 top-0 h-full bg-gray-900/95 backdrop-blur-sm border-l border-white/10 shadow-2xl transition-all duration-300 z-50 ${expanded ? 'w-[90vw] max-w-2xl' : 'w-[400px]'}`}>
+      <div className="flex justify-between items-center p-4 border-b border-white/10">
+        <span className="text-white font-bold">🧠 AI Tutor</span>
+        <div className="flex gap-1">
+          <button onClick={() => setExpanded(!expanded)} className="text-white/60 hover:text-white p-1">
+            {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+          <button onClick={onClose} className="text-white/60 hover:text-white p-1"><X size={18} /></button>
+        </div>
+      </div>
+      <div className="p-4 space-y-3 overflow-y-auto" style={{ height: 'calc(100% - 130px)' }}>
+        {messages.length === 0 && <div className="text-white/40 text-center mt-12"><MessageCircle className="mx-auto mb-2" size={32} /><p>Ask anything</p></div>}
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] px-4 py-2 rounded-2xl text-sm ${m.role === 'user' ? 'bg-brand-500 text-white' : 'bg-white/10 text-white/90'}`}>{m.content}</div>
+          </div>
+        ))}
+        {loading && <div className="text-white/40 text-sm">Thinking...</div>}
+      </div>
+      <div className="p-4 border-t border-white/10 flex gap-2">
+        <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="Ask..." className="flex-1 input text-sm py-2" disabled={loading} />
+        <button onClick={send} disabled={loading || !input.trim()} className="px-4 py-2 bg-brand-500 text-white rounded-lg disabled:opacity-40"><Send size={16} /></button>
+      </div>
+    </div>
+  );
 }
 
 // ===== Main AppLayout =====
@@ -17,7 +73,10 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [studySphereOpen, setStudySphereOpen] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // ✅ Sidebar collapsed by default on mobile
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    return window.innerWidth >= 768; // open on desktop, closed on mobile
+  });
   const [tutorOpen, setTutorOpen] = useState(false);
 
   // ---- Subscription check ----
@@ -65,8 +124,7 @@ export default function AppLayout() {
     mainNav = [{ to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' }];
   }
 
-  // ---- StudySphere items (sub-items) ----
-  // ✅ Renamed to studySphereItems and moved out of the previous allStudySphereItems
+  // ---- StudySphere items ----
   const studySphereItems = isStudent ? [
     { to: '/orbit', icon: Rocket, label: 'Orbit' },
     { to: '/opportunities', icon: Briefcase, label: 'Opportunities' },
@@ -74,8 +132,7 @@ export default function AppLayout() {
     { to: '/ai-tutor', icon: Bot, label: 'AI Tutor' },
   ] : [];
 
-  // ---- Premium-only nav items (top-level) ----
-  // ✅ Removed StudySphere – it's now only in the collapsible section
+  // ---- Premium-only nav items ----
   const premiumNavItems = isStudent ? [
     { to: '/bridge', icon: Link, label: 'Bridge' },
   ] : [];
@@ -83,7 +140,7 @@ export default function AppLayout() {
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const toggleTutor = () => setTutorOpen(!tutorOpen);
 
-  // ---- Get subscription status display ----
+  // ---- Subscription label ----
   const getSubscriptionLabel = () => {
     if (isAdmin) return 'Admin';
     if (status?.isInstitutional) return '🏫 Institutional';
@@ -95,18 +152,38 @@ export default function AppLayout() {
     if (status?.plan && status.plan !== 'none' && status.isActive) return '⭐ Premium';
     return '📖 Free';
   };
-
   const isTrialExpired = status?.plan === 'trial' && !status.isActive;
+
+  // ✅ Hamburger button (mobile only)
+  const HamburgerButton = () => (
+    <button
+      onClick={toggleSidebar}
+      className="fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-gray-800/90 backdrop-blur-sm text-white border border-white/10 lg:hidden hover:bg-gray-700 transition shadow-lg"
+      aria-label="Toggle navigation"
+    >
+      <Menu size={24} />
+    </button>
+  );
+
+  // ✅ Backdrop overlay (mobile only)
+  const Backdrop = () => (
+    <div
+      onClick={toggleSidebar}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+      style={{ display: sidebarOpen ? 'block' : 'none' }}
+    />
+  );
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <div className="animated-bg" />
-      {mobileOpen && (
-        <div
-          onClick={() => setMobileOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 30 }}
-        />
-      )}
+      
+      {/* Backdrop */}
+      <Backdrop />
+
+      {/* Hamburger button (visible only when sidebar is closed on mobile) */}
+      {!sidebarOpen && <HamburgerButton />}
+
       <aside
         style={{
           width: sidebarOpen ? 256 : 64,
@@ -118,10 +195,13 @@ export default function AppLayout() {
           position: 'sticky',
           top: 0,
           height: '100vh',
-          zIndex: 40,
-          transition: 'width 0.3s ease, background 0.3s ease, border-color 0.3s ease',
+          zIndex: 50,
+          transition: 'width 0.3s ease, background 0.3s ease, border-color 0.3s ease, transform 0.3s ease',
           overflow: 'hidden',
+          // ✅ Mobile slide out: when open, overlay; when closed, slide left
+          transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
         }}
+        className="lg:translate-x-0"
       >
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px' }}>
           <button
@@ -245,7 +325,6 @@ export default function AppLayout() {
         )}
 
         <nav style={{ flex: 1, padding: '8px 16px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Main navigation */}
           {mainNav.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
@@ -258,7 +337,6 @@ export default function AppLayout() {
             </NavLink>
           ))}
 
-          {/* Premium-only navigation (Bridge) - hidden if no premium access */}
           {premiumNavItems.length > 0 && hasPremiumAccess && (
             <>
               {premiumNavItems.map(({ to, icon: Icon, label }) => (
@@ -275,7 +353,6 @@ export default function AppLayout() {
             </>
           )}
 
-          {/* Premium upgrade prompt (only show for free/trial expired users) */}
           {!hasPremiumAccess && !isAdmin && isStudent && (
             <div
               style={{
@@ -320,7 +397,6 @@ export default function AppLayout() {
             </div>
           )}
 
-          {/* StudySphere collapsible section - only visible if premium access */}
           {studySphereItems.length > 0 && sidebarOpen && hasPremiumAccess && (
             <div style={{ marginTop: 4 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -346,9 +422,7 @@ export default function AppLayout() {
                     <NavLink
                       key={to}
                       to={to}
-                      className={({ isActive }) =>
-                        `nav-item ${isActive ? 'nav-item-active' : 'nav-item-inactive'}`
-                      }
+                      className={({ isActive }) => `nav-item ${isActive ? 'nav-item-active' : 'nav-item-inactive'}`}
                       style={{ paddingLeft: 28 }}
                     >
                       <Icon size={16} style={{ color: 'currentColor' }} />
@@ -360,7 +434,6 @@ export default function AppLayout() {
             </div>
           )}
 
-          {/* Collapsed StudySphere icons (when sidebar is closed) */}
           {studySphereItems.length > 0 && !sidebarOpen && hasPremiumAccess && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
               {studySphereItems.map(({ to, icon: Icon, label }) => (
@@ -393,7 +466,6 @@ export default function AppLayout() {
         <Outlet />
       </main>
 
-      {/* AI Tutor toggle button */}
       <button
         onClick={toggleTutor}
         className="fixed bottom-6 right-6 z-50 p-4 rounded-full bg-gradient-to-r from-brand-500 to-violet-600 text-white shadow-lg hover:scale-105 transition-transform duration-200 flex items-center justify-center"
@@ -402,11 +474,7 @@ export default function AppLayout() {
         {tutorOpen ? <X size={24} /> : <MessageCircle size={24} />}
       </button>
 
-      {/* AI Tutor panel */}
-      <TutorAssistant
-        isOpen={tutorOpen}
-        onClose={() => setTutorOpen(false)}
-      />
+      <TutorAssistant isOpen={tutorOpen} onClose={() => setTutorOpen(false)} />
     </div>
   );
 }
