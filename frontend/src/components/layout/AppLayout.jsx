@@ -73,11 +73,11 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [studySphereOpen, setStudySphereOpen] = useState(true);
-  // ✅ Sidebar collapsed by default on mobile
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    return window.innerWidth >= 768; // open on desktop, closed on mobile
-  });
   const [tutorOpen, setTutorOpen] = useState(false);
+
+  // ✅ Determine if mobile based on window width
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [sidebarOpen, setSidebarOpen] = useState(() => !isMobile); // open on desktop, closed on mobile
 
   // ---- Subscription check ----
   const { status, loading: subscriptionLoading } = useSubscription();
@@ -152,9 +152,24 @@ export default function AppLayout() {
     if (status?.plan && status.plan !== 'none' && status.isActive) return '⭐ Premium';
     return '📖 Free';
   };
+
   const isTrialExpired = status?.plan === 'trial' && !status.isActive;
 
-  // ✅ Hamburger button (mobile only)
+  // ✅ Resize listener to update isMobile
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) {
+        // On desktop, ensure sidebar is open
+        setSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // ✅ Hamburger button (only on mobile)
   const HamburgerButton = () => (
     <button
       onClick={toggleSidebar}
@@ -165,12 +180,12 @@ export default function AppLayout() {
     </button>
   );
 
-  // ✅ Backdrop overlay (mobile only)
+  // ✅ Backdrop (only on mobile)
   const Backdrop = () => (
     <div
       onClick={toggleSidebar}
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-      style={{ display: sidebarOpen ? 'block' : 'none' }}
+      style={{ display: isMobile && sidebarOpen ? 'block' : 'none' }}
     />
   );
 
@@ -181,8 +196,8 @@ export default function AppLayout() {
       {/* Backdrop */}
       <Backdrop />
 
-      {/* Hamburger button (visible only when sidebar is closed on mobile) */}
-      {!sidebarOpen && <HamburgerButton />}
+      {/* Hamburger button */}
+      {isMobile && !sidebarOpen && <HamburgerButton />}
 
       <aside
         style={{
@@ -198,10 +213,9 @@ export default function AppLayout() {
           zIndex: 50,
           transition: 'width 0.3s ease, background 0.3s ease, border-color 0.3s ease, transform 0.3s ease',
           overflow: 'hidden',
-          // ✅ Mobile slide out: when open, overlay; when closed, slide left
-          transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)',
         }}
-        className="lg:translate-x-0"
+        className={isMobile ? '' : 'lg:translate-x-0'}
       >
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px' }}>
           <button
