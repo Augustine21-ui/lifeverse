@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
-import { User } from 'lucide-react'; // ← added for fallback icon
+import { User } from 'lucide-react';
 import AvatarInteractionMenu from './AvatarInteractionMenu';
 
 const moodConfig = {
@@ -79,10 +79,6 @@ export default function HolographicAvatar() {
 
   const toggleMenu = () => setShowMenu(!showMenu);
 
-  // Get user's name and initial
-  const displayName = user?.full_name || user?.username || '';
-  const initial = displayName.trim().charAt(0).toUpperCase();
-
   return (
     <div className="relative flex flex-col items-center z-50 isolate" ref={avatarRef}>
       {/* Holographic Frame */}
@@ -108,13 +104,8 @@ export default function HolographicAvatar() {
         <div className="relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-brand-500/20 to-violet-600/20 backdrop-blur-sm border border-white/10 flex items-center justify-center">
           {user?.avatar ? (
             <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" />
-          ) : initial ? (
-            // ✅ Show user's initial (first letter)
-            <span className="text-6xl text-white/80 font-light">
-              {initial}
-            </span>
           ) : (
-            // ✅ Fallback: user icon
+            // ✅ Always show the User icon – no letter, no "?"
             <User className="w-12 h-12 text-white/60" />
           )}
           {/* Scanning line */}
