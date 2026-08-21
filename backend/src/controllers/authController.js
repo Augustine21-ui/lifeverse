@@ -1,3 +1,4 @@
+// backend/src/controllers/authController.js
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import db from '../config/db.js';
@@ -15,10 +16,12 @@ export const login = async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    // ✅ Include institution_id in the SELECT query
     const userRes = await db.query(
       `SELECT id, email, password_hash, full_name, role, institution, xp, level, streak_days,
               subscription_tier, subscription_status, trial_end_date, trial_used,
-              subscription_end_date, institution_subscription_valid
+              subscription_end_date, institution_subscription_valid,
+              institution_id   -- ✅ added
        FROM users WHERE email = $1`,
       [email]
     );
@@ -34,8 +37,9 @@ export const login = async (req, res) => {
 
     const access = await getUserAccess(user.id);
 
+    // ✅ Include institution_id in JWT payload
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: user.role, institution_id: user.institution_id },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -54,7 +58,8 @@ export const login = async (req, res) => {
         subscription: access,
         subscription_tier: user.subscription_tier,
         subscription_status: user.subscription_status,
-        institution_subscription_valid: user.institution_subscription_valid
+        institution_subscription_valid: user.institution_subscription_valid,
+        institution_id: user.institution_id // ✅ added
       }
     });
   } catch (err) {
@@ -80,6 +85,18 @@ export const register = async (req, res) => {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
 
+    // Find institution ID if institution name is provided
+    let institutionId = null;
+    if (institution) {
+      const instRes = await db.query(
+        'SELECT id FROM institutions WHERE LOWER(name) = LOWER($1)',
+        [institution.trim()]
+      );
+      if (instRes.rows.length > 0) {
+        institutionId = instRes.rows[0].id;
+      }
+    }
+
     // Check institution subscription
     let institutionSubscribed = false;
     let subscriptionPlan = 'free';
@@ -88,10 +105,10 @@ export const register = async (req, res) => {
     let trialEndDate = null;
     let trialUsed = false;
 
-    if (institution) {
+    if (institutionId) {
       const instRes = await db.query(
-        'SELECT id, name, subscription_end_date FROM institutions WHERE LOWER(name) = LOWER($1)',
-        [institution.trim()]
+        'SELECT subscription_end_date FROM institutions WHERE id = $1',
+        [institutionId]
       );
       
       if (instRes.rows.length > 0) {
@@ -129,26 +146,30 @@ export const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // ✅ Include institution_id in the INSERT
     const result = await db.query(
       `INSERT INTO users (
         full_name, username, email, password_hash, education_level, 
         institution, course, role,
         subscription_tier, subscription_status, trial_start_date, 
-        trial_end_date, trial_used, institution_subscription_valid
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        trial_end_date, trial_used, institution_subscription_valid,
+        institution_id   -- ✅ added
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING id, username, email, full_name, role, subscription_tier, 
-                subscription_status, trial_end_date, institution_subscription_valid`,
+                subscription_status, trial_end_date, institution_subscription_valid,
+                institution_id`,
       [
         full_name, username, email, hashedPassword, education_level || null,
         institution || null, course || null, role || 'student',
         subscriptionPlan, subscriptionStatus, trialStartDate,
-        trialEndDate, trialUsed, institutionSubscribed
+        trialEndDate, trialUsed, institutionSubscribed,
+        institutionId   // ✅ added
       ]
     );
 
     const user = result.rows[0];
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: user.role, institution_id: user.institution_id },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -165,7 +186,8 @@ export const register = async (req, res) => {
         subscription: access,
         subscription_tier: user.subscription_tier,
         subscription_status: user.subscription_status,
-        institution_subscription_valid: user.institution_subscription_valid
+        institution_subscription_valid: user.institution_subscription_valid,
+        institution_id: user.institution_id
       }
     });
   } catch (err) {
@@ -235,7 +257,8 @@ export const getMe = async (req, res) => {
     const result = await db.query(
       `SELECT id, username, email, full_name, role, xp, level, streak_days,
               institution, subscription_tier, subscription_status, trial_end_date,
-              subscription_end_date, institution_subscription_valid
+              subscription_end_date, institution_subscription_valid,
+              institution_id   -- ✅ added
        FROM users WHERE id = $1`,
       [userId]
     );
