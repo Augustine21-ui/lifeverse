@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import institutionRoutes from './institutionRoutes.js';
 
 // Load environment variables first
 dotenv.config();
@@ -152,6 +153,7 @@ app.use("/api/academic", academicRoutes);
 app.use("/api/momentum", momentumRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/admin", adminRoutes);
+router.use('/institution', institutionRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

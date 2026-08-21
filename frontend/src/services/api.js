@@ -728,4 +728,32 @@ export const api = {
     headers: authHeaders(),
     body: JSON.stringify({ status }),
   }).then(handleResponse),
+
+  // Institution endpoints
+getInstitutionDashboard: () => api.get('/institution/dashboard'),
+updateStudentGroup: (data) => api.put('/institution/students/group', data),
+
+// Groups
+getGroups: () => api.get('/institution/groups'),
+createGroup: (data) => api.post('/institution/groups', data),
+updateGroup: (id, data) => api.put(`/institution/groups/${id}`, data),
+deleteGroup: (id) => api.delete(`/institution/groups/${id}`),
+
+// Timetable
+getTimetableByGroup: (groupId) => api.get(`/institution/timetable/group/${groupId}`),
+uploadTimetableCSV: (formData) => api.post('/institution/timetable/upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+}),
+
+// Resources
+createResource: (data) => api.post('/institution/resources', data),
+getResources: (targetType, targetId) => api.get(`/institution/resources/${targetType}/${targetId}`),
+
+// Announcements
+createAnnouncement: (data) => api.post('/institution/announcements', data),
+getAnnouncements: () => api.get('/institution/announcements'),
+
+// Teacher assignments
+assignTeacher: (data) => api.post('/institution/assign', data),
+removeTeacherAssignment: (teacherId, groupId) => api.delete(`/institution/assign/${teacherId}/${groupId}`),
 };
