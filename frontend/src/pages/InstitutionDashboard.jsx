@@ -123,7 +123,8 @@ export default function InstitutionDashboard() {
   const openModal = (type, item = null) => {
     setModalType(type);
     setEditingItem(item);
-    setFormData(item || {});
+    // ✅ If item is an object with id, keep it; else treat as new
+    setFormData(item ? { ...item } : {});
     setShowModal(true);
   };
 
@@ -136,22 +137,25 @@ export default function InstitutionDashboard() {
   };
 
   // ---------- Submit handlers ----------
+  // ---------- Submit handlers ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       if (modalType === 'group') {
-        if (editingItem && editingItem.id) {
-          // ✅ Update existing group
-          await api.updateGroup(editingItem.id, formData);
-        } else if (editingItem && !editingItem.id) {
-          // ❌ Should not happen – log and alert
+        // ✅ Determine if we have an ID (either from editingItem or formData)
+        const groupId = editingItem?.id || formData?.id;
+        if (editingItem && !groupId) {
           console.error('Editing item missing ID:', editingItem);
           alert('Error: missing ID. Please refresh and try again.');
           setSubmitting(false);
           return;
+        }
+        if (groupId) {
+          // ✅ Update existing group
+          await api.updateGroup(groupId, formData);
         } else {
-          // ➕ Create new group
+          // ✅ Create new group
           await api.createGroup(formData);
         }
       } else if (modalType === 'resource') {
