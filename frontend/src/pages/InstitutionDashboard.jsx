@@ -55,6 +55,7 @@ export default function InstitutionDashboard() {
     setLoadingHierarchy(true);
     try {
       const res = await api.getHierarchy();
+      console.log('📊 Hierarchy API response:', res);
       setHierarchy(res);
     } catch (err) {
       console.error('Error loading hierarchy:', err);
@@ -121,7 +122,8 @@ export default function InstitutionDashboard() {
 
   // ---------- Modal helpers ----------
   const openModal = (type, item = null) => {
-    console.log('🔍 Opening modal with item:', item);
+    console.log('🔍 Opening modal with type:', type, 'item:', item);
+    console.log('🔍 item.id:', item?.id);
     setModalType(type);
     setEditingItem(item);
     setFormData(item ? { ...item } : {});
@@ -144,6 +146,9 @@ export default function InstitutionDashboard() {
       if (modalType === 'group') {
         // Determine if we're editing or creating
         let groupId = editingItem?.id || formData?.id;
+        console.log('🔄 handleSubmit – editingItem:', editingItem);
+        console.log('🔄 handleSubmit – formData:', formData);
+        console.log('🔄 handleSubmit – groupId:', groupId);
         if (editingItem && !groupId) {
           console.error('❌ Missing group ID for update:', { editingItem, formData });
           alert('Error: missing group ID. Please refresh and try again.');
@@ -222,6 +227,7 @@ export default function InstitutionDashboard() {
   const GroupTree = ({ node, onEdit, onDelete, onAddChild }) => {
     const [expanded, setExpanded] = useState(true);
     const icon = node.type === 'department' ? '🏛️' : node.type === 'course' ? '📘' : '📄';
+    console.log('🌳 GroupTree rendering node:', node);
     return (
       <div className="ml-4">
         <div className="flex items-center gap-2 py-1 hover:bg-white/5 rounded px-2">
@@ -234,13 +240,22 @@ export default function InstitutionDashboard() {
           <span className="font-medium">{node.name}</span>
           <span className="text-xs text-white/40 ml-2">{node.type}</span>
           <div className="ml-auto flex gap-1">
-            <button onClick={() => onAddChild(node)} className="text-white/30 hover:text-brand-400" title="Add child">
+            <button onClick={() => {
+              console.log('➕ Add child for node:', node);
+              onAddChild(node);
+            }} className="text-white/30 hover:text-brand-400" title="Add child">
               <Plus size={14} />
             </button>
-            <button onClick={() => onEdit(node)} className="text-white/30 hover:text-brand-400" title="Edit">
+            <button onClick={() => {
+              console.log('✏️ Edit node:', node);
+              onEdit(node);
+            }} className="text-white/30 hover:text-brand-400" title="Edit">
               <Edit size={14} />
             </button>
-            <button onClick={() => onDelete(node)} className="text-white/30 hover:text-red-400" title="Delete">
+            <button onClick={() => {
+              console.log('🗑️ Delete node:', node);
+              onDelete(node);
+            }} className="text-white/30 hover:text-red-400" title="Delete">
               <Trash2 size={14} />
             </button>
           </div>
@@ -364,10 +379,13 @@ export default function InstitutionDashboard() {
               key={node.id}
               node={node}
               onEdit={(item) => {
-                console.log('✏️ Editing item from GroupTree:', item);
+                console.log('✏️ Editing item from GroupTree (parent):', item);
                 openModal('group', item);
               }}
-              onDelete={(item) => handleDelete('group', item.id)}
+              onDelete={(item) => {
+                console.log('🗑️ Deleting item from GroupTree:', item);
+                handleDelete('group', item.id);
+              }}
               onAddChild={(parent) => {
                 let childType = '';
                 if (parent.type === 'department') childType = 'course';
