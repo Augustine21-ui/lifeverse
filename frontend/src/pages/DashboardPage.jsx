@@ -527,19 +527,15 @@ export default function DashboardPage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-4 lg:px-6 lg:py-6">
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
-        {/* ============================================================= */}
-        {/* HEADER – with theme toggle */}
-        {/* ============================================================= */}
+        {/* ===== HEADER – with theme toggle ===== */}
         <div className="flex flex-wrap items-start justify-between mb-6 gap-2 pr-2 sm:pr-4 lg:pr-0">
           <div className="flex-1 min-w-0">
-              <h1 className="text-base sm:text-xl lg:text-3xl font-bold text-white break-normal">
-                {greeting}, {displayName} 👋
-              </h1>
-              <p className="text-xs lg:text-sm text-white/50 mt-0.5 flex items-center gap-2">
-                <Calendar size={14} /> {formattedDate} · {formattedTime}
-              </p>
-              <p className="text-xs lg:text-sm text-white/40 italic mt-1">"{dailyQuote}"</p>
-            </div>
+            <h1 className="text-base sm:text-xl lg:text-3xl font-bold text-white break-normal">
+              {greeting}, {displayName} 👋
+            </h1>
+            <p className="text-xs lg:text-sm text-white/50 mt-0.5 flex items-center gap-2">
+              <Calendar size={14} /> {formattedDate} · {formattedTime}
+            </p>
             <p className="text-xs lg:text-sm text-white/40 italic mt-1">"{dailyQuote}"</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 ml-1 sm:ml-2 z-20 relative">
