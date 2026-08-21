@@ -55,7 +55,6 @@ export default function InstitutionDashboard() {
     setLoadingHierarchy(true);
     try {
       const res = await api.getHierarchy();
-      console.log('📊 Hierarchy API response:', res);
       setHierarchy(res);
     } catch (err) {
       console.error('Error loading hierarchy:', err);
@@ -121,12 +120,11 @@ export default function InstitutionDashboard() {
   const { stats, students, teachers, groups } = data;
 
   // ---------- Modal helpers ----------
-  const openModal = (type, item = null) => {
-    console.log('🔍 Opening modal with type:', type, 'item:', item);
-    console.log('🔍 item.id:', item?.id);
+  const openModal = (type, item = null, initialFormData = null) => {
+    console.log('🔍 Opening modal – type:', type, 'item:', item, 'initialFormData:', initialFormData);
     setModalType(type);
-    setEditingItem(item);
-    setFormData(item ? { ...item } : {});
+    setEditingItem(item); // item is null for new, has id for edit
+    setFormData(initialFormData || (item ? { ...item } : {}));
     setShowModal(true);
   };
 
@@ -144,26 +142,12 @@ export default function InstitutionDashboard() {
     setSubmitting(true);
     try {
       if (modalType === 'group') {
-        // Determine ID
-        let groupId = editingItem?.id || formData?.id;
-
-        // If editing and ID is missing or invalid, abort
-        if (editingItem) {
-          // Check for undefined, null, "undefined" string, or NaN
-          const isValidId = groupId !== undefined && groupId !== null &&
-                            groupId !== 'undefined' && !isNaN(parseInt(groupId));
-          if (!isValidId) {
-            console.error('❌ Invalid group ID for update:', { editingItem, formData, groupId });
-            alert('Error: invalid group ID. Please refresh and try again.');
-            setSubmitting(false);
-            return;
-          }
-          // Valid ID – update
-          const id = parseInt(groupId);
-          console.log('🔄 Updating group with ID:', id, 'data:', formData);
-          await api.updateGroup(id, formData);
+        if (editingItem && editingItem.id) {
+          // ✅ Update existing group
+          console.log('🔄 Updating group with ID:', editingItem.id, 'data:', formData);
+          await api.updateGroup(editingItem.id, formData);
         } else {
-          // Create new group
+          // ✅ Create new group (brand new or with parent)
           console.log('🆕 Creating new group:', formData);
           await api.createGroup(formData);
         }
@@ -224,7 +208,6 @@ export default function InstitutionDashboard() {
   const GroupTree = ({ node, onEdit, onDelete, onAddChild }) => {
     const [expanded, setExpanded] = useState(true);
     const icon = node.type === 'department' ? '🏛️' : node.type === 'course' ? '📘' : '📄';
-    console.log('🌳 GroupTree rendering node:', node);
     return (
       <div className="ml-4">
         <div className="flex items-center gap-2 py-1 hover:bg-white/5 rounded px-2">
@@ -237,22 +220,13 @@ export default function InstitutionDashboard() {
           <span className="font-medium">{node.name}</span>
           <span className="text-xs text-white/40 ml-2">{node.type}</span>
           <div className="ml-auto flex gap-1">
-            <button onClick={() => {
-              console.log('➕ Add child for node:', node);
-              onAddChild(node);
-            }} className="text-white/30 hover:text-brand-400" title="Add child">
+            <button onClick={() => onAddChild(node)} className="text-white/30 hover:text-brand-400" title="Add child">
               <Plus size={14} />
             </button>
-            <button onClick={() => {
-              console.log('✏️ Edit node:', node);
-              onEdit(node);
-            }} className="text-white/30 hover:text-brand-400" title="Edit">
+            <button onClick={() => onEdit(node)} className="text-white/30 hover:text-brand-400" title="Edit">
               <Edit size={14} />
             </button>
-            <button onClick={() => {
-              console.log('🗑️ Delete node:', node);
-              onDelete(node);
-            }} className="text-white/30 hover:text-red-400" title="Delete">
+            <button onClick={() => onDelete(node)} className="text-white/30 hover:text-red-400" title="Delete">
               <Trash2 size={14} />
             </button>
           </div>
@@ -361,7 +335,7 @@ export default function InstitutionDashboard() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Hierarchy</h2>
-        <button className="btn-primary text-sm" onClick={() => openModal('group', { type: 'department' })}>
+        <button className="btn-primary text-sm" onClick={() => openModal('group', null, { type: 'department' })}>
           <Plus size={16} className="inline mr-1" /> Add Department
         </button>
       </div>
@@ -376,11 +350,11 @@ export default function InstitutionDashboard() {
               key={node.id}
               node={node}
               onEdit={(item) => {
-                console.log('✏️ Editing item from GroupTree (parent):', item);
+                console.log('✏️ Editing item:', item);
                 openModal('group', item);
               }}
               onDelete={(item) => {
-                console.log('🗑️ Deleting item from GroupTree:', item);
+                console.log('🗑️ Deleting item:', item);
                 handleDelete('group', item.id);
               }}
               onAddChild={(parent) => {
@@ -388,7 +362,8 @@ export default function InstitutionDashboard() {
                 if (parent.type === 'department') childType = 'course';
                 else if (parent.type === 'course') childType = 'stream';
                 else return;
-                openModal('group', { parentGroupId: parent.id, type: childType });
+                console.log('➕ Adding child to:', parent);
+                openModal('group', null, { parentGroupId: parent.id, type: childType });
               }}
             />
           ))
