@@ -6,9 +6,11 @@ import multer from 'multer';
 const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
+
+// All routes require authentication
 router.use(authenticate);
 
-// Student StudySphere (public for any authenticated user)
+// Student StudySphere (any authenticated user)
 router.get('/studysphere', institutionController.getStudentStudySphere);
 
 // Institution admin routes

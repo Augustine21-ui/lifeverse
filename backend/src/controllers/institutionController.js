@@ -2,6 +2,155 @@
 import db from '../config/db.js';
 import { parse } from 'csv-parse/sync'; // npm install csv-parse
 
+// ---------- Dashboard ----------
+export const getDashboard = async (req, res) => {
+  const institutionId = req.user.institution_id;
+  if (!institutionId) {
+    return res.status(403).json({ error: 'User not linked to an institution' });
+  }
+  try {
+    // Stats
+    const totalStudents = await db.query('SELECT COUNT(*) FROM users WHERE institution_id = $1 AND role = $2', [institutionId, 'student']);
+    const totalTeachers = await db.query('SELECT COUNT(*) FROM users WHERE institution_id = $1 AND role = $2', [institutionId, 'teacher']);
+    const totalGroups = await db.query('SELECT COUNT(*) FROM academic_groups WHERE institution_id = $1', [institutionId]);
+    const totalResources = await db.query('SELECT COUNT(*) FROM resources WHERE target_type = $1 AND target_id = $2', ['institution', institutionId]);
+    
+    // Students list with group details
+    const students = await db.query(`
+      SELECT u.id, u.full_name, u.username, u.email, u.education_level, u.year_of_study,
+             ag.name as group_name, ag.type as group_type
+      FROM users u
+      LEFT JOIN academic_groups ag ON u.academic_group_id = ag.id
+      WHERE u.institution_id = $1 AND u.role = 'student'
+      ORDER BY u.full_name
+    `, [institutionId]);
+
+    // Teachers list with assigned groups
+    const teachers = await db.query(`
+      SELECT u.id, u.full_name, u.email,
+             COALESCE(
+               (SELECT json_agg(json_build_object('group_id', ag.id, 'group_name', ag.name, 'group_type', ag.type))
+                FROM teacher_assignments ta
+                JOIN academic_groups ag ON ta.academic_group_id = ag.id
+                WHERE ta.teacher_id = u.id
+               ), '[]'::json
+             ) as assigned_groups
+      FROM users u
+      WHERE u.institution_id = $1 AND u.role = 'teacher'
+      ORDER BY u.full_name
+    `, [institutionId]);
+
+    // Groups (courses/classes)
+    const groups = await db.query(`
+      SELECT id, name, type, education_level, parent_group_id
+      FROM academic_groups
+      WHERE institution_id = $1
+      ORDER BY type, name
+    `, [institutionId]);
+
+    // Announcements (for the dashboard)
+    const announcements = await db.query(`
+      SELECT a.*, u.full_name as author_name
+      FROM institution_announcements a
+      LEFT JOIN users u ON a.author_id = u.id
+      WHERE a.institution_id = $1
+      ORDER BY a.created_at DESC
+      LIMIT 5
+    `, [institutionId]);
+
+    res.json({
+      stats: {
+        totalStudents: parseInt(totalStudents.rows[0].count),
+        totalTeachers: parseInt(totalTeachers.rows[0].count),
+        totalGroups: parseInt(totalGroups.rows[0].count),
+        totalResources: parseInt(totalResources.rows[0].count),
+      },
+      students: students.rows,
+      teachers: teachers.rows,
+      groups: groups.rows,
+      announcements: announcements.rows,
+    });
+  } catch (err) {
+    console.error('getDashboard error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ---------- Update Student's Group ----------
+export const updateStudentGroup = async (req, res) => {
+  const { studentId, academicGroupId, educationLevel, yearOfStudy } = req.body;
+  const institutionId = req.user.institution_id;
+  try {
+    // Verify student belongs to this institution
+    const check = await db.query(
+      'SELECT id FROM users WHERE id = $1 AND institution_id = $2 AND role = $3',
+      [studentId, institutionId, 'student']
+    );
+    if (check.rows.length === 0) {
+      return res.status(403).json({ error: 'Student not found or not in your institution' });
+    }
+    await db.query(
+      `UPDATE users SET academic_group_id = $1, education_level = $2, year_of_study = $3
+       WHERE id = $4`,
+      [academicGroupId, educationLevel, yearOfStudy, studentId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('updateStudentGroup error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ---------- Student StudySphere ----------
+export const getStudentStudySphere = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const userData = await db.query(
+      'SELECT institution_id, academic_group_id, education_level FROM users WHERE id = $1',
+      [userId]
+    );
+    if (userData.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const { institution_id, academic_group_id, education_level } = userData.rows[0];
+    
+    // Get timetable for the student's group
+    let timetable = [];
+    if (academic_group_id) {
+      const timetableRes = await db.query(
+        `SELECT * FROM timetables WHERE academic_group_id = $1 ORDER BY day_of_week, start_time`,
+        [academic_group_id]
+      );
+      timetable = timetableRes.rows;
+    }
+    
+    // Get resources for the student's group and institution
+    const resourcesRes = await db.query(`
+      SELECT * FROM resources
+      WHERE (target_type = 'institution' AND target_id = $1)
+         OR (target_type = 'academic_group' AND target_id = $2)
+      ORDER BY created_at DESC
+    `, [institution_id, academic_group_id || 0]);
+    
+    // Get announcements for the institution
+    const announcementsRes = await db.query(
+      `SELECT * FROM institution_announcements
+       WHERE institution_id = $1
+       ORDER BY created_at DESC`,
+      [institution_id]
+    );
+    
+    res.json({
+      timetable,
+      resources: resourcesRes.rows,
+      announcements: announcementsRes.rows,
+    });
+  } catch (err) {
+    console.error('getStudentStudySphere error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // ---------- Groups (Academic) ----------
 export const createGroup = async (req, res) => {
   const { name, type, educationLevel, parentGroupId } = req.body;
@@ -68,7 +217,6 @@ export const createTimetableEntry = async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
   try {
-    // Verify group belongs to institution
     const groupCheck = await db.query(
       'SELECT id FROM academic_groups WHERE id = $1 AND institution_id = $2',
       [academicGroupId, institutionId]
@@ -88,7 +236,6 @@ export const createTimetableEntry = async (req, res) => {
   }
 };
 
-// Bulk upload timetable via CSV
 export const uploadTimetableCSV = async (req, res) => {
   const institutionId = req.user.institution_id;
   if (!req.file) {
@@ -103,7 +250,6 @@ export const uploadTimetableCSV = async (req, res) => {
     for (const row of records) {
       const { group_id, day, start_time, end_time, subject, teacher_id, room } = row;
       if (!group_id || !day || !start_time || !end_time || !subject) continue;
-      // Verify group belongs to institution
       const groupCheck = await db.query(
         'SELECT id FROM academic_groups WHERE id = $1 AND institution_id = $2',
         [group_id, institutionId]
@@ -157,7 +303,6 @@ export const createResource = async (req, res) => {
   if (!targetType || !targetId || !title) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
-  // Validate target type and ownership
   let valid = false;
   if (targetType === 'institution') {
     valid = parseInt(targetId) === institutionId;
@@ -250,7 +395,6 @@ export const assignTeacher = async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
   try {
-    // Verify both exist and belong to institution
     const teacherCheck = await db.query(
       'SELECT id FROM users WHERE id = $1 AND institution_id = $2 AND role = $3',
       [teacherId, institutionId, 'teacher']
