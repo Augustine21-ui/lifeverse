@@ -756,4 +756,7 @@ getAnnouncements: () => api.get('/institution/announcements'),
 // Teacher assignments
 assignTeacher: (data) => api.post('/institution/assign', data),
 removeTeacherAssignment: (teacherId, groupId) => api.delete(`/institution/assign/${teacherId}/${groupId}`),
+
+// StudySphere
+getStudentStudySphere: () => api.get('/institution/studysphere'),
 };
