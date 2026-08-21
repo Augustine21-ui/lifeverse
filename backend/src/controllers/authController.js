@@ -16,12 +16,11 @@ export const login = async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    // ✅ Include institution_id in the SELECT query
     const userRes = await db.query(
       `SELECT id, email, password_hash, full_name, role, institution, xp, level, streak_days,
               subscription_tier, subscription_status, trial_end_date, trial_used,
               subscription_end_date, institution_subscription_valid,
-              institution_id   -- ✅ added
+              institution_id
        FROM users WHERE email = $1`,
       [email]
     );
@@ -37,7 +36,6 @@ export const login = async (req, res) => {
 
     const access = await getUserAccess(user.id);
 
-    // ✅ Include institution_id in JWT payload
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, institution_id: user.institution_id },
       process.env.JWT_SECRET,
@@ -59,7 +57,7 @@ export const login = async (req, res) => {
         subscription_tier: user.subscription_tier,
         subscription_status: user.subscription_status,
         institution_subscription_valid: user.institution_subscription_valid,
-        institution_id: user.institution_id // ✅ added
+        institution_id: user.institution_id
       }
     });
   } catch (err) {
@@ -94,6 +92,39 @@ export const register = async (req, res) => {
       );
       if (instRes.rows.length > 0) {
         institutionId = instRes.rows[0].id;
+      }
+    }
+
+    // ============================================================
+    // NEW: Find or create a stream for the student's course
+    // ============================================================
+    let academicGroupId = null;
+    if (institutionId && course) {
+      // 1. Find the course group
+      const courseRes = await db.query(
+        `SELECT id FROM academic_groups 
+         WHERE institution_id = $1 AND name = $2 AND type = 'course'`,
+        [institutionId, course.trim()]
+      );
+      if (courseRes.rows.length > 0) {
+        const courseId = courseRes.rows[0].id;
+        // 2. Find an existing stream under this course
+        const streamRes = await db.query(
+          `SELECT id FROM academic_groups 
+           WHERE parent_group_id = $1 AND type = 'stream' LIMIT 1`,
+          [courseId]
+        );
+        if (streamRes.rows.length > 0) {
+          academicGroupId = streamRes.rows[0].id;
+        } else {
+          // 3. Create a default stream
+          const newStream = await db.query(
+            `INSERT INTO academic_groups (institution_id, name, type, education_level, parent_group_id)
+             VALUES ($1, $2, 'stream', $3, $4) RETURNING id`,
+            [institutionId, course.trim() + ' - Default Stream', education_level || 'higher', courseId]
+          );
+          academicGroupId = newStream.rows[0].id;
+        }
       }
     }
 
@@ -146,24 +177,26 @@ export const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Include institution_id in the INSERT
+    // ============================================================
+    // INSERT includes institution_id and academic_group_id
+    // ============================================================
     const result = await db.query(
       `INSERT INTO users (
         full_name, username, email, password_hash, education_level, 
         institution, course, role,
         subscription_tier, subscription_status, trial_start_date, 
         trial_end_date, trial_used, institution_subscription_valid,
-        institution_id   -- ✅ added
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        institution_id, academic_group_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING id, username, email, full_name, role, subscription_tier, 
                 subscription_status, trial_end_date, institution_subscription_valid,
-                institution_id`,
+                institution_id, academic_group_id`,
       [
         full_name, username, email, hashedPassword, education_level || null,
         institution || null, course || null, role || 'student',
         subscriptionPlan, subscriptionStatus, trialStartDate,
         trialEndDate, trialUsed, institutionSubscribed,
-        institutionId   // ✅ added
+        institutionId, academicGroupId
       ]
     );
 
@@ -187,7 +220,8 @@ export const register = async (req, res) => {
         subscription_tier: user.subscription_tier,
         subscription_status: user.subscription_status,
         institution_subscription_valid: user.institution_subscription_valid,
-        institution_id: user.institution_id
+        institution_id: user.institution_id,
+        academic_group_id: user.academic_group_id   // new
       }
     });
   } catch (err) {
@@ -258,7 +292,7 @@ export const getMe = async (req, res) => {
       `SELECT id, username, email, full_name, role, xp, level, streak_days,
               institution, subscription_tier, subscription_status, trial_end_date,
               subscription_end_date, institution_subscription_valid,
-              institution_id   -- ✅ added
+              institution_id, academic_group_id
        FROM users WHERE id = $1`,
       [userId]
     );

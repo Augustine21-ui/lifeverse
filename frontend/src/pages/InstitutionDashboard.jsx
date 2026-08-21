@@ -14,7 +14,7 @@ export default function InstitutionDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState(''); 
+  const [modalType, setModalType] = useState('');
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({});
   const [csvFile, setCsvFile] = useState(null);
@@ -22,7 +22,7 @@ export default function InstitutionDashboard() {
   const fileInputRef = useRef(null);
   const csvInputRef = useRef(null);
 
-  // ---- Timetable state (moved to top level) ----
+  // ---- Timetable state ----
   const [selectedGroup, setSelectedGroup] = useState('');
   const [timetableEntries, setTimetableEntries] = useState([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
@@ -32,6 +32,10 @@ export default function InstitutionDashboard() {
   const [targetId, setTargetId] = useState('');
   const [resourceList, setResourceList] = useState([]);
   const [loadingResources, setLoadingResources] = useState(false);
+
+  // ---- Hierarchy state ----
+  const [hierarchy, setHierarchy] = useState([]);
+  const [loadingHierarchy, setLoadingHierarchy] = useState(false);
 
   // Fetch dashboard data
   const loadData = async () => {
@@ -46,9 +50,29 @@ export default function InstitutionDashboard() {
     }
   };
 
+  // Load hierarchy
+  const loadHierarchy = async () => {
+    setLoadingHierarchy(true);
+    try {
+      const res = await api.getHierarchy();
+      setHierarchy(res);
+    } catch (err) {
+      console.error('Error loading hierarchy:', err);
+    } finally {
+      setLoadingHierarchy(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Load hierarchy when switching to groups tab
+  useEffect(() => {
+    if (activeTab === 'groups') {
+      loadHierarchy();
+    }
+  }, [activeTab]);
 
   // Load timetable when selectedGroup changes
   useEffect(() => {
@@ -130,6 +154,7 @@ export default function InstitutionDashboard() {
         await api.assignTeacher(formData);
       }
       await loadData();
+      if (activeTab === 'groups') loadHierarchy();
       closeModal();
     } catch (err) {
       console.error(err);
@@ -162,12 +187,50 @@ export default function InstitutionDashboard() {
     if (!confirm(`Delete this ${type}?`)) return;
     try {
       if (type === 'group') await api.deleteGroup(id);
-      // other delete endpoints can be added later
       await loadData();
+      if (activeTab === 'groups') loadHierarchy();
     } catch (err) {
       console.error(err);
       alert('Delete failed');
     }
+  };
+
+  // ---------- GroupTree component ----------
+  const GroupTree = ({ node, onEdit, onDelete, onAddChild }) => {
+    const [expanded, setExpanded] = useState(true);
+    const icon = node.type === 'department' ? '🏛️' : node.type === 'course' ? '📘' : '📄';
+    return (
+      <div className="ml-4">
+        <div className="flex items-center gap-2 py-1 hover:bg-white/5 rounded px-2">
+          {node.children && node.children.length > 0 && (
+            <button onClick={() => setExpanded(!expanded)} className="text-white/40">
+              {expanded ? '▼' : '▶'}
+            </button>
+          )}
+          <span>{icon}</span>
+          <span className="font-medium">{node.name}</span>
+          <span className="text-xs text-white/40 ml-2">{node.type}</span>
+          <div className="ml-auto flex gap-1">
+            <button onClick={() => onAddChild(node)} className="text-white/30 hover:text-brand-400" title="Add child">
+              <Plus size={14} />
+            </button>
+            <button onClick={() => onEdit(node)} className="text-white/30 hover:text-brand-400" title="Edit">
+              <Edit size={14} />
+            </button>
+            <button onClick={() => onDelete(node)} className="text-white/30 hover:text-red-400" title="Delete">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </div>
+        {expanded && node.children && node.children.length > 0 && (
+          <div>
+            {node.children.map(child => (
+              <GroupTree key={child.id} node={child} onEdit={onEdit} onDelete={onDelete} onAddChild={onAddChild} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // ---------- Render functions ----------
@@ -262,28 +325,33 @@ export default function InstitutionDashboard() {
   const renderGroups = () => (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Groups</h2>
-        <button className="btn-primary text-sm" onClick={() => openModal('group')}>
-          <Plus size={16} className="inline mr-1" /> Add Group
+        <h2 className="text-xl font-semibold">Hierarchy</h2>
+        <button className="btn-primary text-sm" onClick={() => openModal('group', { type: 'department' })}>
+          <Plus size={16} className="inline mr-1" /> Add Department
         </button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {groups.map(g => (
-          <div key={g.id} className="card p-4 flex justify-between items-center">
-            <div>
-              <p className="font-semibold">{g.name}</p>
-              <p className="text-sm text-white/40 capitalize">{g.type} {g.education_level && `· ${g.education_level}`}</p>
-            </div>
-            <div className="flex gap-2">
-              <button className="text-white/40 hover:text-brand-400" onClick={() => openModal('group', g)}>
-                <Edit size={16} />
-              </button>
-              <button className="text-white/40 hover:text-red-400" onClick={() => handleDelete('group', g.id)}>
-                <Trash2 size={16} />
-              </button>
-            </div>
-          </div>
-        ))}
+      <div className="card p-4">
+        {loadingHierarchy ? (
+          <div className="flex justify-center py-8"><Loader2 className="animate-spin text-brand-400" size={24} /></div>
+        ) : hierarchy.length === 0 ? (
+          <p className="text-white/40">No groups yet. Start by adding a department.</p>
+        ) : (
+          hierarchy.map(node => (
+            <GroupTree
+              key={node.id}
+              node={node}
+              onEdit={(item) => openModal('group', item)}
+              onDelete={(item) => handleDelete('group', item.id)}
+              onAddChild={(parent) => {
+                let childType = '';
+                if (parent.type === 'department') childType = 'course';
+                else if (parent.type === 'course') childType = 'stream';
+                else return;
+                openModal('group', { parentGroupId: parent.id, type: childType });
+              }}
+            />
+          ))
+        )}
       </div>
     </div>
   );
@@ -433,10 +501,11 @@ export default function InstitutionDashboard() {
       <form onSubmit={handleSubmit} className="space-y-3">
         <input type="text" className="input w-full" placeholder="Name" value={formData.name || ''} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
         <select className="input w-full" value={formData.type || ''} onChange={(e) => setFormData({...formData, type: e.target.value})} required>
-          <option value="">Type</option>
-          <option value="course">Course</option>
-          <option value="class">Class</option>
+          <option value="">Select Type</option>
           <option value="department">Department</option>
+          <option value="course">Course</option>
+          <option value="stream">Stream</option>
+          <option value="class">Class</option>
         </select>
         <select className="input w-full" value={formData.educationLevel || ''} onChange={(e) => setFormData({...formData, educationLevel: e.target.value})}>
           <option value="">Education Level</option>

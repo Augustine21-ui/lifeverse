@@ -437,3 +437,30 @@ export const removeTeacherAssignment = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const getHierarchy = async (req, res) => {
+  const institutionId = req.user.institution_id;
+  try {
+    const result = await db.query(
+      `SELECT id, name, type, parent_group_id FROM academic_groups 
+       WHERE institution_id = $1
+       ORDER BY type, name`,
+      [institutionId]
+    );
+    // Build tree
+    const map = {};
+    const roots = [];
+    result.rows.forEach(g => { map[g.id] = { ...g, children: [] }; });
+    result.rows.forEach(g => {
+      if (g.parent_group_id && map[g.parent_group_id]) {
+        map[g.parent_group_id].children.push(map[g.id]);
+      } else {
+        roots.push(map[g.id]);
+      }
+    });
+    res.json(roots);
+  } catch (err) {
+    console.error('getHierarchy error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};

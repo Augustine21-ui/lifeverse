@@ -41,5 +41,6 @@ router.get('/announcements', institutionController.getAnnouncements);
 // Teacher assignments
 router.post('/assign', institutionController.assignTeacher);
 router.delete('/assign/:teacherId/:academicGroupId', institutionController.removeTeacherAssignment);
+router.get('/hierarchy', institutionController.getHierarchy);
 
 export default router;
