@@ -121,6 +121,7 @@ export default function InstitutionDashboard() {
 
   // ---------- Modal helpers ----------
   const openModal = (type, item = null) => {
+    console.log('🔍 Opening modal with item:', item);
     setModalType(type);
     setEditingItem(item);
     // ✅ If item is an object with id, keep it; else treat as new
@@ -143,19 +144,19 @@ export default function InstitutionDashboard() {
     setSubmitting(true);
     try {
       if (modalType === 'group') {
-        // ✅ Determine if we have an ID (either from editingItem or formData)
-        const groupId = editingItem?.id || formData?.id;
-        if (editingItem && !groupId) {
-          console.error('Editing item missing ID:', editingItem);
-          alert('Error: missing ID. Please refresh and try again.');
-          setSubmitting(false);
-          return;
-        }
-        if (groupId) {
-          // ✅ Update existing group
-          await api.updateGroup(groupId, formData);
+        // ✅ Determine if we're editing or creating
+        if (editingItem) {
+          // Editing: must have ID
+          const groupId = editingItem.id || formData.id;
+          if (!groupId || isNaN(parseInt(groupId))) {
+            console.error('❌ Missing group ID for update:', { editingItem, formData });
+            alert('Error: missing group ID. Please refresh and try again.');
+            setSubmitting(false);
+            return;
+          }
+          await api.updateGroup(parseInt(groupId), formData);
         } else {
-          // ✅ Create new group
+          // Creating new group
           await api.createGroup(formData);
         }
       } else if (modalType === 'resource') {
@@ -175,7 +176,6 @@ export default function InstitutionDashboard() {
       setSubmitting(false);
     }
   };
-
   const handleCsvUpload = async () => {
     if (!csvFile) return;
     setSubmitting(true);
