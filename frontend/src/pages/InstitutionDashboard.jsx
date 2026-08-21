@@ -124,7 +124,6 @@ export default function InstitutionDashboard() {
     console.log('🔍 Opening modal with item:', item);
     setModalType(type);
     setEditingItem(item);
-    // ✅ If item is an object with id, keep it; else treat as new
     setFormData(item ? { ...item } : {});
     setShowModal(true);
   };
@@ -138,25 +137,32 @@ export default function InstitutionDashboard() {
   };
 
   // ---------- Submit handlers ----------
-  // ---------- Submit handlers ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       if (modalType === 'group') {
-        // ✅ Determine if we're editing or creating
-        if (editingItem) {
-          // Editing: must have ID
-          const groupId = editingItem.id || formData.id;
-          if (!groupId || isNaN(parseInt(groupId))) {
-            console.error('❌ Missing group ID for update:', { editingItem, formData });
-            alert('Error: missing group ID. Please refresh and try again.');
+        // Determine if we're editing or creating
+        let groupId = editingItem?.id || formData?.id;
+        if (editingItem && !groupId) {
+          console.error('❌ Missing group ID for update:', { editingItem, formData });
+          alert('Error: missing group ID. Please refresh and try again.');
+          setSubmitting(false);
+          return;
+        }
+        if (groupId) {
+          // ✅ Update existing group
+          const id = parseInt(groupId);
+          if (isNaN(id)) {
+            alert('Invalid group ID');
             setSubmitting(false);
             return;
           }
-          await api.updateGroup(parseInt(groupId), formData);
+          console.log('🔄 Updating group with ID:', id, 'data:', formData);
+          await api.updateGroup(id, formData);
         } else {
-          // Creating new group
+          // ✅ Create new group
+          console.log('🆕 Creating new group:', formData);
           await api.createGroup(formData);
         }
       } else if (modalType === 'resource') {
@@ -176,6 +182,7 @@ export default function InstitutionDashboard() {
       setSubmitting(false);
     }
   };
+
   const handleCsvUpload = async () => {
     if (!csvFile) return;
     setSubmitting(true);
@@ -356,7 +363,10 @@ export default function InstitutionDashboard() {
             <GroupTree
               key={node.id}
               node={node}
-              onEdit={(item) => openModal('group', item)}
+              onEdit={(item) => {
+                console.log('✏️ Editing item from GroupTree:', item);
+                openModal('group', item);
+              }}
               onDelete={(item) => handleDelete('group', item.id)}
               onAddChild={(parent) => {
                 let childType = '';
