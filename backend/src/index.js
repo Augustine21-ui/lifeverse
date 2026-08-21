@@ -3,7 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-import institutionRoutes from './institutionRoutes.js';
+
 
 // Load environment variables first
 dotenv.config();
@@ -32,6 +32,7 @@ import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import academicRoutes from "./routes/academicRoutes.js";
 import momentumRoutes from "./routes/momentumRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
+import institutionRoutes from './routes/institutionRoutes.js';
 
 // Import migration and database
 import { createTables } from "./migrate.js";
