@@ -33,6 +33,7 @@ import AcademicHubPage from './pages/AcademicHubPage';
 import SubjectDetailPage from './pages/SubjectDetailPage';
 import AcademicOnboarding from './pages/AcademicOnboarding';
 import SubscriptionPage from './pages/SubscriptionPage';
+import InstitutionDashboard from './pages/InstitutionDashboard';
 
 // ===== NotFound Component =====
 const NotFound = () => (
@@ -61,6 +62,7 @@ function RoleBasedRedirect() {
   if (user?.role === 'admin') return <Navigate to="/admin" replace />;
   if (user?.role === 'parent') return <Navigate to="/parent-dashboard" replace />;
   if (user?.role === 'teacher') return <Navigate to="/teacher-dashboard" replace />;
+  if (user?.role === 'institution_admin') return <Navigate to="/institution-dashboard" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -119,6 +121,7 @@ export default function App() {
         <Route path="/momentum" element={<MomentumPage />} />
         <Route path="/momentum/community/:id" element={<CommunityDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="institution-dashboard" element={<InstitutionDashboard />} />
         <Route path="/academic-onboarding" element={<AcademicOnboarding />} />
         <Route path="admin" element={
           <RequireRole allowedRoles={['admin']}>
