@@ -153,8 +153,7 @@ app.use("/api/academic", academicRoutes);
 app.use("/api/momentum", momentumRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/admin", adminRoutes);
-router.use('/institution', institutionRoutes);
-
+app.use('/api/institution', institutionRoutes);
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('❌ Error details:', err.message);
