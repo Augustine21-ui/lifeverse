@@ -144,29 +144,26 @@ export default function InstitutionDashboard() {
     setSubmitting(true);
     try {
       if (modalType === 'group') {
-        // Determine if we're editing or creating
+        // Determine ID
         let groupId = editingItem?.id || formData?.id;
-        console.log('🔄 handleSubmit – editingItem:', editingItem);
-        console.log('🔄 handleSubmit – formData:', formData);
-        console.log('🔄 handleSubmit – groupId:', groupId);
-        if (editingItem && !groupId) {
-          console.error('❌ Missing group ID for update:', { editingItem, formData });
-          alert('Error: missing group ID. Please refresh and try again.');
-          setSubmitting(false);
-          return;
-        }
-        if (groupId) {
-          // ✅ Update existing group
-          const id = parseInt(groupId);
-          if (isNaN(id)) {
-            alert('Invalid group ID');
+
+        // If editing and ID is missing or invalid, abort
+        if (editingItem) {
+          // Check for undefined, null, "undefined" string, or NaN
+          const isValidId = groupId !== undefined && groupId !== null &&
+                            groupId !== 'undefined' && !isNaN(parseInt(groupId));
+          if (!isValidId) {
+            console.error('❌ Invalid group ID for update:', { editingItem, formData, groupId });
+            alert('Error: invalid group ID. Please refresh and try again.');
             setSubmitting(false);
             return;
           }
+          // Valid ID – update
+          const id = parseInt(groupId);
           console.log('🔄 Updating group with ID:', id, 'data:', formData);
           await api.updateGroup(id, formData);
         } else {
-          // ✅ Create new group
+          // Create new group
           console.log('🆕 Creating new group:', formData);
           await api.createGroup(formData);
         }
