@@ -141,9 +141,17 @@ export default function InstitutionDashboard() {
     setSubmitting(true);
     try {
       if (modalType === 'group') {
-        if (editingItem) {
+        if (editingItem && editingItem.id) {
+          // ✅ Update existing group
           await api.updateGroup(editingItem.id, formData);
+        } else if (editingItem && !editingItem.id) {
+          // ❌ Should not happen – log and alert
+          console.error('Editing item missing ID:', editingItem);
+          alert('Error: missing ID. Please refresh and try again.');
+          setSubmitting(false);
+          return;
         } else {
+          // ➕ Create new group
           await api.createGroup(formData);
         }
       } else if (modalType === 'resource') {
@@ -184,6 +192,10 @@ export default function InstitutionDashboard() {
   };
 
   const handleDelete = async (type, id) => {
+    if (!id) {
+      alert('Invalid ID');
+      return;
+    }
     if (!confirm(`Delete this ${type}?`)) return;
     try {
       if (type === 'group') await api.deleteGroup(id);
