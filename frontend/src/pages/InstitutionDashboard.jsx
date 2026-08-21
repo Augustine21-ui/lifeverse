@@ -14,13 +14,24 @@ export default function InstitutionDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState(''); // 'group', 'resource', 'announcement', 'timetable', 'assign'
+  const [modalType, setModalType] = useState(''); 
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({});
   const [csvFile, setCsvFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
   const csvInputRef = useRef(null);
+
+  // ---- Timetable state (moved to top level) ----
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [timetableEntries, setTimetableEntries] = useState([]);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+
+  // ---- Resources state ----
+  const [targetType, setTargetType] = useState('institution');
+  const [targetId, setTargetId] = useState('');
+  const [resourceList, setResourceList] = useState([]);
+  const [loadingResources, setLoadingResources] = useState(false);
 
   // Fetch dashboard data
   const loadData = async () => {
@@ -38,6 +49,46 @@ export default function InstitutionDashboard() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Load timetable when selectedGroup changes
+  useEffect(() => {
+    if (selectedGroup) {
+      loadTimetable(selectedGroup);
+    }
+  }, [selectedGroup]);
+
+  const loadTimetable = async (groupId) => {
+    if (!groupId) return;
+    setLoadingEntries(true);
+    try {
+      const res = await api.getTimetableByGroup(groupId);
+      setTimetableEntries(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingEntries(false);
+    }
+  };
+
+  // Load resources when target changes
+  useEffect(() => {
+    if (targetId) {
+      loadResources();
+    }
+  }, [targetType, targetId]);
+
+  const loadResources = async () => {
+    if (!targetId) return;
+    setLoadingResources(true);
+    try {
+      const res = await api.getResources(targetType, targetId);
+      setResourceList(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingResources(false);
+    }
+  };
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-400" size={40} /></div>;
   if (!data) return <div className="p-6 text-center text-white/60">No data available</div>;
@@ -77,8 +128,6 @@ export default function InstitutionDashboard() {
         await api.createAnnouncement(formData);
       } else if (modalType === 'assign') {
         await api.assignTeacher(formData);
-      } else if (modalType === 'timetable') {
-        // handled separately
       }
       await loadData();
       closeModal();
@@ -113,7 +162,7 @@ export default function InstitutionDashboard() {
     if (!confirm(`Delete this ${type}?`)) return;
     try {
       if (type === 'group') await api.deleteGroup(id);
-      // add other delete endpoints as needed
+      // other delete endpoints can be added later
       await loadData();
     } catch (err) {
       console.error(err);
@@ -121,7 +170,7 @@ export default function InstitutionDashboard() {
     }
   };
 
-  // ---------- Render tabs ----------
+  // ---------- Render functions ----------
   const renderOverview = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -239,162 +288,115 @@ export default function InstitutionDashboard() {
     </div>
   );
 
-  const renderTimetable = () => {
-    const [selectedGroup, setSelectedGroup] = useState('');
-    const [timetableEntries, setTimetableEntries] = useState([]);
-    const [loadingEntries, setLoadingEntries] = useState(false);
-
-    const loadTimetable = async (groupId) => {
-      if (!groupId) return;
-      setLoadingEntries(true);
-      try {
-        const res = await api.getTimetableByGroup(groupId);
-        setTimetableEntries(res);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingEntries(false);
-      }
-    };
-
-    useEffect(() => {
-      if (selectedGroup) loadTimetable(selectedGroup);
-    }, [selectedGroup]);
-
-    return (
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Timetable</h2>
-        <div className="flex flex-wrap gap-4 mb-4">
-          <select
-            className="input flex-1 min-w-[200px]"
-            value={selectedGroup}
-            onChange={(e) => setSelectedGroup(e.target.value)}
-          >
-            <option value="">Select a group</option>
-            {groups.map(g => (
-              <option key={g.id} value={g.id}>{g.name} ({g.type})</option>
-            ))}
-          </select>
-          <label className="btn-secondary text-sm cursor-pointer">
-            <Upload size={16} className="inline mr-1" /> Upload CSV
-            <input
-              ref={csvInputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => {
-                setCsvFile(e.target.files[0]);
-                if (e.target.files[0]) handleCsvUpload();
-              }}
-            />
-          </label>
-        </div>
-        {selectedGroup && (
-          <div className="card overflow-x-auto p-0">
-            {loadingEntries ? (
-              <div className="p-4 text-center"><Loader2 className="animate-spin text-brand-400" size={24} /></div>
-            ) : timetableEntries.length === 0 ? (
-              <p className="p-4 text-white/40">No timetable entries for this group.</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-white/5">
-                  <tr className="text-white/40">
-                    <th className="p-3 text-left">Day</th>
-                    <th className="p-3 text-left">Start</th>
-                    <th className="p-3 text-left">End</th>
-                    <th className="p-3 text-left">Subject</th>
-                    <th className="p-3 text-left">Teacher</th>
-                    <th className="p-3 text-left">Room</th>
+  const renderTimetable = () => (
+    <div>
+      <h2 className="text-xl font-semibold mb-4">Timetable</h2>
+      <div className="flex flex-wrap gap-4 mb-4">
+        <select
+          className="input flex-1 min-w-[200px]"
+          value={selectedGroup}
+          onChange={(e) => setSelectedGroup(e.target.value)}
+        >
+          <option value="">Select a group</option>
+          {groups.map(g => (
+            <option key={g.id} value={g.id}>{g.name} ({g.type})</option>
+          ))}
+        </select>
+        <label className="btn-secondary text-sm cursor-pointer">
+          <Upload size={16} className="inline mr-1" /> Upload CSV
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={(e) => {
+              setCsvFile(e.target.files[0]);
+              if (e.target.files[0]) handleCsvUpload();
+            }}
+          />
+        </label>
+      </div>
+      {selectedGroup && (
+        <div className="card overflow-x-auto p-0">
+          {loadingEntries ? (
+            <div className="p-4 text-center"><Loader2 className="animate-spin text-brand-400" size={24} /></div>
+          ) : timetableEntries.length === 0 ? (
+            <p className="p-4 text-white/40">No timetable entries for this group.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-white/5">
+                <tr className="text-white/40">
+                  <th className="p-3 text-left">Day</th>
+                  <th className="p-3 text-left">Start</th>
+                  <th className="p-3 text-left">End</th>
+                  <th className="p-3 text-left">Subject</th>
+                  <th className="p-3 text-left">Teacher</th>
+                  <th className="p-3 text-left">Room</th>
+                </tr>
+              </thead>
+              <tbody>
+                {timetableEntries.map(t => (
+                  <tr key={t.id} className="border-t border-white/5">
+                    <td className="p-3 capitalize">{t.day_of_week}</td>
+                    <td className="p-3">{t.start_time?.slice(0,5)}</td>
+                    <td className="p-3">{t.end_time?.slice(0,5)}</td>
+                    <td className="p-3">{t.subject}</td>
+                    <td className="p-3">{t.teacher_name || '—'}</td>
+                    <td className="p-3">{t.room || '—'}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {timetableEntries.map(t => (
-                    <tr key={t.id} className="border-t border-white/5">
-                      <td className="p-3 capitalize">{t.day_of_week}</td>
-                      <td className="p-3">{t.start_time?.slice(0,5)}</td>
-                      <td className="p-3">{t.end_time?.slice(0,5)}</td>
-                      <td className="p-3">{t.subject}</td>
-                      <td className="p-3">{t.teacher_name || '—'}</td>
-                      <td className="p-3">{t.room || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderResources = () => (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Resources</h2>
+        <button className="btn-primary text-sm" onClick={() => openModal('resource')}>
+          <Plus size={16} className="inline mr-1" /> Add Resource
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-4 mb-4">
+        <select className="input w-40" value={targetType} onChange={(e) => setTargetType(e.target.value)}>
+          <option value="institution">Institution</option>
+          <option value="academic_group">Group</option>
+        </select>
+        {targetType === 'academic_group' ? (
+          <select className="input flex-1" value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+            <option value="">Select a group</option>
+            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        ) : (
+          <input type="number" className="input w-40" placeholder="Institution ID" value={targetId} onChange={(e) => setTargetId(e.target.value)} />
+        )}
+        <button className="btn-secondary text-sm" onClick={loadResources}>Refresh</button>
+      </div>
+      <div className="space-y-3">
+        {resourceList.map(r => (
+          <div key={r.id} className="card p-3 flex justify-between items-center">
+            <div>
+              <p className="font-medium">{r.title}</p>
+              <p className="text-sm text-white/40">{r.description}</p>
+              <div className="flex gap-2 text-xs text-white/30">
+                <span>{r.resource_type}</span>
+                <span>· {new Date(r.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+            {r.file_url && (
+              <a href={r.file_url} target="_blank" rel="noopener noreferrer" className="text-brand-400 hover:underline">
+                <LinkIcon size={16} />
+              </a>
             )}
           </div>
-        )}
+        ))}
       </div>
-    );
-  };
-
-  const renderResources = () => {
-    const [targetType, setTargetType] = useState('institution');
-    const [targetId, setTargetId] = useState('');
-    const [resourceList, setResourceList] = useState([]);
-    const [loadingResources, setLoadingResources] = useState(false);
-
-    const loadResources = async () => {
-      if (!targetId) return;
-      setLoadingResources(true);
-      try {
-        const res = await api.getResources(targetType, targetId);
-        setResourceList(res);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingResources(false);
-      }
-    };
-
-    useEffect(() => {
-      if (targetId) loadResources();
-    }, [targetType, targetId]);
-
-    return (
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Resources</h2>
-          <button className="btn-primary text-sm" onClick={() => openModal('resource')}>
-            <Plus size={16} className="inline mr-1" /> Add Resource
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-4 mb-4">
-          <select className="input w-40" value={targetType} onChange={(e) => setTargetType(e.target.value)}>
-            <option value="institution">Institution</option>
-            <option value="academic_group">Group</option>
-          </select>
-          {targetType === 'academic_group' ? (
-            <select className="input flex-1" value={targetId} onChange={(e) => setTargetId(e.target.value)}>
-              <option value="">Select a group</option>
-              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          ) : (
-            <input type="number" className="input w-40" placeholder="Institution ID" value={targetId} onChange={(e) => setTargetId(e.target.value)} />
-          )}
-          <button className="btn-secondary text-sm" onClick={loadResources}>Refresh</button>
-        </div>
-        <div className="space-y-3">
-          {resourceList.map(r => (
-            <div key={r.id} className="card p-3 flex justify-between items-center">
-              <div>
-                <p className="font-medium">{r.title}</p>
-                <p className="text-sm text-white/40">{r.description}</p>
-                <div className="flex gap-2 text-xs text-white/30">
-                  <span>{r.resource_type}</span>
-                  <span>· {new Date(r.created_at).toLocaleDateString()}</span>
-                </div>
-              </div>
-              {r.file_url && (
-                <a href={r.file_url} target="_blank" rel="noopener noreferrer" className="text-brand-400 hover:underline">
-                  <LinkIcon size={16} />
-                </a>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
+    </div>
+  );
 
   const renderAnnouncements = () => (
     <div>
