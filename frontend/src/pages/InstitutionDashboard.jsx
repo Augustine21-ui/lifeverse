@@ -148,22 +148,26 @@ export default function InstitutionDashboard() {
         }
       } else if (modalType === 'resource') {
         let resourceData = { ...formData };
-        // If target type is institution, auto-fill targetId from user
+        
         if (resourceData.targetType === 'institution') {
+          // Check if user has institution_id
           if (!user?.institution_id) {
-            alert('You are not linked to an institution. Please contact support.');
+            alert('You are not linked to an institution. Please log out and log in again, or contact support.');
             setSubmitting(false);
             return;
           }
           resourceData.targetId = user.institution_id;
         }
+        
         // Ensure targetId is present
         if (!resourceData.targetId) {
           alert('Target ID is required. Please select a group or provide institution ID.');
           setSubmitting(false);
           return;
         }
+        
         await api.createResource(resourceData);
+        
       } else if (modalType === 'announcement') {
         await api.createAnnouncement(formData);
       } else if (modalType === 'assign') {
