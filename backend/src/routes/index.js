@@ -12,7 +12,7 @@ import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '.
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
 import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
 import { recordMood } from '../moodController.js';
-
+import * as taskController from '../controllers/taskController.js';
 const router = express.Router();
 
 // Auth
