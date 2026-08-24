@@ -10,10 +10,11 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticate);
 
-// Student StudySphere (any authenticated user)
+// ✅ STUDENT ROUTES (no admin required)
 router.get('/studysphere', institutionController.getStudentStudySphere);
+router.get('/student-subjects', institutionController.getStudentSubjects); // <-- moved here
 
-// Institution admin routes
+// ✅ INSTITUTION ADMIN ROUTES (admin required)
 router.use(requireInstitutionAdmin);
 
 // Dashboard
@@ -42,6 +43,5 @@ router.get('/announcements', institutionController.getAnnouncements);
 router.post('/assign', institutionController.assignTeacher);
 router.delete('/assign/:teacherId/:academicGroupId', institutionController.removeTeacherAssignment);
 router.get('/hierarchy', institutionController.getHierarchy);
-router.get('/student-subjects', institutionController.getStudentSubjects);
 
 export default router;
