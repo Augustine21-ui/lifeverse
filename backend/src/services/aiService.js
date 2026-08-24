@@ -1,51 +1,53 @@
 // backend/src/services/aiService.js
+import OpenAI from 'openai';
 
-// ✅ Conditional initialization - don't crash if API key is missing
-let groq = null;
-let isGroqAvailable = false;
+// ✅ Initialize OpenAI if API key is available
+let openai = null;
+let isOpenAIAvailable = false;
 
-const groqApiKey = process.env.GROQ_API_KEY;
+const openaiApiKey = process.env.OPENAI_API_KEY;
+const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
-// Try to initialize Groq if API key exists
-if (groqApiKey && groqApiKey !== 'your_groq_api_key_here' && groqApiKey.startsWith('gsk_')) {
+if (openaiApiKey && openaiApiKey !== 'your_openai_api_key_here' && openaiApiKey.startsWith('sk-')) {
   try {
-    // Dynamic import to avoid top-level crash
-    const Groq = (await import('groq-sdk')).default;
-    groq = new Groq({
-      apiKey: groqApiKey,
+    openai = new OpenAI({
+      apiKey: openaiApiKey,
     });
-    isGroqAvailable = true;
-    console.log('✅ Groq AI service initialized successfully');
+    isOpenAIAvailable = true;
+    console.log('✅ OpenAI service initialized successfully (model: ' + model + ')');
   } catch (error) {
-    console.warn('⚠️ Failed to initialize Groq:', error.message);
+    console.warn('⚠️ Failed to initialize OpenAI:', error.message);
   }
 }
 
-if (!isGroqAvailable) {
-  console.log('ℹ️ Groq AI service disabled - running in mock mode');
-  console.log('   Set GROQ_API_KEY to enable real AI');
+if (!isOpenAIAvailable) {
+  console.log('ℹ️ OpenAI service disabled - running in mock mode');
+  console.log('   Set OPENAI_API_KEY to enable real AI');
 }
 
 /**
  * Generic generate function with fallback
  */
-const generate = async (prompt, model = 'llama-3.3-70b-versatile', temperature = 0.7) => {
-  // If Groq is not available, return mock data
-  if (!isGroqAvailable || !groq) {
+const generate = async (prompt, temperature = 0.7, jsonMode = false) => {
+  // If OpenAI is not available, return mock data
+  if (!isOpenAIAvailable || !openai) {
     console.log('ℹ️ Using mock response for prompt:', prompt.substring(0, 50) + '...');
     return generateMockResponse(prompt);
   }
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
+    const response = await openai.chat.completions.create({
       model,
+      messages: [
+        { role: 'system', content: 'You are an AI educational content generator. Return valid JSON when asked.' },
+        { role: 'user', content: prompt }
+      ],
       temperature,
-      response_format: { type: 'json_object' },
+      response_format: jsonMode ? { type: 'json_object' } : undefined,
     });
-    return chatCompletion.choices[0]?.message?.content || '';
+    return response.choices[0]?.message?.content || '';
   } catch (error) {
-    console.error('Groq API error:', error.message);
+    console.error('OpenAI API error:', error.message);
     return generateMockResponse(prompt);
   }
 };
@@ -94,7 +96,6 @@ const generateMockResponse = (prompt) => {
     })
   };
 
-  // Try to determine the type from the prompt
   let type = 'multiple-choice';
   if (prompt.includes('flashcard')) type = 'flashcards';
   else if (prompt.includes('memory match')) type = 'memory_match';
@@ -112,7 +113,7 @@ export const generateCortexQuiz = async ({ subject, topic, grade, count = 5 }) =
   Return a JSON object with key "questions" containing an array of objects. 
   Each object must have: "question" (string), "options" (array of 4 strings), "correct" (integer index 0-3).`;
   try {
-    const response = await generate(prompt);
+    const response = await generate(prompt, 0.5, true);
     const parsed = JSON.parse(response);
     const questions = parsed.questions || parsed;
     if (!Array.isArray(questions)) throw new Error('No questions generated');
@@ -134,7 +135,7 @@ export const generateFlashcards = async ({ subject, topic, grade, count = 5 }) =
   const prompt = `Generate ${count} flashcards about "${topic}" in ${subject} for grade ${grade}. 
   Return a JSON object with key "flashcards" containing an array of objects with keys: "question", "answer".`;
   try {
-    const response = await generate(prompt);
+    const response = await generate(prompt, 0.5, true);
     const parsed = JSON.parse(response);
     const flashcards = parsed.flashcards || parsed;
     return Array.isArray(flashcards) ? flashcards.slice(0, count) : [];
@@ -152,7 +153,7 @@ export const generateMemoryMatch = async ({ subject, topic, grade }) => {
   Generate 8 pairs (16 cards total). Each pair should have a term and its matching definition.
   Return a JSON object with key "pairs" containing an array of objects with keys: "term", "definition".`;
   try {
-    const response = await generate(prompt);
+    const response = await generate(prompt, 0.5, true);
     const parsed = JSON.parse(response);
     const pairs = parsed.pairs || parsed;
     return Array.isArray(pairs) ? pairs.slice(0, 8) : [];
@@ -174,7 +175,7 @@ export const generateCluePath = async ({ subject, topic, grade }) => {
   Include a question that the student must answer to solve the mystery. 
   Return a JSON object with keys: "story" (string), "question" (string), "options" (array of 4 strings), "correct" (index).`;
   try {
-    const response = await generate(prompt);
+    const response = await generate(prompt, 0.6, true);
     const parsed = JSON.parse(response);
     return {
       story: parsed.story || 'A mysterious event occurred.',
@@ -200,7 +201,7 @@ export const generatePathfinder = async ({ subject, topic, grade }) => {
   Provide 4-5 steps/items in the correct order. 
   Return a JSON object with: "instruction" (string), "steps" (array of strings).`;
   try {
-    const response = await generate(prompt);
+    const response = await generate(prompt, 0.5, true);
     const parsed = JSON.parse(response);
     return {
       instruction: parsed.instruction || 'Order the following steps:',
@@ -222,7 +223,7 @@ export const generateReflex = async ({ subject, topic, grade, count = 3 }) => {
   Each question should be a single sentence and the answer should be a single word or number. 
   Return a JSON object with key "questions" containing an array of objects: [{"question": "...", "answer": "..."}].`;
   try {
-    const response = await generate(prompt);
+    const response = await generate(prompt, 0.4, true);
     const parsed = JSON.parse(response);
     const questions = parsed.questions || parsed;
     return Array.isArray(questions) ? questions.slice(0, count) : [];
@@ -242,32 +243,32 @@ export const generateReflex = async ({ subject, topic, grade, count = 3 }) => {
 export const generateOrbitActivity = async (activityType, context) => {
   const { subject, topic, grade, learningStyle } = context;
 
-  // Check if Groq is available
-  if (!isGroqAvailable || !groq) {
-    console.warn('Groq not available – using mock activity');
+  if (!isOpenAIAvailable || !openai) {
+    console.warn('OpenAI not available – using mock activity');
     return generateMockActivityContent(activityType, context);
   }
 
   const prompt = buildPrompt(activityType, context);
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+    const completion = await openai.chat.completions.create({
+      model,
       messages: [
         { role: 'system', content: 'You are an AI educational content generator. Generate learning activities in valid JSON format.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,
-      max_tokens: 2000,
+      response_format: { type: 'json_object' },
     });
 
     const content = completion.choices[0].message.content;
-    // Extract JSON from response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+    // Try to parse JSON
+    try {
+      return JSON.parse(content);
+    } catch (e) {
+      console.warn('Failed to parse JSON, using mock');
+      return generateMockActivityContent(activityType, context);
     }
-    return generateMockActivityContent(activityType, context);
   } catch (error) {
     console.error('AI activity generation error:', error);
     return generateMockActivityContent(activityType, context);

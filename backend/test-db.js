@@ -1,26 +1,22 @@
-﻿import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import { dirname, resolve } from "path";
-import pkg from "pg";
-const { Pool } = pkg;
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-dotenv.config({ path: resolve(__dirname, ".env") });
+const __dirname = path.dirname(__filename);
 
-console.log("DB_PASSWORD type:", typeof process.env.DB_PASSWORD);
-console.log("DB_PASSWORD length:", process.env.DB_PASSWORD?.length);
+// Explicitly load .env from the backend folder
+dotenv.config({ path: path.join(__dirname, '.env') });
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
-pool.query("SELECT NOW()", (err, res) => {
-  if (err) console.error("Error:", err.message);
-  else console.log("Success:", res.rows[0]);
-  process.exit();
+import pool from './src/config/db.js';
+
+pool.query('SELECT 1', (err, res) => {
+  if (err) {
+    console.error('❌ Connection error:', err.message);
+  } else {
+    console.log('✅ Connection successful!');
+  }
+  pool.end();
 });
