@@ -42,7 +42,7 @@ export default function LandingPage() {
           }}>
             <Zap size={17} color="white" />
           </div>
-          <span style={{ fontWeight: 700, fontSize: 20, color: 'white' }}>Lifeverse</span>
+          <span style={{ fontWeight: 700, fontSize: 20, color: 'white' }}>KUA</span>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           {user ? (
@@ -155,7 +155,7 @@ export default function LandingPage() {
           lineHeight: 1.7,
           marginBottom: 40,
         }}>
-          Lifeverse turns studying into an adventure. Set goals, earn badges, join communities, and track your progress.
+          KUA turns studying into an adventure. Set goals, earn badges, join communities, and track your progress.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           {!user && (
@@ -287,7 +287,7 @@ export default function LandingPage() {
         fontSize: 12,
         borderTop: '1px solid rgba(255,255,255,0.04)',
       }}>
-        © 2026 Lifeverse – Built with ❤️
+        © 2026 KUA – Built with ❤️
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Mail, Lock, User, AlertCircle, Building, GraduationCap, Users, Eye, EyeOff, Plus, X } from 'lucide-react';
@@ -185,7 +186,7 @@ export default function RegisterPage() {
             <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#3b82f6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Zap size={17} color="white" />
             </div>
-            <span style={{ fontWeight: 700, fontSize: 22, color: 'var(--text-primary)' }}>Lifeverse</span>
+            <span style={{ fontWeight: 700, fontSize: 22, color: 'var(--text-primary)' }}>KUA</span>
           </div>
 
           <h2 style={{ fontWeight: 800, fontSize: 24, marginBottom: 4, color: 'var(--text-primary)' }}>Begin your journey</h2>
@@ -203,7 +204,7 @@ export default function RegisterPage() {
                 <label className="label" style={{ color: 'var(--text-secondary)' }}>Full name</label>
                 <input 
                   className="input" 
-                  placeholder="Alex Johnson" 
+                  
                   value={form.fullName} 
                   onChange={set('fullName')} 
                   required 
@@ -218,7 +219,7 @@ export default function RegisterPage() {
                 <label className="label" style={{ color: 'var(--text-secondary)' }}>Username</label>
                 <input 
                   className="input" 
-                  placeholder="alexj" 
+                 
                   value={form.username} 
                   onChange={set('username')} 
                   required 
@@ -245,7 +246,7 @@ export default function RegisterPage() {
                     color: 'var(--text-primary)',
                     borderColor: 'var(--border)'
                   }} 
-                  placeholder="you@school.com" 
+                 
                   value={form.email} 
                   onChange={set('email')} 
                   required 

@@ -464,3 +464,65 @@ export const getHierarchy = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const getStudentSubjects = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    // Get the student's academic_group_id (stream)
+    const userRes = await db.query(
+      'SELECT academic_group_id, institution_id FROM users WHERE id = $1',
+      [userId]
+    );
+    if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const { academic_group_id, institution_id } = userRes.rows[0];
+    if (!academic_group_id) return res.json([]);
+
+    // Get the parent course and department
+    const streamRes = await db.query(
+      `SELECT id, name, parent_group_id FROM academic_groups WHERE id = $1`,
+      [academic_group_id]
+    );
+    if (streamRes.rows.length === 0) return res.json([]);
+    const stream = streamRes.rows[0];
+    let courseId = stream.parent_group_id;
+    let courseName = null;
+    let departmentName = null;
+
+    if (courseId) {
+      const courseRes = await db.query(
+        `SELECT id, name, parent_group_id FROM academic_groups WHERE id = $1`,
+        [courseId]
+      );
+      if (courseRes.rows.length > 0) {
+        courseName = courseRes.rows[0].name;
+        const deptId = courseRes.rows[0].parent_group_id;
+        if (deptId) {
+          const deptRes = await db.query(
+            `SELECT name FROM academic_groups WHERE id = $1`,
+            [deptId]
+          );
+          if (deptRes.rows.length > 0) departmentName = deptRes.rows[0].name;
+        }
+      }
+    }
+
+    // Also get all courses in the same department (optional)
+    const allSubjects = [];
+    if (courseId) {
+      const siblings = await db.query(
+        `SELECT id, name FROM academic_groups WHERE parent_group_id = $1 AND type = 'course'`,
+        [courseId]
+      );
+      allSubjects.push(...siblings.rows);
+    }
+    // If no siblings, just return the student's course
+    if (allSubjects.length === 0 && courseName) {
+      allSubjects.push({ id: courseId, name: courseName });
+    }
+
+    res.json({ subjects: allSubjects, department: departmentName, course: courseName });
+  } catch (err) {
+    console.error('getStudentSubjects error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};

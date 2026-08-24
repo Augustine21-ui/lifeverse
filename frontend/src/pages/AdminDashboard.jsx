@@ -486,7 +486,7 @@ export default function AdminDashboard() {
     <PageBackground imageUrl="/admin-bg.jpg">
       <div className="p-6 max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-        <p className="text-white/40 mb-6">Manage Lifeverse platform</p>
+        <p className="text-white/40 mb-6">Manage KUA platform</p>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-white/10 pb-2 flex-wrap">

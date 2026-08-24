@@ -760,4 +760,5 @@ removeTeacherAssignment: (teacherId, groupId) => api.delete(`/institution/assign
 // StudySphere
 getStudentStudySphere: () => api.get('/institution/studysphere'),
 getHierarchy: () => api.get('/institution/hierarchy'),
+getStudentSubjects: () => api.get('/institution/student-subjects'),
 };

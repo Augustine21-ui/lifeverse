@@ -48,7 +48,7 @@ export default function LoginPage() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center">
               <Zap size={20} color="white" />
             </div>
-            <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Lifeverse</span>
+            <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>KUA</span>
           </div>
 
           <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Welcome back</h2>
@@ -127,7 +127,7 @@ export default function LoginPage() {
           <GoogleSignInButton mode="login" />
 
           <p className="text-center mt-6 text-sm" style={{ color: 'var(--text-muted)' }}>
-            New to Lifeverse?{' '}
+            New to KUA?{' '}
             <Link to="/register" style={{ color: 'var(--accent)' }} className="font-medium">
               Create account
             </Link>
