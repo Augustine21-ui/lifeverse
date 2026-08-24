@@ -1,3 +1,4 @@
+// backend/src/routes/index.js
 import express from 'express';
 import { register, login, getMe, authenticate } from '../auth.js';
 import { getChallenges, submitChallenge, getUserChallenges } from '../challengeController.js';
@@ -12,7 +13,9 @@ import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '.
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
 import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
 import { recordMood } from '../moodController.js';
+// ✅ Import taskController for the clean task completion endpoint
 import * as taskController from '../controllers/taskController.js';
+
 const router = express.Router();
 
 // Auth
@@ -20,12 +23,16 @@ router.post('/auth/register', register);
 router.post('/auth/login', login);
 router.get('/auth/me', authenticate, getMe);
 
-router.put('/tasks/:id/complete', taskController.completeTask);
+// ✅ Task completion – uses taskController (which only updates is_completed)
+router.put('/tasks/:id/complete', authenticate, taskController.completeTask);
 
 // Dashboard
 router.get('/dashboard/stats', authenticate, getDashboardStats);
 router.get('/tasks', authenticate, getTodayTasks);
-router.patch('/tasks/:id/complete', authenticate, completeTask);
+// ❌ Old PATCH route for task completion – keeping it for backward compatibility, but it may conflict
+// If you want to keep it, ensure it also uses taskController.completeTask or remove it.
+// We keep it but point to taskController as well:
+router.patch('/tasks/:id/complete', authenticate, taskController.completeTask);
 router.post('/focus/session', authenticate, completeFocusSession);
 router.get('/focus/remaining', authenticate, getFocusRemaining);
 router.get('/today-challenges', authenticate, getTodayChallenges);
