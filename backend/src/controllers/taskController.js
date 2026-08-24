@@ -277,3 +277,32 @@ export const checkTaskAIStatus = async (req, res) => {
     mockMode: !isAIAvailable
   });
 };
+
+export const completeTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Only update is_completed – ignore other fields
+    const result = await db.query(
+      `UPDATE tasks SET is_completed = TRUE, completed_at = NOW() 
+       WHERE id = $1 AND user_id = $2 
+       RETURNING *`,
+      [id, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Award XP
+    const task = result.rows[0];
+    await db.query(`UPDATE users SET xp = xp + $1 WHERE id = $2`, [task.xp_reward || 30, userId]);
+    await db.query(`UPDATE users SET level = FLOOR(xp / 500) + 1 WHERE id = $1`, [userId]);
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to complete task' });
+  }
+};

@@ -20,6 +20,8 @@ router.post('/auth/register', register);
 router.post('/auth/login', login);
 router.get('/auth/me', authenticate, getMe);
 
+router.put('/tasks/:id/complete', taskController.completeTask);
+
 // Dashboard
 router.get('/dashboard/stats', authenticate, getDashboardStats);
 router.get('/tasks', authenticate, getTodayTasks);
