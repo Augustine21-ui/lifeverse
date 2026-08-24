@@ -147,11 +147,17 @@ export default function InstitutionDashboard() {
           await api.createGroup(formData);
         }
       } else if (modalType === 'resource') {
-        // Auto‑set targetId for institution resources
         let resourceData = { ...formData };
-        if (formData.targetType === 'institution') {
-          resourceData.targetId = user?.institution_id;
+        // If target type is institution, auto-fill targetId from user
+        if (resourceData.targetType === 'institution') {
+          if (!user?.institution_id) {
+            alert('You are not linked to an institution. Please contact support.');
+            setSubmitting(false);
+            return;
+          }
+          resourceData.targetId = user.institution_id;
         }
+        // Ensure targetId is present
         if (!resourceData.targetId) {
           alert('Target ID is required. Please select a group or provide institution ID.');
           setSubmitting(false);
