@@ -148,26 +148,29 @@ export default function InstitutionDashboard() {
         }
       } else if (modalType === 'resource') {
         let resourceData = { ...formData };
-        
+        console.log('🔍 Resource data before processing:', resourceData);
         if (resourceData.targetType === 'institution') {
-          // Check if user has institution_id
           if (!user?.institution_id) {
-            alert('You are not linked to an institution. Please log out and log in again, or contact support.');
+            alert('You are not linked to an institution. Please log out and log in again.');
             setSubmitting(false);
             return;
           }
           resourceData.targetId = user.institution_id;
+        } else if (resourceData.targetType === 'academic_group') {
+          if (!resourceData.targetId) {
+            alert('Please select a group from the dropdown.');
+            setSubmitting(false);
+            return;
+          }
         }
-        
         // Ensure targetId is present
         if (!resourceData.targetId) {
           alert('Target ID is required. Please select a group or provide institution ID.');
           setSubmitting(false);
           return;
         }
-        
+        console.log('📤 Submitting resource:', resourceData);
         await api.createResource(resourceData);
-        
       } else if (modalType === 'announcement') {
         await api.createAnnouncement(formData);
       } else if (modalType === 'assign') {
@@ -552,7 +555,7 @@ export default function InstitutionDashboard() {
         </select>
         {formData.targetType === 'academic_group' ? (
           <select className="input w-full" value={formData.targetId || ''} onChange={(e) => setFormData({...formData, targetId: parseInt(e.target.value)})} required>
-            <option value="">Select Group</option>
+            <option value="">Select a group</option>
             {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         ) : (
