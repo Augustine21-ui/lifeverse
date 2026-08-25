@@ -766,4 +766,8 @@ getSkillsSummary: () => api.get('/skills-summary'),
 getSkills: () => api.get('/skills'),
 getUserSkills: () => api.get('/user-skills'),
 updateUserSkill: (data) => api.put('/user-skills', data),
+
+getGoals: () => api.get('/goals'),
+createGoal: (data) => api.post('/goals', data),
+deleteGoal: (id) => api.delete(`/goals/${id}`),
 };

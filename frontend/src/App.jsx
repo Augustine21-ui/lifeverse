@@ -1,7 +1,6 @@
 ﻿import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import AppLayout from "./components/layout/AppLayout";
-import SkillsDashboard from './pages/SkillsDashboard';
 import ProfilePage from './pages/ProfilePage';
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -105,7 +104,6 @@ export default function App() {
         <Route path="communities/:id" element={<CommunityDetailPage />} />
         <Route path="leaderboard" element={<LeaderboardPage />} />
         <Route path="/study-groups" element={<StudyGroupsPage />} />
-        <Route path="/skills" element={<SkillsDashboard />} />
         <Route path="ai-tutor" element={<AiTutorPage />} />
         <Route path="study-groups/:id" element={<StudyGroupDetail />} />
         <Route path="/profile" element={<ProfilePage />} />
