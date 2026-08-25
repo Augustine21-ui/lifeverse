@@ -1,5 +1,5 @@
 ﻿// backend/src/controllers/badgesController.js
-import db from '../config/database.js';
+import { query } from '../db.js';
 
 // Define badge definitions
 const badges = [
@@ -11,14 +11,14 @@ const badges = [
 // Helper to award badge
 const awardBadge = async (userId, badgeId) => {
   // Check if already awarded
-  const existing = await db.query('SELECT id FROM user_badges WHERE user_id = $1 AND badge_id = $2', [userId, badgeId]);
+  const existing = await query('SELECT id FROM user_badges WHERE user_id = $1 AND badge_id = $2', [userId, badgeId]);
   if (existing.rows.length > 0) return;
 
   // Award badge and XP
   const badge = badges.find(b => b.id === badgeId);
   if (badge) {
-    await db.query('INSERT INTO user_badges (user_id, badge_id) VALUES ($1, $2)', [userId, badgeId]);
-    await db.query('UPDATE users SET xp = xp + $1 WHERE id = $2', [badge.xp_reward, userId]);
+    await query('INSERT INTO user_badges (user_id, badge_id) VALUES ($1, $2)', [userId, badgeId]);
+    await query('UPDATE users SET xp = xp + $1 WHERE id = $2', [badge.xp_reward, userId]);
     console.log(`Badge awarded: ${badge.name} to user ${userId}`);
   }
 };
@@ -27,13 +27,13 @@ const awardBadge = async (userId, badgeId) => {
 export const checkAndAwardBadges = async (userId) => {
   try {
     // 1. First Post badge – check if user has any posts in feed
-    const postCount = await db.query('SELECT COUNT(*) FROM posts WHERE user_id = $1', [userId]);
+    const postCount = await query('SELECT COUNT(*) FROM posts WHERE user_id = $1', [userId]);
     if (parseInt(postCount.rows[0].count) >= 1) {
       await awardBadge(userId, 1);
     }
 
     // 2. 7-Day Streak badge – check if user has streak >= 7
-    const activityDates = await db.query(`
+    const activityDates = await query(`
       SELECT DISTINCT DATE(created_at) as activity_date FROM mood_entries WHERE user_id = $1
       UNION
       SELECT DISTINCT DATE(updated_at) as activity_date FROM tasks WHERE user_id = $1 AND is_completed = true
@@ -65,7 +65,7 @@ export const checkAndAwardBadges = async (userId) => {
     }
 
     // 3. Challenge Master badge – check completed challenges count
-    const challengeCount = await db.query(
+    const challengeCount = await query(
       'SELECT COUNT(*) FROM user_challenges WHERE user_id = $1 AND status = $2',
       [userId, 'approved']
     );
@@ -81,7 +81,7 @@ export const checkAndAwardBadges = async (userId) => {
 export const getBadges = async (req, res) => {
   const userId = req.user.id;
   try {
-    const earnedRes = await db.query('SELECT badge_id FROM user_badges WHERE user_id = $1', [userId]);
+    const earnedRes = await query('SELECT badge_id FROM user_badges WHERE user_id = $1', [userId]);
     const earnedIds = earnedRes.rows.map(r => r.badge_id);
     const badgesWithStatus = badges.map(b => ({
       ...b,
@@ -99,7 +99,7 @@ export const getBadges = async (req, res) => {
 export const getUserBadges = async (req, res) => {
   const userId = req.user.id;
   try {
-    const result = await db.query(`
+    const result = await query(`
       SELECT b.id, b.name, b.description, b.icon, b.xp_reward, ub.earned_at
       FROM badges b
       JOIN user_badges ub ON b.id = ub.badge_id

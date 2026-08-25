@@ -1,5 +1,5 @@
 ﻿// backend/src/controllers/goalsController.js
-import db from '../config/database.js';
+import { query } from '../db.js';
 
 // Helper to generate a simple quiz based on milestone title
 const generateQuiz = (title) => ({
@@ -29,7 +29,7 @@ const generateQuiz = (title) => ({
 export const getGoals = async (req, res) => {
   const userId = req.user.id;
   try {
-    const result = await db.query(`
+    const result = await query(`
       SELECT id, title, description, target_date, completed, progress, xp_reward, milestones, created_at, updated_at
       FROM goals
       WHERE user_id = $1
@@ -47,7 +47,7 @@ export const createGoal = async (req, res) => {
   const userId = req.user.id;
   const { title, description, target_date, xp_reward = 100, milestones = [] } = req.body;
   try {
-    const result = await db.query(
+    const result = await query(
       `INSERT INTO goals (user_id, title, description, target_date, xp_reward, milestones, progress, completed)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
@@ -67,7 +67,7 @@ export const updateGoal = async (req, res) => {
   const { title, description, target_date, progress, completed, xp_reward, milestones } = req.body;
 
   try {
-    const result = await db.query(
+    const result = await query(
       `UPDATE goals
        SET 
          title = COALESCE($1, title),
@@ -98,7 +98,7 @@ export const deleteGoal = async (req, res) => {
   const userId = req.user.id;
   const goalId = parseInt(req.params.id);
   try {
-    const result = await db.query('DELETE FROM goals WHERE id = $1 AND user_id = $2 RETURNING id', [goalId, userId]);
+    const result = await query('DELETE FROM goals WHERE id = $1 AND user_id = $2 RETURNING id', [goalId, userId]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Goal not found' });
     }
@@ -115,7 +115,7 @@ export const toggleMilestone = async (req, res) => {
   const goalId = parseInt(req.params.id);
   const milestoneId = parseInt(req.params.milestoneId);
   try {
-    const goalResult = await db.query('SELECT milestones, target_value FROM goals WHERE id = $1 AND user_id = $2', [goalId, userId]);
+    const goalResult = await query('SELECT milestones, target_value FROM goals WHERE id = $1 AND user_id = $2', [goalId, userId]);
     if (goalResult.rows.length === 0) {
       return res.status(404).json({ error: 'Goal not found' });
     }
@@ -130,7 +130,7 @@ export const toggleMilestone = async (req, res) => {
     const totalMilestones = milestones.length;
     const progressPercent = totalMilestones > 0 ? (completedCount / totalMilestones) : 0;
     const current_value = Math.round(goal.target_value * progressPercent);
-    await db.query('UPDATE goals SET milestones = $1, current_value = $2 WHERE id = $3', [JSON.stringify(milestones), current_value, goalId]);
+    await query('UPDATE goals SET milestones = $1, current_value = $2 WHERE id = $3', [JSON.stringify(milestones), current_value, goalId]);
     res.json({ success: true, current_value, progressPercent });
   } catch (err) {
     console.error(err);
