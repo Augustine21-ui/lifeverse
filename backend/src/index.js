@@ -1,4 +1,5 @@
-﻿import express from "express";
+﻿// backend/src/index.js
+import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
@@ -16,7 +17,7 @@ const __dirname = path.dirname(__filename);
 import authRoutes from "./routes/authRoutes.js";
 import bridgeRoutes from "./routes/bridgeRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-import routes from "./routes/index.js";
+import routes from "./routes/index.js";      // ← This includes skills routes
 import tutorRoutes from "./routes/tutorRoutes.js";
 import quizRoutes from "./routes/quizRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
@@ -79,7 +80,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// ✅ DEBUG ENDPOINTS - PUBLIC (no authentication)
+// Debug endpoints (public)
 app.get("/api/debug/tables", async (req, res) => {
   try {
     const result = await db.query(`
@@ -101,16 +102,13 @@ app.get("/api/debug/tables", async (req, res) => {
 app.get("/api/debug/table/:name", async (req, res) => {
   try {
     const tableName = req.params.name;
-    
     const existsResult = await db.query(`
       SELECT EXISTS (
         SELECT 1 FROM information_schema.tables 
         WHERE table_schema = 'public' AND table_name = $1
       ) as exists
     `, [tableName]);
-    
     const exists = existsResult.rows[0].exists;
-    
     let columns = [];
     if (exists) {
       const columnsResult = await db.query(`
@@ -121,7 +119,6 @@ app.get("/api/debug/table/:name", async (req, res) => {
       `, [tableName]);
       columns = columnsResult.rows;
     }
-    
     res.json({
       table: tableName,
       exists: exists,
@@ -137,7 +134,7 @@ app.get("/api/debug/table/:name", async (req, res) => {
 // ===== API ROUTES =====
 app.use("/api/auth", authRoutes);
 app.use("/api", bridgeRoutes);
-app.use("/api", routes);
+app.use("/api", routes);              // ← This mounts all routes from routes/index.js (including skills)
 app.use("/api", tutorRoutes);
 app.use("/api", quizRoutes);
 app.use("/api", taskRoutes);
@@ -155,6 +152,7 @@ app.use("/api/momentum", momentumRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use('/api/institution', institutionRoutes);
+
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('❌ Error details:', err.message);

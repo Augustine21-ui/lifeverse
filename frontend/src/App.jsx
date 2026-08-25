@@ -34,6 +34,7 @@ import SubjectDetailPage from './pages/SubjectDetailPage';
 import AcademicOnboarding from './pages/AcademicOnboarding';
 import SubscriptionPage from './pages/SubscriptionPage';
 import InstitutionDashboard from './pages/InstitutionDashboard';
+import SkillsPage from './pages/SkillsPage';
 
 // ===== NotFound Component =====
 const NotFound = () => (
@@ -122,6 +123,7 @@ export default function App() {
         <Route path="/momentum/community/:id" element={<CommunityDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="institution-dashboard" element={<InstitutionDashboard />} />
+        <Route path="skills" element={<SkillsPage />} />
         <Route path="/academic-onboarding" element={<AcademicOnboarding />} />
         <Route path="admin" element={
           <RequireRole allowedRoles={['admin']}>
