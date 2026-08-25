@@ -15,7 +15,7 @@ import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, g
 import { recordMood } from '../moodController.js';
 import * as taskController from '../controllers/taskController.js';
 // ✅ Import skillsController
-import * as skillsController from '../controllers/skillsController.js';
+//import * as skillsController from '../controllers/skillsController.js';
 
 const router = express.Router();
 
@@ -76,10 +76,10 @@ router.delete('/goals/:id', authenticate, deleteGoal);
 router.patch('/goals/:id/milestones/:milestoneId/toggle', authenticate, toggleMilestone);
 
 // ===== SKILLS =====
-router.get('/skills', authenticate, skillsController.getSkills);
-router.get('/user-skills', authenticate, skillsController.getUserSkills);
-router.put('/user-skills', authenticate, skillsController.updateUserSkill);
-router.get('/skills-summary', authenticate, skillsController.getSkillsSummary);
+//router.get('/skills', authenticate, skillsController.getSkills);
+//router.get('/user-skills', authenticate, skillsController.getUserSkills);
+//router.put('/user-skills', authenticate, skillsController.updateUserSkill);
+//router.get('/skills-summary', authenticate, skillsController.getSkillsSummary);
 
 // ===== BRIDGE ROUTES REMOVED =====
 // All bridge routes are now handled by bridgeRoutes.js, mounted in the main index.js.
