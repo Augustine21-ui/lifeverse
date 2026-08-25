@@ -5,11 +5,11 @@ import { getChallenges, submitChallenge, getUserChallenges } from '../challengeC
 import { getChildren, getChildProgress } from '../parentController.js';
 import { getStudents, getStudentProgressForTeacher, getClassSummary } from '../teacherController.js';
 import { sendMessage, getMessages, getMessagesByConversation, getPeerContacts, getOrCreatePeerConversation } from '../bridgeMessageController.js';
-import { getResources } from '../resourcesController.js';
+import { getResources } from '../controllers/resourcesController.js';
 import { getOpportunities, applyOpportunity, getUserApplications } from '../opportunityController.js';
 import { getCommunities, getCommunityById, joinCommunity, leaveCommunity, getMyCommunities, getCommunityMessages, sendCommunityMessage, getCommunityMembers, updateMemberRole, createCommunity } from '../communityController.js';
-import { getBadges, getUserBadges } from '../badgesController.js';
-import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '../goalsController.js';
+import { getBadges, getUserBadges } from '../controllers/badgesController.js';
+import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '../controllers/goalsController.js';
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
 import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
 import { recordMood } from '../moodController.js';
