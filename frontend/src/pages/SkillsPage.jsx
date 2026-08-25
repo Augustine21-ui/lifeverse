@@ -1,3 +1,4 @@
+// frontend/src/pages/SkillsPage.jsx
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
@@ -6,7 +7,7 @@ import {
   TrendingUp, Target, Award, BarChart3, 
   User, Zap, Calendar, ArrowRight, 
   CheckCircle, Clock, Plus, Edit, Trash2,
-  Loader2, ChevronDown, ChevronUp, Star
+  Loader2, ChevronDown, ChevronUp, Star, X
 } from 'lucide-react';
 
 export default function SkillsPage() {
@@ -18,6 +19,16 @@ export default function SkillsPage() {
   const [achievements, setAchievements] = useState([]);
   const [rankings, setRankings] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Goal modal state
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [goalForm, setGoalForm] = useState({
+    title: '',
+    description: '',
+    target_date: '',
+    progress: 0,
+  });
+  const [submittingGoal, setSubmittingGoal] = useState(false);
 
   // Load all data
   useEffect(() => {
@@ -32,7 +43,7 @@ export default function SkillsPage() {
         api.getGoals(),
         api.getUserSkills(),
         api.getUserBadges(),
-        api.getLeaderboard? api.getLeaderboard() : Promise.resolve({ weekly: { rank: 0 } })
+        api.getLeaderboard ? api.getLeaderboard() : Promise.resolve({ weekly: { rank: 0 } })
       ]);
       setSummary(summaryRes);
       setGoals(goalsRes);
@@ -43,6 +54,32 @@ export default function SkillsPage() {
       console.error('Error loading skills data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateGoal = async (e) => {
+    e.preventDefault();
+    setSubmittingGoal(true);
+    try {
+      await api.createGoal({
+        title: goalForm.title,
+        description: goalForm.description,
+        target_date: goalForm.target_date || null,
+        progress: parseInt(goalForm.progress) || 0,
+      });
+      setShowGoalModal(false);
+      setGoalForm({ title: '', description: '', target_date: '', progress: 0 });
+      // Refresh goals
+      const updatedGoals = await api.getGoals();
+      setGoals(updatedGoals);
+      // Also refresh summary
+      const updatedSummary = await api.getSkillsSummary();
+      setSummary(updatedSummary);
+    } catch (err) {
+      console.error('Error creating goal:', err);
+      alert('Failed to create goal. Please try again.');
+    } finally {
+      setSubmittingGoal(false);
     }
   };
 
@@ -86,23 +123,32 @@ export default function SkillsPage() {
             <Target size={20} className="text-brand-400" />
             Current Goals
           </h2>
-          <Link to="/goals" className="text-sm text-brand-400 hover:underline">View All →</Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowGoalModal(true)}
+              className="btn-primary text-sm flex items-center gap-1"
+            >
+              <Plus size={16} />
+              New Goal
+            </button>
+            <Link to="/goals" className="text-sm text-brand-400 hover:underline">View All →</Link>
+          </div>
         </div>
         {goals.length === 0 ? (
-          <p className="text-white/40">No active goals. <Link to="/goals" className="text-brand-400 hover:underline">Create one</Link>.</p>
+          <p className="text-white/40">No active goals. <button onClick={() => setShowGoalModal(true)} className="text-brand-400 hover:underline">Create one</button>.</p>
         ) : (
           <div className="space-y-2">
-            {goals.slice(0, 2).map(goal => (
+            {goals.slice(0, 3).map(goal => (
               <div key={goal.id} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
                 <div>
                   <p className="font-medium">{goal.title}</p>
                   <div className="flex items-center gap-2 text-xs text-white/40">
                     <span>Progress: {goal.progress || 0}%</span>
-                    {goal.deadline && <span>• Due: {new Date(goal.deadline).toLocaleDateString()}</span>}
+                    {goal.target_date && <span>• Due: {new Date(goal.target_date).toLocaleDateString()}</span>}
                   </div>
                 </div>
-                <span className={`px-2 py-1 rounded text-xs ${goal.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
-                  {goal.status || 'Active'}
+                <span className={`px-2 py-1 rounded text-xs ${goal.completed ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                  {goal.completed ? 'Completed' : 'Active'}
                 </span>
               </div>
             ))}
@@ -190,6 +236,67 @@ export default function SkillsPage() {
           </div>
         </div>
       </div>
+
+      {/* Goal Creation Modal */}
+      {showGoalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && setShowGoalModal(false)}>
+          <div className="w-full max-w-md card p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Create New Goal</h2>
+              <button onClick={() => setShowGoalModal(false)} className="text-white/40 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateGoal} className="space-y-3">
+              <div>
+                <label className="text-sm text-white/60">Title *</label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  placeholder="e.g., Learn Python"
+                  value={goalForm.title}
+                  onChange={(e) => setGoalForm({...goalForm, title: e.target.value})}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-white/60">Description (optional)</label>
+                <textarea
+                  className="input w-full resize-none"
+                  rows="2"
+                  placeholder="Describe your goal..."
+                  value={goalForm.description}
+                  onChange={(e) => setGoalForm({...goalForm, description: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-sm text-white/60">Target Date (optional)</label>
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={goalForm.target_date}
+                  onChange={(e) => setGoalForm({...goalForm, target_date: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-sm text-white/60">Initial Progress (0-100)</label>
+                <input
+                  type="number"
+                  className="input w-full"
+                  min="0"
+                  max="100"
+                  placeholder="0"
+                  value={goalForm.progress}
+                  onChange={(e) => setGoalForm({...goalForm, progress: parseInt(e.target.value) || 0})}
+                />
+              </div>
+              <button type="submit" disabled={submittingGoal} className="btn-primary w-full flex items-center justify-center gap-2">
+                {submittingGoal ? <Loader2 size={16} className="animate-spin" /> : 'Create Goal'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
