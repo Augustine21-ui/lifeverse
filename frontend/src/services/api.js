@@ -770,4 +770,6 @@ updateUserSkill: (data) => api.put('/user-skills', data),
 getGoals: () => api.get('/goals'),
 createGoal: (data) => api.post('/goals', data),
 deleteGoal: (id) => api.delete(`/goals/${id}`),
+
+getUserBadges: () => api.get('/user-badges'),
 };
