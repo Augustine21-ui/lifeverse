@@ -103,9 +103,7 @@ export default function AppLayout() {
   if (isStudent) {
     mainNav = [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/goals', icon: Target, label: 'Goals' },
-      { to: '/badges', icon: Award, label: 'Badges' },
-      { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
+      // ✅ Merged Goals, Badges, Skills, Leaderboard into one Skills item
       { to: '/skills', icon: Activity, label: 'Skills' },
     ];
   } else if (isParent) {
