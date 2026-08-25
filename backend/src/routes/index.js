@@ -13,6 +13,7 @@ import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '.
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
 import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
 import { recordMood } from '../moodController.js';
+import * as skillsController from '../controllers/skillsController.js';
 // ✅ Import taskController for the clean task completion endpoint
 import * as taskController from '../controllers/taskController.js';
 
@@ -69,6 +70,12 @@ router.get('/my-communities', authenticate, getMyCommunities);
 // Badges
 router.get('/badges', authenticate, getBadges);
 router.get('/my-badges', authenticate, getUserBadges);
+
+// Skills routes
+router.get('/skills', authenticate, skillsController.getSkills);
+router.get('/user-skills', authenticate, skillsController.getUserSkills);
+router.put('/user-skills', authenticate, skillsController.updateUserSkill);
+router.get('/skills-summary', authenticate, skillsController.getSkillsSummary);
 
 // Goals
 router.get('/goals', authenticate, getGoals);
