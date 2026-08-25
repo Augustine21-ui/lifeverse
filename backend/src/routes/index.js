@@ -42,7 +42,7 @@ router.get('/challenges', authenticate, getChallenges);
 router.post('/challenges/submit', authenticate, submitChallenge);
 router.get('/my-challenges', authenticate, getUserChallenges);
 
-// Opportunities
+
 router.get('/opportunities', authenticate, getOpportunities);
 router.post('/opportunities/apply', authenticate, applyOpportunity);
 router.get('/my-applications', authenticate, getUserApplications);
