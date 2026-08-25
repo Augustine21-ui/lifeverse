@@ -14,7 +14,7 @@ import { createPost, getPosts, likePost, getComments, addComment, deletePost } f
 import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
 import { recordMood } from '../moodController.js';
 import * as taskController from '../controllers/taskController.js';
-import * as skillsController from '../controllers/skillsController.js';
+//import * as skillsController from '../controllers/skillsController.js';
 
 const router = express.Router();
 
@@ -76,10 +76,10 @@ router.patch('/goals/:id/milestones/:milestoneId/toggle', authenticate, toggleMi
 
 // ===== SKILLS – TEMPORARILY DISABLED =====
 // ❌ Commented out to fix deployment
-router.get('/skills', authenticate, skillsController.getSkills);
-router.get('/user-skills', authenticate, skillsController.getUserSkills);
-router.put('/user-skills', authenticate, skillsController.updateUserSkill);
-router.get('/skills-summary', authenticate, skillsController.getSkillsSummary);
+//router.get('/skills', authenticate, skillsController.getSkills);
+//router.get('/user-skills', authenticate, skillsController.getUserSkills);
+//router.put('/user-skills', authenticate, skillsController.updateUserSkill);
+//router.get('/skills-summary', authenticate, skillsController.getSkillsSummary);
 
 // ===== BRIDGE ROUTES REMOVED =====
 // All bridge routes are now handled by bridgeRoutes.js, mounted in the main index.js.
