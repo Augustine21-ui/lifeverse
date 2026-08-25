@@ -14,7 +14,7 @@ import { createPost, getPosts, likePost, getComments, addComment, deletePost } f
 import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
 import { recordMood } from '../moodController.js';
 import * as taskController from '../controllers/taskController.js';
-// ❌ Temporarily disabled: import * as skillsController from '../controllers/skillsController.js';
+import * as skillsController from '../controllers/skillsController.js';
 
 const router = express.Router();
 
