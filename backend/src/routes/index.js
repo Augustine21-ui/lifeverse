@@ -8,7 +8,7 @@ import { sendMessage, getMessages, getMessagesByConversation, getPeerContacts, g
 import { getResources } from '../resourcesController.js';
 import { getOpportunities, applyOpportunity, getUserApplications } from '../opportunityController.js';
 import { getCommunities, getCommunityById, joinCommunity, leaveCommunity, getMyCommunities, getCommunityMessages, sendCommunityMessage, getCommunityMembers, updateMemberRole, createCommunity } from '../communityController.js';
-import { getBadges, getUserBadges } from '../controllers/badgesController.js';
+import { getBadges, getUserBadges } from '../badgesController.js';
 import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '../controllers/goalsController.js';
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
 import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
