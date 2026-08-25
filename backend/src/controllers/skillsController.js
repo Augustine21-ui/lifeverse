@@ -1,3 +1,4 @@
+// backend/src/controllers/skillsController.js
 import db from '../config/db.js';
 
 export const getSkills = async (req, res) => {
@@ -51,15 +52,15 @@ export const getSkillsSummary = async (req, res) => {
     const xpRes = await db.query('SELECT xp, level FROM users WHERE id = $1', [userId]);
     const { xp, level } = xpRes.rows[0];
     const skillsRes = await db.query('SELECT COUNT(*) FROM user_skills WHERE user_id = $1', [userId]);
-    const skillsCount = parseInt(skillsRes.rows[0].count);
+    const skillsCount = parseInt(skillsRes.rows[0].count) || 0;
     const badgesRes = await db.query('SELECT COUNT(*) FROM user_badges WHERE user_id = $1', [userId]);
-    const achievementsCount = parseInt(badgesRes.rows[0].count);
+    const achievementsCount = parseInt(badgesRes.rows[0].count) || 0;
     const goalsRes = await db.query('SELECT COUNT(*) FROM goals WHERE user_id = $1 AND status = $2', [userId, 'active']);
-    const goalsCount = parseInt(goalsRes.rows[0].count);
+    const goalsCount = parseInt(goalsRes.rows[0].count) || 0;
 
     res.json({
-      xp,
-      level,
+      xp: xp || 0,
+      level: level || 1,
       skillsCount,
       achievementsCount,
       goalsCount,
