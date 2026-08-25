@@ -1,10 +1,4 @@
-// backend/src/controllers/skillsController.js
 const db = require('../config/database');
-
-/**
- * Skills Controller - Full implementation with error handling
- * All methods return proper responses even if database tables don't exist yet
- */
 
 // Get all available skills
 exports.getAllSkills = async (req, res) => {
@@ -14,11 +8,9 @@ exports.getAllSkills = async (req, res) => {
       FROM skills 
       ORDER BY category, name
     `);
-    
     res.json({ success: true, skills: result.rows });
   } catch (error) {
     console.error('Error fetching skills:', error);
-    // Return empty array instead of error to prevent frontend breaking
     res.json({ success: true, skills: [] });
   }
 };
@@ -27,28 +19,16 @@ exports.getAllSkills = async (req, res) => {
 exports.getUserSkills = async (req, res) => {
   try {
     const userId = req.user.id;
-    
     const result = await db.query(`
       SELECT 
-        us.id,
-        us.user_id,
-        us.skill_id,
-        us.level,
-        us.progress,
-        us.evidence,
-        us.created_at,
-        us.updated_at,
-        s.name,
-        s.category,
-        s.description,
-        s.icon,
-        s.xp_value
+        us.id, us.user_id, us.skill_id, us.level, us.progress, us.evidence,
+        us.created_at, us.updated_at,
+        s.name, s.category, s.description, s.icon, s.xp_value
       FROM user_skills us
       JOIN skills s ON us.skill_id = s.id
       WHERE us.user_id = $1
       ORDER BY s.category, s.name
     `, [userId]);
-    
     res.json({ success: true, userSkills: result.rows });
   } catch (error) {
     console.error('Error fetching user skills:', error);
@@ -63,13 +43,9 @@ exports.updateUserSkill = async (req, res) => {
     const { skillId, level, progress, evidence } = req.body;
     
     if (!skillId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'skillId is required' 
-      });
+      return res.status(400).json({ success: false, message: 'skillId is required' });
     }
     
-    // Check if user_skill exists
     const checkResult = await db.query(
       'SELECT id FROM user_skills WHERE user_id = $1 AND skill_id = $2',
       [userId, skillId]
@@ -77,7 +53,6 @@ exports.updateUserSkill = async (req, res) => {
     
     let result;
     if (checkResult.rows.length > 0) {
-      // Update existing
       result = await db.query(`
         UPDATE user_skills 
         SET level = $1, progress = $2, evidence = $3, updated_at = NOW()
@@ -85,7 +60,6 @@ exports.updateUserSkill = async (req, res) => {
         RETURNING *
       `, [level || 0, progress || 0, evidence || '', userId, skillId]);
     } else {
-      // Create new
       result = await db.query(`
         INSERT INTO user_skills (user_id, skill_id, level, progress, evidence)
         VALUES ($1, $2, $3, $4, $5)
@@ -96,18 +70,14 @@ exports.updateUserSkill = async (req, res) => {
     res.json({ success: true, userSkill: result.rows[0] });
   } catch (error) {
     console.error('Error updating user skill:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update skill' 
-    });
+    res.status(500).json({ success: false, message: 'Failed to update skill' });
   }
 };
 
-// Get user's skills summary (for dashboard)
+// Get user's skills summary
 exports.getSkillsSummary = async (req, res) => {
   try {
     const userId = req.user.id;
-    
     const result = await db.query(`
       SELECT 
         COUNT(DISTINCT us.skill_id) as total_skills,
@@ -118,20 +88,11 @@ exports.getSkillsSummary = async (req, res) => {
       WHERE us.user_id = $1
     `, [userId]);
     
-    const summary = result.rows[0] || {
-      total_skills: 0,
-      total_levels: 0,
-      avg_progress: 0,
-      mastered_skills: 0
-    };
-    
+    const summary = result.rows[0] || { total_skills: 0, total_levels: 0, avg_progress: 0, mastered_skills: 0 };
     res.json({ success: true, summary });
   } catch (error) {
     console.error('Error fetching skills summary:', error);
-    res.json({ 
-      success: true, 
-      summary: { total_skills: 0, total_levels: 0, avg_progress: 0, mastered_skills: 0 } 
-    });
+    res.json({ success: true, summary: { total_skills: 0, total_levels: 0, avg_progress: 0, mastered_skills: 0 } });
   }
 };
 
@@ -139,37 +100,15 @@ exports.getSkillsSummary = async (req, res) => {
 exports.getUserBadges = async (req, res) => {
   try {
     const userId = req.user.id;
-    
-    // Check if badges table exists first
-    const tableCheck = await db.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_name = 'badges'
-      )
-    `);
-    
-    if (!tableCheck.rows[0].exists) {
-      return res.json({ success: true, badges: [] });
-    }
-    
     const result = await db.query(`
       SELECT 
-        ub.id,
-        ub.user_id,
-        ub.badge_id,
-        ub.earned_at,
-        ub.progress,
-        b.name,
-        b.description,
-        b.icon,
-        b.rarity,
-        b.xp_reward
+        ub.id, ub.user_id, ub.badge_id, ub.earned_at, ub.progress,
+        b.name, b.description, b.icon, b.rarity, b.xp_reward
       FROM user_badges ub
       JOIN badges b ON ub.badge_id = b.id
       WHERE ub.user_id = $1
       ORDER BY ub.earned_at DESC
     `, [userId]);
-    
     res.json({ success: true, badges: result.rows });
   } catch (error) {
     console.error('Error fetching user badges:', error);
@@ -181,25 +120,15 @@ exports.getUserBadges = async (req, res) => {
 exports.getUserGoals = async (req, res) => {
   try {
     const userId = req.user.id;
-    
     const result = await db.query(`
       SELECT 
-        id,
-        user_id,
-        title,
-        description,
-        target_date,
-        completed,
-        progress,
-        xp_reward,
-        milestones,
-        created_at,
-        updated_at
+        id, user_id, title, description, target_date,
+        completed, progress, xp_reward, milestones,
+        created_at, updated_at
       FROM goals
       WHERE user_id = $1
       ORDER BY target_date ASC
     `, [userId]);
-    
     res.json({ success: true, goals: result.rows });
   } catch (error) {
     console.error('Error fetching user goals:', error);
@@ -213,45 +142,20 @@ exports.createGoal = async (req, res) => {
     const userId = req.user.id;
     const { title, description, target_date, xp_reward = 100, milestones = [] } = req.body;
     
-    // Validate required fields
     if (!title || !target_date) {
-      return res.status(400).json({
-        success: false,
-        message: 'Title and target_date are required'
-      });
+      return res.status(400).json({ success: false, message: 'Title and target_date are required' });
     }
     
     const result = await db.query(`
-      INSERT INTO goals (
-        user_id, 
-        title, 
-        description, 
-        target_date, 
-        xp_reward, 
-        milestones,
-        progress,
-        completed
-      )
+      INSERT INTO goals (user_id, title, description, target_date, xp_reward, milestones, progress, completed)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
-    `, [
-      userId, 
-      title, 
-      description || '', 
-      target_date, 
-      xp_reward, 
-      JSON.stringify(milestones),
-      0,
-      false
-    ]);
+    `, [userId, title, description || '', target_date, xp_reward, JSON.stringify(milestones), 0, false]);
     
     res.status(201).json({ success: true, goal: result.rows[0] });
   } catch (error) {
     console.error('Error creating goal:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to create goal' 
-    });
+    res.status(500).json({ success: false, message: 'Failed to create goal' });
   }
 };
 
@@ -279,19 +183,13 @@ exports.updateGoal = async (req, res) => {
         milestones ? JSON.stringify(milestones) : null, goalId, userId]);
     
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Goal not found or you do not have permission to update it'
-      });
+      return res.status(404).json({ success: false, message: 'Goal not found' });
     }
     
     res.json({ success: true, goal: result.rows[0] });
   } catch (error) {
     console.error('Error updating goal:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update goal'
-    });
+    res.status(500).json({ success: false, message: 'Failed to update goal' });
   }
 };
 
@@ -307,18 +205,12 @@ exports.deleteGoal = async (req, res) => {
     );
     
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Goal not found or you do not have permission to delete it'
-      });
+      return res.status(404).json({ success: false, message: 'Goal not found' });
     }
     
     res.json({ success: true, message: 'Goal deleted successfully' });
   } catch (error) {
     console.error('Error deleting goal:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete goal'
-    });
+    res.status(500).json({ success: false, message: 'Failed to delete goal' });
   }
 };
