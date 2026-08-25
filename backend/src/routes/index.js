@@ -13,9 +13,9 @@ import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '.
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
 import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
 import { recordMood } from '../moodController.js';
-import * as skillsController from '../controllers/skillsController.js';
-// ✅ Import taskController for the clean task completion endpoint
 import * as taskController from '../controllers/taskController.js';
+// ✅ Import skillsController
+import * as skillsController from '../controllers/skillsController.js';
 
 const router = express.Router();
 
@@ -24,15 +24,12 @@ router.post('/auth/register', register);
 router.post('/auth/login', login);
 router.get('/auth/me', authenticate, getMe);
 
-// ✅ Task completion – uses taskController (which only updates is_completed)
+// Task completion – uses taskController (only updates is_completed)
 router.put('/tasks/:id/complete', authenticate, taskController.completeTask);
 
 // Dashboard
 router.get('/dashboard/stats', authenticate, getDashboardStats);
 router.get('/tasks', authenticate, getTodayTasks);
-// ❌ Old PATCH route for task completion – keeping it for backward compatibility, but it may conflict
-// If you want to keep it, ensure it also uses taskController.completeTask or remove it.
-// We keep it but point to taskController as well:
 router.patch('/tasks/:id/complete', authenticate, taskController.completeTask);
 router.post('/focus/session', authenticate, completeFocusSession);
 router.get('/focus/remaining', authenticate, getFocusRemaining);
@@ -71,18 +68,18 @@ router.get('/my-communities', authenticate, getMyCommunities);
 router.get('/badges', authenticate, getBadges);
 router.get('/my-badges', authenticate, getUserBadges);
 
-// Skills routes
-router.get('/skills', authenticate, skillsController.getSkills);
-router.get('/user-skills', authenticate, skillsController.getUserSkills);
-router.put('/user-skills', authenticate, skillsController.updateUserSkill);
-router.get('/skills-summary', authenticate, skillsController.getSkillsSummary);
-
 // Goals
 router.get('/goals', authenticate, getGoals);
 router.post('/goals', authenticate, createGoal);
 router.put('/goals/:id', authenticate, updateGoal);
 router.delete('/goals/:id', authenticate, deleteGoal);
 router.patch('/goals/:id/milestones/:milestoneId/toggle', authenticate, toggleMilestone);
+
+// ===== SKILLS =====
+router.get('/skills', authenticate, skillsController.getSkills);
+router.get('/user-skills', authenticate, skillsController.getUserSkills);
+router.put('/user-skills', authenticate, skillsController.updateUserSkill);
+router.get('/skills-summary', authenticate, skillsController.getSkillsSummary);
 
 // ===== BRIDGE ROUTES REMOVED =====
 // All bridge routes are now handled by bridgeRoutes.js, mounted in the main index.js.
