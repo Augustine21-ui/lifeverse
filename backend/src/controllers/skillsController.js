@@ -214,3 +214,7 @@ exports.deleteGoal = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to delete goal' });
   }
 };
+
+// ===== ALIAS FOR ROUTES =====
+// The routes use skillsController.getSkills, so we alias getAllSkills to getSkills
+exports.getSkills = exports.getAllSkills;
