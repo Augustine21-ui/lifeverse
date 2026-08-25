@@ -1,20 +1,31 @@
 // backend/src/routes/index.js
+// backend/src/routes/index.js
 import express from 'express';
 import { register, login, getMe, authenticate } from '../auth.js';
 import { getChallenges, submitChallenge, getUserChallenges } from '../challengeController.js';
 import { getChildren, getChildProgress } from '../parentController.js';
 import { getStudents, getStudentProgressForTeacher, getClassSummary } from '../teacherController.js';
 import { sendMessage, getMessages, getMessagesByConversation, getPeerContacts, getOrCreatePeerConversation } from '../bridgeMessageController.js';
+
+// ✅ resourcesController is in src/
 import { getResources } from '../resourcesController.js';
+
 import { getOpportunities, applyOpportunity, getUserApplications } from '../opportunityController.js';
 import { getCommunities, getCommunityById, joinCommunity, leaveCommunity, getMyCommunities, getCommunityMessages, sendCommunityMessage, getCommunityMembers, updateMemberRole, createCommunity } from '../communityController.js';
-import { getBadges, getUserBadges } from '../badgesController.js';
-import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '../goalsController.js';
+
+// ✅ badgesController and goalsController are in src/controllers/
+import { getBadges, getUserBadges } from '../controllers/badgesController.js';
+import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '../controllers/goalsController.js';
+
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
 import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
 import { recordMood } from '../moodController.js';
+
+// ✅ taskController and skillsController are in src/controllers/
 import * as taskController from '../controllers/taskController.js';
 import * as skillsController from '../controllers/skillsController.js';
+
+// ... rest of file unchanged
 
 const router = express.Router();
 
