@@ -762,14 +762,18 @@ getStudentStudySphere: () => api.get('/institution/studysphere'),
 getHierarchy: () => api.get('/institution/hierarchy'),
 getStudentSubjects: () => api.get('/institution/student-subjects'),
 
-getSkillsSummary: () => api.get('/skills-summary'),
+// Goals
+getGoals: () => api.get('/goals'),
+createGoal: (data) => api.post('/goals', data),
+updateGoal: (id, data) => api.put(`/goals/${id}`, data),
+deleteGoal: (id) => api.delete(`/goals/${id}`),
+
+// Skills
 getSkills: () => api.get('/skills'),
 getUserSkills: () => api.get('/user-skills'),
 updateUserSkill: (data) => api.put('/user-skills', data),
+getSkillsSummary: () => api.get('/skills-summary'),
 
-getGoals: () => api.get('/goals'),
-createGoal: (data) => api.post('/goals', data),
-deleteGoal: (id) => api.delete(`/goals/${id}`),
-
-getUserBadges: () => api.get('/user-badges'),
+getUserBadges: () => api.get('/my-badges'),
+getBadges: () => api.get('/badges'),
 };
