@@ -1,7 +1,7 @@
-const db = require('../config/database');
+import db from '../config/database.js';
 
 // Get all available skills
-exports.getAllSkills = async (req, res) => {
+export const getAllSkills = async (req, res) => {
   try {
     const result = await db.query(`
       SELECT id, name, category, description, icon, xp_value 
@@ -16,7 +16,7 @@ exports.getAllSkills = async (req, res) => {
 };
 
 // Get user's skills with progress
-exports.getUserSkills = async (req, res) => {
+export const getUserSkills = async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await db.query(`
@@ -37,7 +37,7 @@ exports.getUserSkills = async (req, res) => {
 };
 
 // Update user's skill progress
-exports.updateUserSkill = async (req, res) => {
+export const updateUserSkill = async (req, res) => {
   try {
     const userId = req.user.id;
     const { skillId, level, progress, evidence } = req.body;
@@ -75,7 +75,7 @@ exports.updateUserSkill = async (req, res) => {
 };
 
 // Get user's skills summary
-exports.getSkillsSummary = async (req, res) => {
+export const getSkillsSummary = async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await db.query(`
@@ -97,7 +97,7 @@ exports.getSkillsSummary = async (req, res) => {
 };
 
 // Get user's badges
-exports.getUserBadges = async (req, res) => {
+export const getUserBadges = async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await db.query(`
@@ -117,7 +117,7 @@ exports.getUserBadges = async (req, res) => {
 };
 
 // Get user's goals
-exports.getUserGoals = async (req, res) => {
+export const getUserGoals = async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await db.query(`
@@ -137,7 +137,7 @@ exports.getUserGoals = async (req, res) => {
 };
 
 // Create a new goal
-exports.createGoal = async (req, res) => {
+export const createGoal = async (req, res) => {
   try {
     const userId = req.user.id;
     const { title, description, target_date, xp_reward = 100, milestones = [] } = req.body;
@@ -160,7 +160,7 @@ exports.createGoal = async (req, res) => {
 };
 
 // Update a goal
-exports.updateGoal = async (req, res) => {
+export const updateGoal = async (req, res) => {
   try {
     const userId = req.user.id;
     const goalId = req.params.id;
@@ -194,7 +194,7 @@ exports.updateGoal = async (req, res) => {
 };
 
 // Delete a goal
-exports.deleteGoal = async (req, res) => {
+export const deleteGoal = async (req, res) => {
   try {
     const userId = req.user.id;
     const goalId = req.params.id;
@@ -215,6 +215,5 @@ exports.deleteGoal = async (req, res) => {
   }
 };
 
-// ===== ALIAS FOR ROUTES =====
-// The routes use skillsController.getSkills, so we alias getAllSkills to getSkills
-exports.getSkills = exports.getAllSkills;
+// ALIAS for routes that use skillsController.getSkills
+export const getSkills = getAllSkills;
