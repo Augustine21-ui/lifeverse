@@ -253,7 +253,7 @@ export default function AppLayout() {
             >
               <Zap size={16} color="white" />
             </div>
-            <span style={{ fontWeight: 700, fontSize: 20, letterSpacing: '-0.5px', color: 'var(--text-primary)' }}>Lifeverse</span>
+            <span style={{ fontWeight: 700, fontSize: 20, letterSpacing: '-0.5px', color: 'var(--text-primary)' }}>KUA</span>
             {!isAdmin && !subscriptionLoading && (
               <span
                 style={{

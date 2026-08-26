@@ -2,7 +2,7 @@
 // ✅ Updated - Added generic get/post/put/patch/delete methods
 // Original methods remain untouched
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const handleResponse = async (res) => {
   if (!res.ok) {
