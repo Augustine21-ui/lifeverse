@@ -1,9 +1,9 @@
-import db from '../config/database.js';
+import { query } from '../db.js';
 
 // Get all available skills
 export const getAllSkills = async (req, res) => {
   try {
-    const result = await db.query(`
+    const result = await query(`
       SELECT id, name, category, description, icon, xp_value 
       FROM skills 
       ORDER BY category, name
@@ -19,7 +19,7 @@ export const getAllSkills = async (req, res) => {
 export const getUserSkills = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await db.query(`
+    const result = await query(`
       SELECT 
         us.id, us.user_id, us.skill_id, us.level, us.progress, us.evidence,
         us.created_at, us.updated_at,
@@ -46,21 +46,21 @@ export const updateUserSkill = async (req, res) => {
       return res.status(400).json({ success: false, message: 'skillId is required' });
     }
     
-    const checkResult = await db.query(
+    const checkResult = await query(
       'SELECT id FROM user_skills WHERE user_id = $1 AND skill_id = $2',
       [userId, skillId]
     );
     
     let result;
     if (checkResult.rows.length > 0) {
-      result = await db.query(`
+      result = await query(`
         UPDATE user_skills 
         SET level = $1, progress = $2, evidence = $3, updated_at = NOW()
         WHERE user_id = $4 AND skill_id = $5
         RETURNING *
       `, [level || 0, progress || 0, evidence || '', userId, skillId]);
     } else {
-      result = await db.query(`
+      result = await query(`
         INSERT INTO user_skills (user_id, skill_id, level, progress, evidence)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *
@@ -78,7 +78,7 @@ export const updateUserSkill = async (req, res) => {
 export const getSkillsSummary = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await db.query(`
+    const result = await query(`
       SELECT 
         COUNT(DISTINCT us.skill_id) as total_skills,
         SUM(us.level) as total_levels,
@@ -100,7 +100,7 @@ export const getSkillsSummary = async (req, res) => {
 export const getUserBadges = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await db.query(`
+    const result = await query(`
       SELECT 
         ub.id, ub.user_id, ub.badge_id, ub.earned_at, ub.progress,
         b.name, b.description, b.icon, b.rarity, b.xp_reward
@@ -120,7 +120,7 @@ export const getUserBadges = async (req, res) => {
 export const getUserGoals = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await db.query(`
+    const result = await query(`
       SELECT 
         id, user_id, title, description, target_date,
         completed, progress, xp_reward, milestones,
@@ -146,7 +146,7 @@ export const createGoal = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Title and target_date are required' });
     }
     
-    const result = await db.query(`
+    const result = await query(`
       INSERT INTO goals (user_id, title, description, target_date, xp_reward, milestones, progress, completed)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
@@ -166,7 +166,7 @@ export const updateGoal = async (req, res) => {
     const goalId = req.params.id;
     const { title, description, target_date, progress, completed, xp_reward, milestones } = req.body;
     
-    const result = await db.query(`
+    const result = await query(`
       UPDATE goals
       SET 
         title = COALESCE($1, title),
@@ -199,7 +199,7 @@ export const deleteGoal = async (req, res) => {
     const userId = req.user.id;
     const goalId = req.params.id;
     
-    const result = await db.query(
+    const result = await query(
       'DELETE FROM goals WHERE id = $1 AND user_id = $2 RETURNING id',
       [goalId, userId]
     );
