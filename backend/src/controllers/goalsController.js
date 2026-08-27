@@ -1,5 +1,4 @@
-﻿// backend/src/controllers/goalsController.js
-import { query } from '../db.js';
+﻿import { query } from '../db.js';
 
 // Helper to generate a simple quiz based on milestone title
 const generateQuiz = (title) => ({
@@ -25,7 +24,7 @@ const generateQuiz = (title) => ({
   ]
 });
 
-// Get all goals for the user
+// Get all goals for the user – only ONE declaration
 export const getGoals = async (req, res) => {
   const userId = req.user.id;
   try {
@@ -42,7 +41,6 @@ export const getGoals = async (req, res) => {
   }
 };
 
-// Create a new goal
 export const createGoal = async (req, res) => {
   const userId = req.user.id;
   const { title, description, target_date, xp_reward = 100, milestones = [] } = req.body;
@@ -60,7 +58,6 @@ export const createGoal = async (req, res) => {
   }
 };
 
-// Update a goal
 export const updateGoal = async (req, res) => {
   const userId = req.user.id;
   const goalId = parseInt(req.params.id);
@@ -93,7 +90,6 @@ export const updateGoal = async (req, res) => {
   }
 };
 
-// Delete a goal
 export const deleteGoal = async (req, res) => {
   const userId = req.user.id;
   const goalId = parseInt(req.params.id);
@@ -109,7 +105,6 @@ export const deleteGoal = async (req, res) => {
   }
 };
 
-// Toggle a milestone within a goal
 export const toggleMilestone = async (req, res) => {
   const userId = req.user.id;
   const goalId = parseInt(req.params.id);
