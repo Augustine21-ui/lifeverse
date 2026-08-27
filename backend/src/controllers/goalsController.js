@@ -1,7 +1,9 @@
-﻿import { query } from '../db.js';
+﻿// backend/src/controllers/goalsController.js
+import { query } from '../db.js';
+import { generateQuiz as generateQuizAI } from '../aiService.js';
 
-// Helper to generate a simple quiz based on milestone title
-const generateQuiz = (title) => ({
+// Helper to generate a simple quiz (fallback if AI not available)
+const generateQuizFallback = (title) => ({
   questions: [
     {
       question: `What is the primary objective of "${title}"?`,
@@ -24,12 +26,16 @@ const generateQuiz = (title) => ({
   ]
 });
 
-// Get all goals for the user – only ONE declaration
+// ──────────────────────────────────────────────
+// GET ALL GOALS
+// ──────────────────────────────────────────────
 export const getGoals = async (req, res) => {
   const userId = req.user.id;
   try {
     const result = await query(`
-      SELECT id, title, description, target_date, completed, progress, xp_reward, milestones, created_at, updated_at
+      SELECT id, title, description, category, target_date, 
+             completed, progress, xp_reward, xp_awarded, 
+             milestones, metadata, created_at, updated_at, completed_at
       FROM goals
       WHERE user_id = $1
       ORDER BY target_date ASC NULLS LAST
@@ -41,23 +47,199 @@ export const getGoals = async (req, res) => {
   }
 };
 
+// ──────────────────────────────────────────────
+// CREATE GOAL – with category and actions
+// ──────────────────────────────────────────────
 export const createGoal = async (req, res) => {
   const userId = req.user.id;
-  const { title, description, target_date, xp_reward = 100, milestones = [] } = req.body;
+  const { 
+    title, description, category = 'academic', 
+    target_date, xp_reward = 100, 
+    milestones = [], metadata = {} 
+  } = req.body;
+
   try {
+    // 1. Insert goal
     const result = await query(
-      `INSERT INTO goals (user_id, title, description, target_date, xp_reward, milestones, progress, completed)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO goals 
+       (user_id, title, description, category, target_date, xp_reward, milestones, progress, completed, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [userId, title, description || '', target_date, xp_reward, JSON.stringify(milestones), 0, false]
+      [userId, title, description || '', category, target_date || null, xp_reward, 
+       JSON.stringify(milestones), 0, false, JSON.stringify(metadata)]
     );
-    res.status(201).json(result.rows[0]);
+    const goal = result.rows[0];
+
+    // 2. Generate actions based on category
+    const actions = [];
+
+    if (category === 'academic') {
+      // AI-generated quiz
+      let quiz;
+      try {
+        quiz = await generateQuizAI(title, description);
+      } catch (e) {
+        quiz = generateQuizFallback(title);
+      }
+      await query(
+        `INSERT INTO goal_actions (goal_id, action_type, data)
+         VALUES ($1, 'quiz', $2)`,
+        [goal.id, JSON.stringify(quiz)]
+      );
+      actions.push('quiz');
+
+      // Orbit resources
+      await query(
+        `INSERT INTO goal_actions (goal_id, action_type, data)
+         VALUES ($1, 'orbit_resources', $2)`,
+        [goal.id, JSON.stringify({ subject: title, topic: description })]
+      );
+      actions.push('orbit_resources');
+
+    } else if (category === 'skill') {
+      // Create or find skill
+      const skillName = metadata.skill_name || title;
+      const skillResult = await query(
+        `INSERT INTO skills (name, category, description) 
+         VALUES ($1, 'custom', $2) 
+         ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+         RETURNING id`,
+        [skillName, description]
+      );
+      const skillId = skillResult.rows[0].id;
+      
+      // Link goal to skill
+      await query(
+        `UPDATE goals SET metadata = jsonb_set(metadata, '{skill_id}', $1::jsonb)
+         WHERE id = $2`,
+        [JSON.stringify(skillId), goal.id]
+      );
+
+      // Add skill growth action
+      await query(
+        `INSERT INTO goal_actions (goal_id, action_type, data)
+         VALUES ($1, 'skill_growth', $2)`,
+        [goal.id, JSON.stringify({ skill_id: skillId })]
+      );
+      actions.push('skill_growth');
+
+    } else if (category === 'personal') {
+      // Track study sessions
+      const sessionsTarget = metadata.sessions_target || 30;
+      await query(
+        `INSERT INTO goal_actions (goal_id, action_type, data)
+         VALUES ($1, 'track_sessions', $2)`,
+        [goal.id, JSON.stringify({ target: sessionsTarget, completed: 0 })]
+      );
+      actions.push('track_sessions');
+
+      // Create notification
+      await query(
+        `INSERT INTO notifications (user_id, type, title, message, data, is_priority)
+         VALUES ($1, 'goal_tracking', $2, $3, $4, true)`,
+        [userId, '🎯 Personal Goal Started!', 
+         `Complete ${sessionsTarget} study sessions in Orbit to earn XP!`,
+         JSON.stringify({ goal_id: goal.id, target: sessionsTarget })]
+      );
+      actions.push('notification');
+
+    } else if (category === 'career') {
+      // Fetch relevant opportunities
+      const opportunities = await query(
+        `SELECT id, title FROM opportunities 
+         WHERE title ILIKE $1 OR description ILIKE $1
+         LIMIT 5`,
+        [`%${title}%`]
+      );
+      await query(
+        `INSERT INTO goal_actions (goal_id, action_type, data)
+         VALUES ($1, 'opportunities', $2)`,
+        [goal.id, JSON.stringify(opportunities.rows)]
+      );
+      actions.push('opportunities');
+
+      // Fetch relevant challenges
+      const challenges = await query(
+        `SELECT id, title FROM challenges 
+         WHERE title ILIKE $1 OR description ILIKE $1
+         LIMIT 5`,
+        [`%${title}%`]
+      );
+      await query(
+        `INSERT INTO goal_actions (goal_id, action_type, data)
+         VALUES ($1, 'challenges', $2)`,
+        [goal.id, JSON.stringify(challenges.rows)]
+      );
+      actions.push('challenges');
+    }
+
+    res.status(201).json({ ...goal, actions });
   } catch (err) {
-    console.error(err);
+    console.error('Create goal error:', err);
     res.status(500).json({ error: err.message });
   }
 };
 
+// ──────────────────────────────────────────────
+// GET GOAL ACTIONS
+// ──────────────────────────────────────────────
+export const getGoalActions = async (req, res) => {
+  const goalId = req.params.id;
+  try {
+    const result = await query(
+      `SELECT * FROM goal_actions WHERE goal_id = $1 ORDER BY created_at`,
+      [goalId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ──────────────────────────────────────────────
+// COMPLETE GOAL – award XP
+// ──────────────────────────────────────────────
+export const completeGoal = async (req, res) => {
+  const userId = req.user.id;
+  const goalId = req.params.id;
+  try {
+    const goal = await query(
+      `SELECT * FROM goals WHERE id = $1 AND user_id = $2`,
+      [goalId, userId]
+    );
+    if (goal.rows.length === 0) {
+      return res.status(404).json({ error: 'Goal not found' });
+    }
+
+    const goalData = goal.rows[0];
+    const baseXP = 100;
+    let bonus = 0;
+    if (goalData.category === 'academic') bonus = 50;
+    else if (goalData.category === 'skill') bonus = 75;
+    else if (goalData.category === 'career') bonus = 100;
+    else if (goalData.category === 'personal') bonus = 30;
+    const xpAwarded = baseXP + bonus + Math.floor(goalData.progress / 10);
+
+    await query(
+      `UPDATE goals SET completed = true, completed_at = NOW(), xp_awarded = $1
+       WHERE id = $2`,
+      [xpAwarded, goalId]
+    );
+    
+    await query(
+      `UPDATE users SET xp = xp + $1 WHERE id = $2`,
+      [xpAwarded, userId]
+    );
+
+    res.json({ success: true, xpAwarded });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ──────────────────────────────────────────────
+// UPDATE GOAL (existing)
+// ──────────────────────────────────────────────
 export const updateGoal = async (req, res) => {
   const userId = req.user.id;
   const goalId = parseInt(req.params.id);
@@ -90,6 +272,9 @@ export const updateGoal = async (req, res) => {
   }
 };
 
+// ──────────────────────────────────────────────
+// DELETE GOAL (existing)
+// ──────────────────────────────────────────────
 export const deleteGoal = async (req, res) => {
   const userId = req.user.id;
   const goalId = parseInt(req.params.id);
@@ -105,6 +290,9 @@ export const deleteGoal = async (req, res) => {
   }
 };
 
+// ──────────────────────────────────────────────
+// TOGGLE MILESTONE (existing)
+// ──────────────────────────────────────────────
 export const toggleMilestone = async (req, res) => {
   const userId = req.user.id;
   const goalId = parseInt(req.params.id);

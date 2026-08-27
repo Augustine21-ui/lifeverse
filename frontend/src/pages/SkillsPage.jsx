@@ -138,24 +138,84 @@ export default function SkillsPage() {
           </div>
 
           {/* Goals Section */}
-          <div className="card p-4 mb-6">
-            <h2 className="text-lg font-semibold mb-3">Goals</h2>
-            {goals.length === 0 ? (
-              <p className="text-white/40">No goals yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {safeSlice(goals, 0, 3).map(goal => (
-                  <div key={goal.id} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
-                    <div>
-                      <p className="font-medium">{goal.title}</p>
-                      <div className="text-xs text-white/40">Progress: {goal.progress || 0}%</div>
-                    </div>
-                    <span className="text-xs text-white/40">{goal.completed ? '✅ Done' : '⏳ Active'}</span>
-                  </div>
-                ))}
+         // ── Goals Section ──
+<div className="card p-4 mb-6">
+  <div className="flex justify-between items-center mb-3">
+    <h2 className="text-lg font-semibold flex items-center gap-2">
+      <Target size={20} className="text-brand-400" />
+      Goals
+    </h2>
+    <button
+      onClick={() => setShowGoalModal(true)}
+      className="btn-primary text-sm flex items-center gap-1"
+    >
+      <Plus size={16} /> New Goal
+    </button>
+  </div>
+  
+  {goals.length === 0 ? (
+    <p className="text-white/40">No goals yet. Create one to start your journey!</p>
+  ) : (
+    <div className="space-y-3">
+      {goals.map(goal => (
+        <div key={goal.id} className="bg-white/5 p-3 rounded-lg">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="font-medium">{goal.title}</p>
+              <p className="text-sm text-white/60">{goal.description}</p>
+              <div className="flex items-center gap-2 text-xs text-white/40 mt-1">
+                <span className={`px-2 py-0.5 rounded ${
+                  goal.category === 'academic' ? 'bg-blue-500/20 text-blue-400' :
+                  goal.category === 'skill' ? 'bg-green-500/20 text-green-400' :
+                  goal.category === 'career' ? 'bg-purple-500/20 text-purple-400' :
+                  'bg-orange-500/20 text-orange-400'
+                }`}>
+                  {goal.category}
+                </span>
+                <span>Progress: {goal.progress || 0}%</span>
+                {goal.target_date && <span>• Due: {new Date(goal.target_date).toLocaleDateString()}</span>}
               </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => viewGoalActions(goal.id)}
+                className="text-xs text-brand-400 hover:underline"
+              >
+                View Actions →
+              </button>
+              <span className={`px-2 py-1 rounded text-xs ${
+                goal.completed ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+              }`}>
+                {goal.completed ? '✅ Completed' : 'Active'}
+              </span>
+            </div>
+          </div>
+          {/* Action buttons based on category */}
+          <div className="mt-2 flex flex-wrap gap-1">
+            {goal.category === 'academic' && (
+              <>
+                <button onClick={() => takeQuiz(goal.id)} className="btn-secondary text-xs">📝 Take Quiz</button>
+                <button onClick={() => goToOrbit(goal.id)} className="btn-secondary text-xs">🚀 Orbit Resources</button>
+              </>
+            )}
+            {goal.category === 'skill' && (
+              <button onClick={() => goToSkillGrowth(goal.id)} className="btn-secondary text-xs">📈 Skill Growth</button>
+            )}
+            {goal.category === 'personal' && (
+              <button onClick={() => goToOrbit(goal.id)} className="btn-secondary text-xs">🧠 Study Sessions</button>
+            )}
+            {goal.category === 'career' && (
+              <>
+                <button onClick={() => goToOpportunities(goal.id)} className="btn-secondary text-xs">💼 Opportunities</button>
+                <button onClick={() => goToChallenges(goal.id)} className="btn-secondary text-xs">🏆 Challenges</button>
+              </>
             )}
           </div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
 
           {/* Achievements Section */}
           <div className="card p-4">

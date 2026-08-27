@@ -24,6 +24,7 @@ import * as skillGrowth from '../controllers/skillGrowthController.js';
 // ✅ taskController and skillsController are in src/controllers/
 import * as taskController from '../controllers/taskController.js';
 import * as skillsController from '../controllers/skillsController.js';
+import * as goalsController from '../controllers/goalsController.js';
 
 // ... rest of file unchanged
 
@@ -84,6 +85,8 @@ router.post('/goals', authenticate, createGoal);
 router.put('/goals/:id', authenticate, updateGoal);
 router.delete('/goals/:id', authenticate, deleteGoal);
 router.patch('/goals/:id/milestones/:milestoneId/toggle', authenticate, toggleMilestone);
+router.get('/goals/:id/actions', authenticate, goalsController.getGoalActions);  // New
+router.post('/goals/:id/complete', authenticate, goalsController.completeGoal);
 
 // ===== SKILLS – TEMPORARILY DISABLED =====
 // ❌ Commented out to fix deployment

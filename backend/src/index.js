@@ -35,6 +35,7 @@ import momentumRoutes from "./routes/momentumRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import institutionRoutes from './routes/institutionRoutes.js';
 
+
 // Import migration and database
 import { createTables } from "./migrate.js";
 import db from "./config/db.js";
