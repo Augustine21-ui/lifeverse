@@ -379,24 +379,32 @@ export const getRecommendations = async (req, res) => {
 // ──────────────────────────────────────────────
 // 6. Create a new skill (student-initiated)
 // ──────────────────────────────────────────────
+// backend/src/controllers/skillGrowthController.js
+
 export const createSkill = async (req, res) => {
   const userId = req.user.id;
   const { name, category, description } = req.body;
+  
   try {
-    // Insert into skills
+    // 1. Insert into skills
     const skillResult = await query(
-      `INSERT INTO skills (name, category, description) VALUES ($1, $2, $3) RETURNING *`,
+      `INSERT INTO skills (name, category, description) 
+       VALUES ($1, $2, $3) 
+       RETURNING *`,
       [name, category, description]
     );
     const skill = skillResult.rows[0];
-    // Create user_skill entry
+
+    // 2. IMPORTANT: Insert into user_skills to link skill to user
     await query(
-      `INSERT INTO user_skills (user_id, skill_id, progress_percent) VALUES ($1, $2, 0)`,
+      `INSERT INTO user_skills (user_id, skill_id, progress_percent) 
+       VALUES ($1, $2, 0)`,
       [userId, skill.id]
     );
+
     res.status(201).json(skill);
   } catch (err) {
-    console.error(err);
+    console.error('Create skill error:', err);
     res.status(500).json({ error: err.message });
   }
 };
