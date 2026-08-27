@@ -9,7 +9,6 @@ import DashboardPage from "./pages/DashboardPage";
 import GoalsPage from "./pages/GoalsPage";
 import CommunitiesPage from "./pages/CommunitiesPage";
 import CommunityDetailPage from "./pages/CommunityDetailPage";
-import BadgesPage from "./pages/BadgesPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import MomentumPage from "./pages/MomentumPage";
 import ChallengesPage from "./pages/ChallengesPage";
