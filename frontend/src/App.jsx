@@ -96,7 +96,6 @@ export default function App() {
           </RequireRole>
         } />
         <Route path="goals" element={<GoalsPage />} />
-        <Route path="badges" element={<BadgesPage />} />
         <Route path="studysphere" element={<StudySpherePage />} />
         <Route path="challenges" element={<ChallengesPage />} />
         <Route path="opportunities" element={<OpportunitiesPage />} />
