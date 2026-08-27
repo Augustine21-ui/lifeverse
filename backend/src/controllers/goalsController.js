@@ -1,6 +1,6 @@
 ﻿// backend/src/controllers/goalsController.js
 import { query } from '../db.js';
-import { generateQuiz as generateQuizAI } from '../services/aiService.js';
+import { generateCortexQuiz } from '../services/aiService.js';
 
 // Helper to generate a simple quiz (fallback if AI not available)
 const generateQuizFallback = (title) => ({
@@ -73,14 +73,19 @@ export const createGoal = async (req, res) => {
     // 2. Generate actions based on category
     const actions = [];
 
-    if (category === 'academic') {
-      // AI-generated quiz
-      let quiz;
-      try {
-        quiz = await generateQuizAI(title, description);
-      } catch (e) {
-        quiz = generateQuizFallback(title);
-      }
+      if (category === 'academic') {
+          let quiz;
+          try {
+            const quizData = await generateCortexQuiz({
+              subject: 'General',
+              topic: title,
+              grade: 1,
+              count: 5
+            });
+            quiz = { questions: quizData };
+          } catch (e) {
+            quiz = generateQuizFallback(title);
+          }
       await query(
         `INSERT INTO goal_actions (goal_id, action_type, data)
          VALUES ($1, 'quiz', $2)`,
