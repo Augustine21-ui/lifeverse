@@ -768,7 +768,11 @@ getStudentSubjects: () => api.get('/institution/student-subjects'),
 
 // Goals
 getGoals: () => api.get('/goals'),
-createGoal: (data) => api.post('/goals', data),
+createGoal: (data) => fetch(`${API_BASE}/goals`, {
+  method: 'POST',
+  headers: authHeaders(),
+  body: JSON.stringify(data),
+}).then(handleResponse),
 updateGoal: (id, data) => api.put(`/goals/${id}`, data),
 deleteGoal: (id) => api.delete(`/goals/${id}`),
 
