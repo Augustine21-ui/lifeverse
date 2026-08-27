@@ -20,7 +20,7 @@ import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '.
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
 import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
 import { recordMood } from '../moodController.js';
-
+import * as skillGrowth from '../controllers/skillGrowthController.js';
 // ✅ taskController and skillsController are in src/controllers/
 import * as taskController from '../controllers/taskController.js';
 import * as skillsController from '../controllers/skillsController.js';
@@ -110,6 +110,21 @@ router.get('/communities/:id/members', authenticate, getCommunityMembers);
 router.get('/communities/:id/messages', authenticate, getCommunityMessages);
 router.post('/communities/:id/messages', authenticate, sendCommunityMessage);
 router.patch('/communities/:id/members/role', authenticate, updateMemberRole);
+
+// ─── Skill Growth Routes ───
+router.get('/skills/:skillId/progress', authenticate, skillGrowth.getSkillProgress);
+router.get('/skills/:skillId/projects', authenticate, skillGrowth.getProjects);
+router.post('/projects/assign', authenticate, skillGrowth.assignProject);
+router.put('/project-assignments/:assignmentId', authenticate, skillGrowth.updateProjectContribution);
+router.get('/skills/:skillId/my-projects', authenticate, skillGrowth.getUserProjects);
+router.get('/skills/:skillId/challenges', authenticate, skillGrowth.getChallenges);
+router.post('/challenges/submit', authenticate, skillGrowth.submitChallenge);
+router.get('/skills/:skillId/my-challenges', authenticate, skillGrowth.getUserChallengeSubmissions);
+router.get('/skills/:skillId/practice', authenticate, skillGrowth.getPracticeActivities);
+router.post('/practice/submit', authenticate, skillGrowth.submitPracticeResult);
+router.get('/skills/:skillId/my-practice', authenticate, skillGrowth.getUserPracticeResults);
+router.get('/skills/:skillId/recommendations', authenticate, skillGrowth.getRecommendations);
+router.post('/skills/create', authenticate, skillGrowth.createSkill);
 
 // Root
 router.get('/', (req, res) => res.json({ message: 'API root' }));

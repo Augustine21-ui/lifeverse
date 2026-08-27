@@ -780,4 +780,19 @@ getSkillsSummary: () => api.get('/skills-summary'),
 
 getUserBadges: () => api.get('/my-badges'),
 getBadges: () => api.get('/badges'),
+
+// ─── Skill Growth ───
+getSkillProgress: (skillId) => api.get(`/skills/${skillId}/progress`),
+getProjects: (skillId) => api.get(`/skills/${skillId}/projects`),
+assignProject: (projectId) => api.post('/projects/assign', { projectId }),
+updateProjectAssignment: (assignmentId, data) => api.put(`/project-assignments/${assignmentId}`, data),
+getUserProjects: (skillId) => api.get(`/skills/${skillId}/my-projects`),
+getChallenges: (skillId) => api.get(`/skills/${skillId}/challenges`),
+submitChallenge: (data) => api.post('/challenges/submit', data),
+getUserChallengeSubmissions: (skillId) => api.get(`/skills/${skillId}/my-challenges`),
+getPracticeActivities: (skillId) => api.get(`/skills/${skillId}/practice`),
+submitPracticeResult: (data) => api.post('/practice/submit', data),
+getUserPracticeResults: (skillId) => api.get(`/skills/${skillId}/my-practice`),
+getRecommendations: (skillId) => api.get(`/skills/${skillId}/recommendations`),
+createSkill: (data) => api.post('/skills/create', data),
 };
