@@ -3,10 +3,21 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
 import { Link } from 'react-router-dom';
-import { 
-  TrendingUp, Target, Award, BarChart3, 
+import {
+  TrendingUp, Target, Award, BarChart3,
   Loader2, Plus, X, ChevronRight
 } from 'lucide-react';
+
+// Predefined badge definitions (fallback if backend doesn't return all)
+const BADGE_DEFINITIONS = [
+  { id: 1, name: 'First Challenge', icon: '🏅', description: 'Completed your first challenge' },
+  { id: 2, name: 'Consistent Learner', icon: '📚', description: '7-day learning streak' },
+  { id: 3, name: 'Study Group Contributor', icon: '👥', description: 'Helped in a study group' },
+  { id: 4, name: 'Community Builder', icon: '🏗️', description: 'Created a community' },
+  { id: 5, name: 'Mathematics Mastery', icon: '📐', description: 'Mastered a math topic' },
+  { id: 6, name: 'Coding Explorer', icon: '💻', description: 'Completed a coding project' },
+  { id: 7, name: 'Project Creator', icon: '🚀', description: 'Created a project' },
+];
 
 export default function SkillsPage() {
   const { user } = useAuth();
@@ -19,7 +30,7 @@ export default function SkillsPage() {
   const [selectedSkill, setSelectedSkill] = useState(null);
 
   // Goal Modal state
-  const [showGoalModal, setShowGoalModal] = useState(false);  // ✅ This was missing
+  const [showGoalModal, setShowGoalModal] = useState(false);
   const [goalForm, setGoalForm] = useState({
     title: '',
     description: '',
@@ -36,7 +47,7 @@ export default function SkillsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [summaryRes, goalsRes, userSkillsRes, achievementsRes, rankingsRes] = await Promise.all([
+      const [summaryRes, goalsRes, userSkillsRes, earnedBadgesRes, rankingsRes] = await Promise.all([
         api.getSkillsSummary(),
         api.getGoals(),
         api.getUserSkills(),
@@ -44,10 +55,17 @@ export default function SkillsPage() {
         api.getLeaderboard ? api.getLeaderboard() : Promise.resolve({ weekly: { rank: 0 } })
       ]);
 
+      // Build achievements list with earned status
+      const earnedIds = (earnedBadgesRes || []).map(b => b.id);
+      const achievementsData = BADGE_DEFINITIONS.map(b => ({
+        ...b,
+        earned: earnedIds.includes(b.id)
+      }));
+
       setSummary(summaryRes?.summary || summaryRes || { level: 1, xp: 0, goalsCount: 0, skillsCount: 0, achievementsCount: 0 });
       setGoals(Array.isArray(goalsRes) ? goalsRes : (goalsRes?.goals || goalsRes?.data || []));
       setUserSkills(Array.isArray(userSkillsRes) ? userSkillsRes : (userSkillsRes?.userSkills || userSkillsRes?.data || []));
-      setAchievements(Array.isArray(achievementsRes) ? achievementsRes : (achievementsRes?.badges || achievementsRes?.data || []));
+      setAchievements(achievementsData);
       setRankings(rankingsRes || { weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
     } catch (err) {
       console.error('Error loading skills data:', err);
@@ -116,7 +134,10 @@ export default function SkillsPage() {
       {userSkills.length === 0 ? (
         <div className="card p-8 text-center">
           <p className="text-white/60 mb-4">You haven't added any skills yet. Start your learning journey!</p>
-          <button onClick={() => {/* open skill creation modal later */}} className="btn-primary flex items-center gap-2 mx-auto">
+          <button
+            onClick={() => {/* open skill creation modal later */}}
+            className="btn-primary flex items-center gap-2 mx-auto"
+          >
             <Plus size={18} /> Create Your First Skill
           </button>
         </div>
@@ -141,7 +162,9 @@ export default function SkillsPage() {
                   }`}
                 >
                   {skill.name}
-                  <span className="text-xs opacity-60">({Math.round(skill.progress_percent || 0)}%)</span>
+                  <span className="text-xs opacity-60">
+                    ({Math.round(skill.progress_percent || 0)}%)
+                  </span>
                 </button>
               ))}
             </div>
@@ -150,9 +173,14 @@ export default function SkillsPage() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="font-medium">{selectedSkill.name}</h3>
-                    <p className="text-xs text-white/40">Progress: {Math.round(selectedSkill.progress_percent || 0)}%</p>
+                    <p className="text-xs text-white/40">
+                      Progress: {Math.round(selectedSkill.progress_percent || 0)}%
+                    </p>
                   </div>
-                  <Link to={`/skill/${selectedSkill.id || selectedSkill.skill_id}`} className="text-brand-400 hover:underline text-sm flex items-center gap-1">
+                  <Link
+                    to={`/skill/${selectedSkill.id || selectedSkill.skill_id}`}
+                    className="text-brand-400 hover:underline text-sm flex items-center gap-1"
+                  >
                     View Full Dashboard <ChevronRight size={14} />
                   </Link>
                 </div>
@@ -165,7 +193,7 @@ export default function SkillsPage() {
             )}
           </div>
 
-          {/* Goals Section - with New Goal button */}
+          {/* Goals Section */}
           <div className="card p-4 mb-6">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -233,23 +261,38 @@ export default function SkillsPage() {
             </div>
           </div>
 
-          {/* Achievements */}
+          {/* Achievements Section */}
           <div className="card p-4 mb-6">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Award size={20} className="text-yellow-400" />
                 Achievements
               </h2>
-              <Link to="/badges" className="text-sm text-brand-400 hover:underline">View All →</Link>
+              <span className="text-sm text-white/40">
+                {achievements.filter(b => b.earned).length} / {achievements.length} earned
+              </span>
             </div>
             {achievements.length === 0 ? (
-              <p className="text-white/40">No achievements yet.</p>
+              <p className="text-white/40">No achievements yet. Keep learning!</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {safeSlice(achievements, 0, 4).map(badge => (
-                  <div key={badge.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
-                    <span className="text-2xl">{badge.icon || '🏅'}</span>
-                    <span className="text-sm">{badge.name}</span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {achievements.map(badge => (
+                  <div
+                    key={badge.id}
+                    className={`p-3 rounded-lg text-center transition-all ${
+                      badge.earned ? 'bg-brand-500/10 border border-brand-400/30' : 'bg-white/5 opacity-60'
+                    }`}
+                  >
+                    <div className="text-3xl mb-1">{badge.icon || '🏅'}</div>
+                    <p className="text-xs font-medium truncate">{badge.name}</p>
+                    <p className="text-[10px] text-white/40 truncate">{badge.description}</p>
+                    <div className="mt-1 text-[10px]">
+                      {badge.earned ? (
+                        <span className="text-green-400">✅ Earned</span>
+                      ) : (
+                        <span className="text-white/30">🔒 Locked</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -289,7 +332,7 @@ export default function SkillsPage() {
 
       {/* Goal Creation Modal */}
       {showGoalModal && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
           onClick={(e) => e.target === e.currentTarget && setShowGoalModal(false)}
         >
