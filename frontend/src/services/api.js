@@ -4,7 +4,8 @@
 
 console.log('🔌 API_BASE:', API_BASE);
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = 'https://lifeverse-1.onrender.com/api';
 
 const handleResponse = async (res) => {
   if (!res.ok) {
