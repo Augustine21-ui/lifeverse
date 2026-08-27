@@ -1,6 +1,6 @@
 ﻿// backend/src/controllers/goalsController.js
 import { query } from '../db.js';
-import { generateQuiz as generateQuizAI } from '../aiService.js';
+import { generateQuiz as generateQuizAI } from '../services/aiService.js';
 
 // Helper to generate a simple quiz (fallback if AI not available)
 const generateQuizFallback = (title) => ({

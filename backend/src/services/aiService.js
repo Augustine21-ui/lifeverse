@@ -354,3 +354,30 @@ const generateMockActivityContent = (activityType, context) => {
 
   return mockContent[activityType] || mockContent.quiz;
 };
+
+export const generateQuiz = async ({ title, description, count = 5 }) => {
+  const prompt = `Generate ${count} multiple-choice questions about the topic: "${title}". 
+  Context: ${description || 'General knowledge'}.
+  Each question should have 4 options and a correct answer index (0-3).
+  Return ONLY valid JSON:
+  { "questions": [ { "question": "...", "options": ["A", "B", "C", "D"], "correct": 0 } ] }`;
+  
+  try {
+    const response = await generate(prompt, 0.5, true);
+    const parsed = JSON.parse(response);
+    const questions = parsed.questions || parsed;
+    if (!Array.isArray(questions)) throw new Error('No questions generated');
+    return questions.map(q => ({
+      question: q.question || 'Question',
+      options: Array.isArray(q.options) ? q.options.slice(0, 4) : ['A', 'B', 'C', 'D'],
+      correct: typeof q.correct === 'number' ? q.correct : 0,
+    }));
+  } catch (error) {
+    console.error('Quiz generation error:', error);
+    return [
+      { question: `What is the main concept of "${title}"?`, options: ['Concept A', 'Concept B', 'Concept C', 'Concept D'], correct: 0 },
+      { question: `Which of the following is related to "${title}"?`, options: ['Related 1', 'Related 2', 'Related 3', 'Related 4'], correct: 1 },
+      { question: `What is the best approach to learn "${title}"?`, options: ['Approach 1', 'Approach 2', 'Approach 3', 'Approach 4'], correct: 2 },
+    ];
+  }
+};
