@@ -1,5 +1,5 @@
 // frontend/src/pages/SkillsPage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
 import { Link } from 'react-router-dom';
@@ -12,12 +12,18 @@ import {
 
 export default function SkillsPage() {
   const { user } = useAuth();
-  const [summary, setSummary] = useState(null);
+  const [summary, setSummary] = useState({
+    level: 1,
+    xp: 0,
+    goalsCount: 0,
+    skillsCount: 0,
+    achievementsCount: 0
+  });
   const [goals, setGoals] = useState([]);
   const [userSkills, setUserSkills] = useState([]);
   const [allSkills, setAllSkills] = useState([]);
   const [achievements, setAchievements] = useState([]);
-  const [rankings, setRankings] = useState(null);
+  const [rankings, setRankings] = useState({ weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
   const [loading, setLoading] = useState(true);
 
   // Goal modal state
@@ -29,6 +35,11 @@ export default function SkillsPage() {
     progress: 0,
   });
   const [submittingGoal, setSubmittingGoal] = useState(false);
+
+  // Safe slice helper - prevents .slice() errors on non-arrays
+  const safeSlice = (arr, start, end) => {
+    return Array.isArray(arr) ? arr.slice(start, end) : [];
+  };
 
   // Load all data
   useEffect(() => {
@@ -45,13 +56,19 @@ export default function SkillsPage() {
         api.getUserBadges(),
         api.getLeaderboard ? api.getLeaderboard() : Promise.resolve({ weekly: { rank: 0 } })
       ]);
-      setSummary(summaryRes);
-      setGoals(goalsRes);
-      setUserSkills(userSkillsRes);
-      setAchievements(achievementsRes);
-      setRankings(rankingsRes);
+
+      // Extract data with fallbacks - handle both array and object responses
+      setSummary(summaryRes?.summary || summaryRes || { level: 1, xp: 0, goalsCount: 0, skillsCount: 0, achievementsCount: 0 });
+      setGoals(Array.isArray(goalsRes) ? goalsRes : (goalsRes?.goals || goalsRes?.data || []));
+      setUserSkills(Array.isArray(userSkillsRes) ? userSkillsRes : (userSkillsRes?.userSkills || userSkillsRes?.data || []));
+      setAchievements(Array.isArray(achievementsRes) ? achievementsRes : (achievementsRes?.badges || achievementsRes?.data || []));
+      setRankings(rankingsRes || { weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
     } catch (err) {
       console.error('Error loading skills data:', err);
+      // Set empty fallbacks on error
+      setGoals([]);
+      setUserSkills([]);
+      setAchievements([]);
     } finally {
       setLoading(false);
     }
@@ -71,10 +88,10 @@ export default function SkillsPage() {
       setGoalForm({ title: '', description: '', target_date: '', progress: 0 });
       // Refresh goals
       const updatedGoals = await api.getGoals();
-      setGoals(updatedGoals);
+      setGoals(Array.isArray(updatedGoals) ? updatedGoals : (updatedGoals?.goals || updatedGoals?.data || []));
       // Also refresh summary
       const updatedSummary = await api.getSkillsSummary();
-      setSummary(updatedSummary);
+      setSummary(updatedSummary?.summary || updatedSummary || { level: 1, xp: 0, goalsCount: 0, skillsCount: 0, achievementsCount: 0 });
     } catch (err) {
       console.error('Error creating goal:', err);
       alert('Failed to create goal. Please try again.');
@@ -82,6 +99,11 @@ export default function SkillsPage() {
       setSubmittingGoal(false);
     }
   };
+
+  // Memoized display data for performance
+  const displayGoals = useMemo(() => safeSlice(goals, 0, 3), [goals]);
+  const displaySkills = useMemo(() => safeSlice(userSkills, 0, 4), [userSkills]);
+  const displayAchievements = useMemo(() => safeSlice(achievements, 0, 4), [achievements]);
 
   if (loading) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-400" size={40} /></div>;
@@ -134,11 +156,11 @@ export default function SkillsPage() {
             <Link to="/goals" className="text-sm text-brand-400 hover:underline">View All →</Link>
           </div>
         </div>
-        {goals.length === 0 ? (
+        {displayGoals.length === 0 ? (
           <p className="text-white/40">No active goals. <button onClick={() => setShowGoalModal(true)} className="text-brand-400 hover:underline">Create one</button>.</p>
         ) : (
           <div className="space-y-2">
-            {goals.slice(0, 3).map(goal => (
+            {displayGoals.map(goal => (
               <div key={goal.id} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
                 <div>
                   <p className="font-medium">{goal.title}</p>
@@ -165,11 +187,11 @@ export default function SkillsPage() {
           </h2>
           <button className="text-sm text-brand-400 hover:underline">View All →</button>
         </div>
-        {userSkills.length === 0 ? (
+        {displaySkills.length === 0 ? (
           <p className="text-white/40">You haven't developed any skills yet. Start learning!</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {userSkills.slice(0, 4).map(skill => (
+            {displaySkills.map(skill => (
               <div key={skill.id} className="p-3 bg-white/5 rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="font-medium">{skill.name}</span>
@@ -194,11 +216,11 @@ export default function SkillsPage() {
           </h2>
           <Link to="/badges" className="text-sm text-brand-400 hover:underline">View All →</Link>
         </div>
-        {achievements.length === 0 ? (
+        {displayAchievements.length === 0 ? (
           <p className="text-white/40">No achievements yet. Keep learning!</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {achievements.slice(0, 4).map(badge => (
+            {displayAchievements.map(badge => (
               <div key={badge.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
                 <span className="text-2xl">{badge.icon || '🏅'}</span>
                 <span className="text-sm">{badge.name}</span>
