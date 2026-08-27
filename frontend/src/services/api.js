@@ -2,10 +2,11 @@
 // ✅ Updated - Added generic get/post/put/patch/delete methods
 // Original methods remain untouched
 
-console.log('🔌 API_BASE:', API_BASE);
+
 
 
 const API_BASE = 'https://lifeverse-1.onrender.com/api';
+console.log('🔌 API_BASE:', API_BASE);
 
 const handleResponse = async (res) => {
   if (!res.ok) {
