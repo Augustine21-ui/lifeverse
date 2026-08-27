@@ -34,6 +34,7 @@ import AcademicOnboarding from './pages/AcademicOnboarding';
 import SubscriptionPage from './pages/SubscriptionPage';
 import InstitutionDashboard from './pages/InstitutionDashboard';
 import SkillsPage from './pages/SkillsPage';
+import AchievementsPage from './pages/AchievementsPage';
 
 // ===== NotFound Component =====
 const NotFound = () => (
@@ -123,6 +124,7 @@ export default function App() {
         <Route path="institution-dashboard" element={<InstitutionDashboard />} />
         <Route path="skills" element={<SkillsPage />} />
         <Route path="/academic-onboarding" element={<AcademicOnboarding />} />
+        <Route path="/achievements" element={<AchievementsPage />} />
         <Route path="admin" element={
           <RequireRole allowedRoles={['admin']}>
             <AdminDashboard />
