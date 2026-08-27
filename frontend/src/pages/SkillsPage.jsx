@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import { Link } from 'react-router-dom';
 import { 
   TrendingUp, Target, Award, BarChart3, 
-  Loader2, Plus, X
+  Loader2, Plus, X, ChevronRight
 } from 'lucide-react';
 
 export default function SkillsPage() {
@@ -14,10 +14,20 @@ export default function SkillsPage() {
   const [goals, setGoals] = useState([]);
   const [userSkills, setUserSkills] = useState([]);
   const [achievements, setAchievements] = useState([]);
+  const [rankings, setRankings] = useState({ weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newSkill, setNewSkill] = useState({ name: '', category: '', description: '' });
-  const [submitting, setSubmitting] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState(null);
+
+  // Goal Modal state
+  const [showGoalModal, setShowGoalModal] = useState(false);  // ✅ This was missing
+  const [goalForm, setGoalForm] = useState({
+    title: '',
+    description: '',
+    category: 'academic',
+    target_date: '',
+    metadata: {}
+  });
+  const [submittingGoal, setSubmittingGoal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -26,43 +36,45 @@ export default function SkillsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      console.log('🔄 Loading skills data...');
-      const [summaryRes, goalsRes, userSkillsRes, achievementsRes] = await Promise.all([
+      const [summaryRes, goalsRes, userSkillsRes, achievementsRes, rankingsRes] = await Promise.all([
         api.getSkillsSummary(),
         api.getGoals(),
         api.getUserSkills(),
         api.getUserBadges(),
+        api.getLeaderboard ? api.getLeaderboard() : Promise.resolve({ weekly: { rank: 0 } })
       ]);
-
-      console.log('📊 Summary:', summaryRes);
-      console.log('📋 Goals:', goalsRes);
-      console.log('📚 User Skills:', userSkillsRes);
-      console.log('🏅 Achievements:', achievementsRes);
 
       setSummary(summaryRes?.summary || summaryRes || { level: 1, xp: 0, goalsCount: 0, skillsCount: 0, achievementsCount: 0 });
       setGoals(Array.isArray(goalsRes) ? goalsRes : (goalsRes?.goals || goalsRes?.data || []));
       setUserSkills(Array.isArray(userSkillsRes) ? userSkillsRes : (userSkillsRes?.userSkills || userSkillsRes?.data || []));
       setAchievements(Array.isArray(achievementsRes) ? achievementsRes : (achievementsRes?.badges || achievementsRes?.data || []));
+      setRankings(rankingsRes || { weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
     } catch (err) {
-      console.error('❌ Error loading skills data:', err);
-      // Keep default empty arrays
+      console.error('Error loading skills data:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateSkill = async (e) => {
+  const handleCreateGoal = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
+    setSubmittingGoal(true);
     try {
-      await api.createSkill(newSkill);
-      setShowCreateModal(false);
-      setNewSkill({ name: '', category: '', description: '' });
-      await loadData(); // refresh
+      const payload = {
+        title: goalForm.title,
+        description: goalForm.description,
+        category: goalForm.category,
+        target_date: goalForm.target_date || null,
+        metadata: goalForm.metadata || {}
+      };
+      await api.createGoal(payload);
+      setShowGoalModal(false);
+      setGoalForm({ title: '', description: '', category: 'academic', target_date: '', metadata: {} });
+      await loadData(); // refresh goals
     } catch (err) {
-      alert('Failed to create skill: ' + (err.error || err.message));
+      alert('Failed to create goal: ' + (err.error || err.message));
     } finally {
-      setSubmitting(false);
+      setSubmittingGoal(false);
     }
   };
 
@@ -77,7 +89,7 @@ export default function SkillsPage() {
       <h1 className="text-3xl font-bold mb-2">📈 My Skills</h1>
       <p className="text-white/60 mb-6">Build skills. Track progress. Reach your goals.</p>
 
-      {/* Summary Cards - always visible */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div className="card p-4 text-center">
           <div className="text-2xl font-bold">{summary?.level || 1}</div>
@@ -101,125 +113,135 @@ export default function SkillsPage() {
         </div>
       </div>
 
-      {/* No skills yet? Show a message and a create button */}
       {userSkills.length === 0 ? (
         <div className="card p-8 text-center">
           <p className="text-white/60 mb-4">You haven't added any skills yet. Start your learning journey!</p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="btn-primary flex items-center gap-2 mx-auto"
-          >
+          <button onClick={() => {/* open skill creation modal later */}} className="btn-primary flex items-center gap-2 mx-auto">
             <Plus size={18} /> Create Your First Skill
           </button>
         </div>
       ) : (
         <>
-          {/* List of skills (simple) */}
+          {/* Skill Growth Dashboard */}
           <div className="card p-4 mb-6">
-            <h2 className="text-lg font-semibold mb-3">Your Skills</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+              <TrendingUp size={20} className="text-brand-400" />
+              Skill Growth Dashboard
+            </h2>
+            <p className="text-sm text-white/40 mb-3">Select a skill to view detailed progress.</p>
+            <div className="flex flex-wrap gap-2">
               {userSkills.map(skill => (
-                <div key={skill.id || skill.skill_id} className="bg-white/5 p-3 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">{skill.name}</span>
-                    <span className="text-xs text-white/40">
-                      {skill.progress_percent ? `${Math.round(skill.progress_percent)}%` : 'Not started'}
+                <button
+                  key={skill.id || skill.skill_id}
+                  onClick={() => setSelectedSkill(skill)}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-1 ${
+                    selectedSkill?.id === skill.id || selectedSkill?.skill_id === skill.skill_id
+                      ? 'bg-brand-500 text-white'
+                      : 'bg-white/10 hover:bg-white/20 text-white/80'
+                  }`}
+                >
+                  {skill.name}
+                  <span className="text-xs opacity-60">({Math.round(skill.progress_percent || 0)}%)</span>
+                </button>
+              ))}
+            </div>
+            {selectedSkill && (
+              <div className="mt-3 p-3 bg-white/5 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-medium">{selectedSkill.name}</h3>
+                    <p className="text-xs text-white/40">Progress: {Math.round(selectedSkill.progress_percent || 0)}%</p>
+                  </div>
+                  <Link to={`/skill/${selectedSkill.id || selectedSkill.skill_id}`} className="text-brand-400 hover:underline text-sm flex items-center gap-1">
+                    View Full Dashboard <ChevronRight size={14} />
+                  </Link>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-2 text-xs text-white/40">
+                  <div>Projects: 0</div>
+                  <div>Challenges: 0</div>
+                  <div>Practice: 0%</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Goals Section - with New Goal button */}
+          <div className="card p-4 mb-6">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Target size={20} className="text-brand-400" />
+                Goals
+              </h2>
+              <button
+                onClick={() => setShowGoalModal(true)}
+                className="btn-primary text-sm flex items-center gap-1"
+              >
+                <Plus size={16} /> New Goal
+              </button>
+            </div>
+            {goals.length === 0 ? (
+              <p className="text-white/40">No goals yet. Create one to start your journey!</p>
+            ) : (
+              <div className="space-y-2">
+                {safeSlice(goals, 0, 3).map(goal => (
+                  <div key={goal.id} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
+                    <div>
+                      <p className="font-medium">{goal.title}</p>
+                      <div className="flex items-center gap-2 text-xs text-white/40">
+                        <span className={`px-1.5 py-0.5 rounded ${
+                          goal.category === 'academic' ? 'bg-blue-500/20 text-blue-400' :
+                          goal.category === 'skill' ? 'bg-green-500/20 text-green-400' :
+                          goal.category === 'career' ? 'bg-purple-500/20 text-purple-400' :
+                          'bg-orange-500/20 text-orange-400'
+                        }`}>
+                          {goal.category}
+                        </span>
+                        <span>Progress: {goal.progress || 0}%</span>
+                        {goal.target_date && <span>• Due: {new Date(goal.target_date).toLocaleDateString()}</span>}
+                      </div>
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs ${goal.completed ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                      {goal.completed ? '✅ Done' : 'Active'}
                     </span>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Skills Overview */}
+          <div className="card p-4 mb-6">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <BarChart3 size={20} className="text-blue-400" />
+                Skills Overview
+              </h2>
+              <span className="text-sm text-white/40">{userSkills.length} skills</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {safeSlice(userSkills, 0, 4).map(skill => (
+                <div key={skill.id || skill.skill_id} className="p-3 bg-white/5 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">{skill.name}</span>
+                    <span className="text-xs text-white/40">{skill.level || 'Beginner'}</span>
+                  </div>
                   <div className="w-full h-1.5 bg-white/10 rounded-full mt-1">
-                    <div 
-                      className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" 
-                      style={{ width: `${skill.progress_percent || 0}%` }} 
-                    />
+                    <div className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style={{ width: `${skill.progress_percent || 0}%` }} />
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Goals Section */}
-         // ── Goals Section ──
-<div className="card p-4 mb-6">
-  <div className="flex justify-between items-center mb-3">
-    <h2 className="text-lg font-semibold flex items-center gap-2">
-      <Target size={20} className="text-brand-400" />
-      Goals
-    </h2>
-    <button
-      onClick={() => setShowGoalModal(true)}
-      className="btn-primary text-sm flex items-center gap-1"
-    >
-      <Plus size={16} /> New Goal
-    </button>
-  </div>
-  
-  {goals.length === 0 ? (
-    <p className="text-white/40">No goals yet. Create one to start your journey!</p>
-  ) : (
-    <div className="space-y-3">
-      {goals.map(goal => (
-        <div key={goal.id} className="bg-white/5 p-3 rounded-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="font-medium">{goal.title}</p>
-              <p className="text-sm text-white/60">{goal.description}</p>
-              <div className="flex items-center gap-2 text-xs text-white/40 mt-1">
-                <span className={`px-2 py-0.5 rounded ${
-                  goal.category === 'academic' ? 'bg-blue-500/20 text-blue-400' :
-                  goal.category === 'skill' ? 'bg-green-500/20 text-green-400' :
-                  goal.category === 'career' ? 'bg-purple-500/20 text-purple-400' :
-                  'bg-orange-500/20 text-orange-400'
-                }`}>
-                  {goal.category}
-                </span>
-                <span>Progress: {goal.progress || 0}%</span>
-                {goal.target_date && <span>• Due: {new Date(goal.target_date).toLocaleDateString()}</span>}
-              </div>
+          {/* Achievements */}
+          <div className="card p-4 mb-6">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Award size={20} className="text-yellow-400" />
+                Achievements
+              </h2>
+              <Link to="/badges" className="text-sm text-brand-400 hover:underline">View All →</Link>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => viewGoalActions(goal.id)}
-                className="text-xs text-brand-400 hover:underline"
-              >
-                View Actions →
-              </button>
-              <span className={`px-2 py-1 rounded text-xs ${
-                goal.completed ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
-              }`}>
-                {goal.completed ? '✅ Completed' : 'Active'}
-              </span>
-            </div>
-          </div>
-          {/* Action buttons based on category */}
-          <div className="mt-2 flex flex-wrap gap-1">
-            {goal.category === 'academic' && (
-              <>
-                <button onClick={() => takeQuiz(goal.id)} className="btn-secondary text-xs">📝 Take Quiz</button>
-                <button onClick={() => goToOrbit(goal.id)} className="btn-secondary text-xs">🚀 Orbit Resources</button>
-              </>
-            )}
-            {goal.category === 'skill' && (
-              <button onClick={() => goToSkillGrowth(goal.id)} className="btn-secondary text-xs">📈 Skill Growth</button>
-            )}
-            {goal.category === 'personal' && (
-              <button onClick={() => goToOrbit(goal.id)} className="btn-secondary text-xs">🧠 Study Sessions</button>
-            )}
-            {goal.category === 'career' && (
-              <>
-                <button onClick={() => goToOpportunities(goal.id)} className="btn-secondary text-xs">💼 Opportunities</button>
-                <button onClick={() => goToChallenges(goal.id)} className="btn-secondary text-xs">🏆 Challenges</button>
-              </>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  )}
-</div>
-
-          {/* Achievements Section */}
-          <div className="card p-4">
-            <h2 className="text-lg font-semibold mb-3">Achievements</h2>
             {achievements.length === 0 ? (
               <p className="text-white/40">No achievements yet.</p>
             ) : (
@@ -233,42 +255,61 @@ export default function SkillsPage() {
               </div>
             )}
           </div>
+
+          {/* Rankings */}
+          <div className="card p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <TrendingUp size={20} className="text-purple-400" />
+                My Ranking
+              </h2>
+              <Link to="/leaderboard" className="text-sm text-brand-400 hover:underline">View Rankings →</Link>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="p-2 bg-white/5 rounded text-center">
+                <p className="text-sm text-white/40">Weekly</p>
+                <p className="text-xl font-bold">#{rankings?.weekly?.rank || '—'}</p>
+              </div>
+              <div className="p-2 bg-white/5 rounded text-center">
+                <p className="text-sm text-white/40">School</p>
+                <p className="text-xl font-bold">#{rankings?.school?.rank || '—'}</p>
+              </div>
+              <div className="p-2 bg-white/5 rounded text-center">
+                <p className="text-sm text-white/40">Challenge</p>
+                <p className="text-xl font-bold">#{rankings?.challenge?.rank || '—'}</p>
+              </div>
+              <div className="p-2 bg-white/5 rounded text-center">
+                <p className="text-sm text-white/40">Overall</p>
+                <p className="text-xl font-bold">#{rankings?.overall?.rank || '—'}</p>
+              </div>
+            </div>
+          </div>
         </>
       )}
 
-      {/* Create Skill Modal */}
-      {showCreateModal && (
+      {/* Goal Creation Modal */}
+      {showGoalModal && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-          onClick={(e) => e.target === e.currentTarget && setShowCreateModal(false)}
+          onClick={(e) => e.target === e.currentTarget && setShowGoalModal(false)}
         >
           <div className="w-full max-w-md card p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Create New Skill</h2>
-              <button onClick={() => setShowCreateModal(false)} className="text-white/40 hover:text-white">
+              <h2 className="text-xl font-bold">Create New Goal</h2>
+              <button onClick={() => setShowGoalModal(false)} className="text-white/40 hover:text-white">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleCreateSkill} className="space-y-3">
+            <form onSubmit={handleCreateGoal} className="space-y-3">
               <div>
-                <label className="text-sm text-white/60">Skill Name *</label>
+                <label className="text-sm text-white/60">Title *</label>
                 <input
                   type="text"
                   className="input w-full"
-                  placeholder="e.g., React Development"
-                  value={newSkill.name}
-                  onChange={(e) => setNewSkill({...newSkill, name: e.target.value})}
+                  placeholder="e.g., Learn React"
+                  value={goalForm.title}
+                  onChange={(e) => setGoalForm({...goalForm, title: e.target.value})}
                   required
-                />
-              </div>
-              <div>
-                <label className="text-sm text-white/60">Category</label>
-                <input
-                  type="text"
-                  className="input w-full"
-                  placeholder="e.g., Frontend"
-                  value={newSkill.category}
-                  onChange={(e) => setNewSkill({...newSkill, category: e.target.value})}
                 />
               </div>
               <div>
@@ -276,13 +317,65 @@ export default function SkillsPage() {
                 <textarea
                   className="input w-full resize-none"
                   rows="2"
-                  placeholder="Describe the skill..."
-                  value={newSkill.description}
-                  onChange={(e) => setNewSkill({...newSkill, description: e.target.value})}
+                  placeholder="Describe your goal..."
+                  value={goalForm.description}
+                  onChange={(e) => setGoalForm({...goalForm, description: e.target.value})}
                 />
               </div>
-              <button type="submit" disabled={submitting} className="btn-primary w-full">
-                {submitting ? 'Creating...' : 'Create Skill'}
+              <div>
+                <label className="text-sm text-white/60">Category</label>
+                <select
+                  className="input w-full"
+                  value={goalForm.category}
+                  onChange={(e) => setGoalForm({...goalForm, category: e.target.value})}
+                >
+                  <option value="academic">Academic</option>
+                  <option value="skill">Skill</option>
+                  <option value="personal">Personal</option>
+                  <option value="career">Career</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-white/60">Target Date (optional)</label>
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={goalForm.target_date}
+                  onChange={(e) => setGoalForm({...goalForm, target_date: e.target.value})}
+                />
+              </div>
+              {goalForm.category === 'personal' && (
+                <div>
+                  <label className="text-sm text-white/60">Sessions Target (e.g., 30)</label>
+                  <input
+                    type="number"
+                    className="input w-full"
+                    placeholder="30"
+                    value={goalForm.metadata.sessions_target || ''}
+                    onChange={(e) => setGoalForm({
+                      ...goalForm,
+                      metadata: { ...goalForm.metadata, sessions_target: parseInt(e.target.value) || 30 }
+                    })}
+                  />
+                </div>
+              )}
+              {goalForm.category === 'skill' && (
+                <div>
+                  <label className="text-sm text-white/60">Skill Name (if different from title)</label>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    placeholder="React Development"
+                    value={goalForm.metadata.skill_name || ''}
+                    onChange={(e) => setGoalForm({
+                      ...goalForm,
+                      metadata: { ...goalForm.metadata, skill_name: e.target.value }
+                    })}
+                  />
+                </div>
+              )}
+              <button type="submit" disabled={submittingGoal} className="btn-primary w-full">
+                {submittingGoal ? 'Creating...' : 'Create Goal'}
               </button>
             </form>
           </div>
