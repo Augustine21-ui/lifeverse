@@ -1,4 +1,5 @@
 // backend/src/controllers/skillsController.js
+
 import { query } from '../db.js';
 
 // Get all available skills
@@ -25,8 +26,6 @@ export const getUserSkills = async (req, res) => {
     const userId = req.user.id;
     console.log('📌 getUserSkills - userId:', userId);
     
-    // Check if user_skills table has progress_percent column
-    // If not, we'll use a fallback query
     const result = await query(`
       SELECT 
         us.id, 
@@ -53,7 +52,6 @@ export const getUserSkills = async (req, res) => {
     res.json({ success: true, userSkills: result.rows });
   } catch (error) {
     console.error('❌ Error fetching user skills:', error);
-    // Return empty array instead of failing
     res.json({ success: true, userSkills: [] });
   }
 };
