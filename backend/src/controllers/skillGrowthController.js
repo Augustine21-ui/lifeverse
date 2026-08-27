@@ -381,10 +381,14 @@ export const getRecommendations = async (req, res) => {
 // ──────────────────────────────────────────────
 // backend/src/controllers/skillGrowthController.js
 
+// backend/src/controllers/skillGrowthController.js
+
 export const createSkill = async (req, res) => {
   const userId = req.user.id;
+  console.log('📌 createSkill - userId:', userId);
   const { name, category, description } = req.body;
-  
+  console.log('📌 Skill data:', { name, category, description });
+
   try {
     // 1. Insert into skills
     const skillResult = await query(
@@ -394,17 +398,20 @@ export const createSkill = async (req, res) => {
       [name, category, description]
     );
     const skill = skillResult.rows[0];
+    console.log('✅ Skill inserted:', skill);
 
-    // 2. IMPORTANT: Insert into user_skills to link skill to user
-    await query(
+    // 2. Insert into user_skills
+    const insertResult = await query(
       `INSERT INTO user_skills (user_id, skill_id, progress_percent) 
-       VALUES ($1, $2, 0)`,
+       VALUES ($1, $2, 0) 
+       RETURNING *`,
       [userId, skill.id]
     );
+    console.log('✅ user_skills inserted:', insertResult.rows[0]);
 
     res.status(201).json(skill);
   } catch (err) {
-    console.error('Create skill error:', err);
+    console.error('❌ Create skill error:', err);
     res.status(500).json({ error: err.message });
   }
 };

@@ -19,19 +19,26 @@ export const getAllSkills = async (req, res) => {
 export const getUserSkills = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await query(`
+    console.log('📌 getUserSkills - userId:', userId);
+    
+    const result = await db.query(`
       SELECT 
         us.id, us.user_id, us.skill_id, us.level, us.progress, us.evidence,
         us.created_at, us.updated_at,
-        s.name, s.category, s.description, s.icon, s.xp_value
+        s.name, s.category, s.description, s.icon, s.xp_value,
+        us.progress_percent
       FROM user_skills us
       JOIN skills s ON us.skill_id = s.id
       WHERE us.user_id = $1
       ORDER BY s.category, s.name
     `, [userId]);
+    
+    console.log('📌 getUserSkills result rows:', result.rows.length);
+    console.log('📌 First row:', result.rows[0]);
+    
     res.json({ success: true, userSkills: result.rows });
   } catch (error) {
-    console.error('Error fetching user skills:', error);
+    console.error('❌ Error fetching user skills:', error);
     res.json({ success: true, userSkills: [] });
   }
 };
