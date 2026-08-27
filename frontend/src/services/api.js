@@ -2,6 +2,8 @@
 // ✅ Updated - Added generic get/post/put/patch/delete methods
 // Original methods remain untouched
 
+console.log('🔌 API_BASE:', API_BASE);
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const handleResponse = async (res) => {
