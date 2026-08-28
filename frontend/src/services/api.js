@@ -840,4 +840,15 @@ createHighlight: (data) => api.post('/study/highlights', data),
 getBookmarks: () => api.get('/study/bookmarks'),
 createBookmark: (data) => api.post('/study/bookmarks', data),
 deleteBookmark: (id) => api.delete(`/study/bookmarks/${id}`),
+
+// ─── Library ──────────────────────────────────────────────────────
+getLibraryCategories: () => api.get('/library/categories'),
+getLibraryBooks: (params) => api.get('/library/books', params),
+getLibraryBook: (id) => api.get(`/library/books/${id}`),
+getLibraryContinueReading: () => api.get('/library/continue'),
+updateLibraryProgress: (bookId, data) => api.put(`/library/books/${bookId}/progress`, data),
+getLibraryProgress: (bookId) => api.get(`/library/books/${bookId}/progress`),
+getLibraryBookmarks: (bookId) => api.get(`/library/books/${bookId}/bookmarks`),
+createLibraryBookmark: (bookId, data) => api.post(`/library/books/${bookId}/bookmarks`, data),
+deleteLibraryBookmark: (bookId, bookmarkId) => api.delete(`/library/books/${bookId}/bookmarks/${bookmarkId}`),
 };

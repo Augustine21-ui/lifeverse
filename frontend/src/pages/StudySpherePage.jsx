@@ -9,7 +9,7 @@ import {
   CheckCircle, Circle, AlertCircle, TrendingUp, Star,
   ChevronLeft, ChevronRight, MapPin, User, Repeat,
   Plus, Edit, Trash2, Pin, Search, Filter, Bookmark, Highlighter,
-  Save, X, MoreVertical
+  Save, X, MoreVertical, Library, Book, BookmarkCheck, BookOpenCheck
 } from 'lucide-react';
 
 export default function StudySpherePage() {
@@ -17,7 +17,7 @@ export default function StudySpherePage() {
   const [data, setData] = useState(null);
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview'); // default to overview
+  const [activeTab, setActiveTab] = useState('overview');
 
   // ---- Timetable state ----
   const [timetableView, setTimetableView] = useState('today');
@@ -41,6 +41,17 @@ export default function StudySpherePage() {
   const [highlights, setHighlights] = useState([]);
   const [bookmarks, setBookmarks] = useState([]);
 
+  // ---- Library state ----
+  const [libraryBooks, setLibraryBooks] = useState([]);
+  const [libraryCategories, setLibraryCategories] = useState([]);
+  const [continueReading, setContinueReading] = useState([]);
+  const [loadingLibrary, setLoadingLibrary] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedBook, setSelectedBook] = useState(null);
+  const [showReader, setShowReader] = useState(false);
+  const [readerPage, setReaderPage] = useState(1);
+
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   // Load all data
@@ -49,6 +60,7 @@ export default function StudySpherePage() {
     loadNotes();
     loadHighlights();
     loadBookmarks();
+    loadLibrary();
   }, []);
 
   // Load timetable when date or view changes
@@ -196,6 +208,79 @@ export default function StudySpherePage() {
     }
   };
 
+  // ── Library ─────────────────────────────────────────────────────────
+  const loadLibrary = async () => {
+    setLoadingLibrary(true);
+    try {
+      const [booksRes, categoriesRes, continueRes] = await Promise.all([
+        api.getLibraryBooks(),
+        api.getLibraryCategories(),
+        api.getLibraryContinueReading()
+      ]);
+      setLibraryBooks(booksRes || []);
+      setLibraryCategories(categoriesRes || []);
+      setContinueReading(continueRes || []);
+    } catch (err) {
+      console.error('Error loading library:', err);
+    } finally {
+      setLoadingLibrary(false);
+    }
+  };
+
+  const handleLibrarySearch = async () => {
+    setLoadingLibrary(true);
+    try {
+      const res = await api.getLibraryBooks({ search: librarySearch, category: selectedCategory });
+      setLibraryBooks(res || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingLibrary(false);
+    }
+  };
+
+  const handleCategoryFilter = async (categoryId) => {
+    setSelectedCategory(categoryId);
+    setLoadingLibrary(true);
+    try {
+      const res = await api.getLibraryBooks({ category: categoryId, search: librarySearch });
+      setLibraryBooks(res || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingLibrary(false);
+    }
+  };
+
+  const openReader = (book) => {
+    setSelectedBook(book);
+    setReaderPage(book.current_page || 1);
+    setShowReader(true);
+  };
+
+  const updatePage = async (bookId, page) => {
+    try {
+      await api.updateLibraryProgress(bookId, { current_page: page });
+      setLibraryBooks(prev => prev.map(b => 
+        b.id === bookId ? { ...b, current_page: page, percentage: Math.round((page / (b.pages || 100)) * 100) } : b
+      ));
+      setContinueReading(prev => prev.map(b => 
+        b.id === bookId ? { ...b, current_page: page, percentage: Math.round((page / (b.pages || 100)) * 100) } : b
+      ));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const addBookmark = async (bookId, page) => {
+    try {
+      await api.createLibraryBookmark(bookId, { page_number: page, note: 'Bookmarked' });
+      alert('Bookmark added!');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // ── Timetable ────────────────────────────────────────────────────────
   const fetchTimetable = async () => {
     setLoadingTimetable(true);
@@ -262,6 +347,7 @@ export default function StudySpherePage() {
     { id: 'assignments', label: 'Assignments', icon: ClipboardList },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'studytools', label: 'Study Tools', icon: Notebook },
+    { id: 'library', label: 'Library', icon: Library },
   ];
 
   // ── Helper: get unique subjects for filter ──
@@ -282,6 +368,17 @@ export default function StudySpherePage() {
     if (!a.pinned && b.pinned) return 1;
     return new Date(b.updated_at) - new Date(a.updated_at);
   });
+
+  // Build category tree for library
+  const buildCategoryTree = (items, parentId = null) => {
+    return items
+      .filter(c => c.parent_id === parentId)
+      .map(c => ({
+        ...c,
+        children: buildCategoryTree(items, c.id)
+      }));
+  };
+  const categoryTree = buildCategoryTree(libraryCategories);
 
   // ── Render functions ──────────────────────────────────────────────
 
@@ -371,7 +468,7 @@ export default function StudySpherePage() {
     </div>
   );
 
-  // ---- Study Tools tab (renamed from StudySpace) ----
+  // ---- Study Tools tab ----
   const renderStudyTools = () => (
     <div>
       <h2 className="text-2xl font-bold mb-4">📓 Study Tools</h2>
@@ -536,7 +633,219 @@ export default function StudySpherePage() {
     </div>
   );
 
-  // ---- Timetable tab (existing) ----
+  // ---- Library tab ----
+  const renderLibrary = () => (
+    <div>
+      <h2 className="text-2xl font-bold mb-4">📚 Library</h2>
+
+      {/* Continue Reading */}
+      {continueReading.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-brand-400 mb-2 flex items-center gap-2">
+            <BookOpenCheck size={16} />
+            Continue Reading
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {continueReading.slice(0, 4).map(book => (
+              <div
+                key={book.id}
+                onClick={() => openReader(book)}
+                className="card p-3 cursor-pointer hover:border-brand-400/30 transition flex items-center gap-3 min-w-[200px] flex-1"
+              >
+                {book.cover_image_url ? (
+                  <img src={book.cover_image_url} alt={book.title} className="w-12 h-16 object-cover rounded" />
+                ) : (
+                  <div className="w-12 h-16 bg-brand-500/20 rounded flex items-center justify-center text-2xl">📖</div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{book.title}</p>
+                  <p className="text-xs text-white/40">{book.percentage || 0}% complete</p>
+                  <div className="w-full h-1 bg-white/10 rounded-full mt-1">
+                    <div className="h-full bg-brand-400 rounded-full" style={{ width: `${book.percentage || 0}%` }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Search & Filter */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex-1 min-w-[200px] relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+          <input
+            className="input w-full pl-9 text-sm"
+            placeholder="Search books by title, author..."
+            value={librarySearch}
+            onChange={(e) => setLibrarySearch(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLibrarySearch()}
+          />
+        </div>
+        <button onClick={handleLibrarySearch} className="btn-primary text-sm">Search</button>
+        <button onClick={() => { setLibrarySearch(''); setSelectedCategory(''); loadLibrary(); }} className="btn-secondary text-sm">Clear</button>
+      </div>
+
+      {loadingLibrary ? (
+        <Loader2 className="animate-spin mx-auto text-brand-400" size={32} />
+      ) : (
+        <div className="flex gap-6">
+          {/* Categories (Drawers/Shelves) */}
+          <div className="w-48 flex-shrink-0">
+            <div className="sticky top-6">
+              <h4 className="text-sm font-semibold text-white/60 mb-2">📂 Categories</h4>
+              <button
+                onClick={() => handleCategoryFilter('')}
+                className={`w-full text-left px-3 py-1.5 rounded text-sm transition ${!selectedCategory ? 'bg-brand-500/20 text-brand-400' : 'hover:bg-white/5 text-white/60'}`}
+              >
+                All Books
+              </button>
+              {categoryTree.map(cat => (
+                <div key={cat.id} className="ml-2">
+                  <button
+                    onClick={() => handleCategoryFilter(cat.id)}
+                    className={`w-full text-left px-3 py-1.5 rounded text-sm transition ${selectedCategory === String(cat.id) ? 'bg-brand-500/20 text-brand-400' : 'hover:bg-white/5 text-white/60'}`}
+                  >
+                    📁 {cat.name}
+                  </button>
+                  {cat.children && cat.children.map(child => (
+                    <button
+                      key={child.id}
+                      onClick={() => handleCategoryFilter(child.id)}
+                      className={`w-full text-left px-6 py-1.5 rounded text-sm transition ${selectedCategory === String(child.id) ? 'bg-brand-500/20 text-brand-400' : 'hover:bg-white/5 text-white/40'}`}
+                    >
+                      📄 {child.name}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Books Grid */}
+          <div className="flex-1">
+            {libraryBooks.length === 0 ? (
+              <div className="card p-8 text-center text-white/40">
+                <Book className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p className="font-medium">No books found</p>
+                <p className="text-sm">Check back later for new books.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {libraryBooks.map(book => (
+                  <div
+                    key={book.id}
+                    onClick={() => openReader(book)}
+                    className="card p-3 cursor-pointer hover:border-brand-400/30 transition group"
+                  >
+                    {book.cover_image_url ? (
+                      <img src={book.cover_image_url} alt={book.title} className="w-full h-32 object-cover rounded mb-2" />
+                    ) : (
+                      <div className="w-full h-32 bg-gradient-to-br from-brand-500/20 to-violet-500/20 rounded mb-2 flex items-center justify-center text-5xl group-hover:scale-110 transition">📖</div>
+                    )}
+                    <p className="font-medium text-sm truncate">{book.title}</p>
+                    <p className="text-xs text-white/40 truncate">{book.author || 'Unknown'}</p>
+                    {book.current_page && (
+                      <div className="mt-1">
+                        <div className="w-full h-1 bg-white/10 rounded-full">
+                          <div className="h-full bg-brand-400 rounded-full" style={{ width: `${book.percentage || 0}%` }} />
+                        </div>
+                        <p className="text-[10px] text-white/30 mt-0.5">{book.percentage || 0}%</p>
+                      </div>
+                    )}
+                    {book.subject && (
+                      <span className="text-[10px] text-white/30 mt-1 block truncate">📚 {book.subject}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Reader Modal */}
+      {showReader && selectedBook && (
+        <div className="fixed inset-0 z-50 bg-black/95 p-6 flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-xl font-bold">{selectedBook.title}</h2>
+              <p className="text-sm text-white/40">{selectedBook.author || 'Unknown'} · {selectedBook.pages || '?'} pages</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => addBookmark(selectedBook.id, readerPage)}
+                className="btn-secondary text-sm flex items-center gap-1"
+              >
+                <Bookmark size={16} /> Bookmark
+              </button>
+              <button onClick={() => setShowReader(false)} className="text-white/60 hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 bg-white/5 rounded-lg p-8 overflow-y-auto">
+            <div className="max-w-2xl mx-auto">
+              <div className="text-center text-white/40 mb-4">
+                <div className="text-6xl mb-4">📖</div>
+                <p className="text-lg font-medium text-white/80">{selectedBook.title}</p>
+                <p className="text-sm mt-2 text-white/40">Page {readerPage} of {selectedBook.pages || '?'}</p>
+                <div className="w-48 h-1 bg-white/10 rounded-full mx-auto mt-2">
+                  <div className="h-full bg-brand-400 rounded-full" style={{ width: `${Math.round((readerPage / (selectedBook.pages || 100)) * 100)}%` }} />
+                </div>
+              </div>
+              <div className="prose prose-invert max-w-none">
+                <p className="text-white/80 leading-relaxed">
+                  {selectedBook.description || 'No description available.'}
+                </p>
+                <p className="text-white/60 text-sm mt-4">
+                  Use the controls below to navigate through the book.
+                </p>
+                <div className="bg-white/5 p-4 rounded-lg mt-4">
+                  <p className="text-white/40 text-sm">📌 Book content would be displayed here from the PDF/EPUB file.</p>
+                  <p className="text-white/30 text-xs mt-1">File: {selectedBook.file_url || 'No file attached'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-center gap-4 mt-4">
+            <button
+              onClick={() => {
+                if (readerPage > 1) {
+                  const newPage = readerPage - 1;
+                  setReaderPage(newPage);
+                  updatePage(selectedBook.id, newPage);
+                }
+              }}
+              className="btn-secondary text-sm"
+              disabled={readerPage <= 1}
+            >
+              Previous
+            </button>
+            <span className="text-sm text-white/40">
+              Page {readerPage} of {selectedBook.pages || '?'}
+            </span>
+            <button
+              onClick={() => {
+                const totalPages = selectedBook.pages || 100;
+                if (readerPage < totalPages) {
+                  const newPage = readerPage + 1;
+                  setReaderPage(newPage);
+                  updatePage(selectedBook.id, newPage);
+                }
+              }}
+              className="btn-primary text-sm"
+              disabled={readerPage >= (selectedBook.pages || 100)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // ---- Timetable tab ----
   const renderTimetable = () => {
     const weekEntries = getWeekEntries();
     const dateStr = timetableDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -636,7 +945,7 @@ export default function StudySpherePage() {
     );
   };
 
-  // ---- Subjects tab (existing) ----
+  // ---- Subjects tab ----
   const renderSubjects = () => (
     <div>
       <h2 className="text-xl font-semibold mb-4">📚 My Subjects</h2>
@@ -655,7 +964,7 @@ export default function StudySpherePage() {
     </div>
   );
 
-  // ---- Materials tab (existing) ----
+  // ---- Materials tab ----
   const renderMaterials = () => (
     <div>
       <h2 className="text-xl font-semibold mb-4">📄 Learning Materials</h2>
@@ -676,7 +985,7 @@ export default function StudySpherePage() {
     </div>
   );
 
-  // ---- Assignments tab (existing) ----
+  // ---- Assignments tab ----
   const renderAssignments = () => {
     const getStatusIcon = (status) => {
       if (status === 'Completed' || status === 'Submitted') return <CheckCircle size={16} className="text-green-400" />;
@@ -704,7 +1013,7 @@ export default function StudySpherePage() {
     );
   };
 
-  // ---- Announcements tab (existing) ----
+  // ---- Announcements tab ----
   const renderAnnouncements = () => (
     <div>
       <h2 className="text-xl font-semibold mb-4">📢 Academic Announcements</h2>
@@ -758,6 +1067,7 @@ export default function StudySpherePage() {
         {activeTab === 'assignments' && renderAssignments()}
         {activeTab === 'announcements' && renderAnnouncements()}
         {activeTab === 'studytools' && renderStudyTools()}
+        {activeTab === 'library' && renderLibrary()}
       </main>
     </div>
   );
