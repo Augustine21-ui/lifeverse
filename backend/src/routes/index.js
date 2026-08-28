@@ -26,6 +26,7 @@ import * as skillGrowth from '../controllers/skillGrowthController.js';
 import * as taskController from '../controllers/taskController.js';
 import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
+import * as studyController from '../controllers/studyController.js';
 
 // ... rest of file unchanged
 
@@ -144,6 +145,21 @@ router.get('/institution/rooms', authenticate, timetableController.getRooms);
 router.post('/institution/rooms', authenticate, timetableController.createRoom);
 router.get('/institution/courses', authenticate, timetableController.getCourses);
 router.post('/institution/courses', authenticate, timetableController.createCourse);
+
+router.get('/study/notes', authenticate, studyController.getNotes);
+router.post('/study/notes', authenticate, studyController.createNote);
+router.put('/study/notes/:id', authenticate, studyController.updateNote);
+router.delete('/study/notes/:id', authenticate, studyController.deleteNote);
+router.patch('/study/notes/:id/pin', authenticate, studyController.pinNote);
+
+router.get('/study/highlights', authenticate, studyController.getHighlights);
+router.post('/study/highlights', authenticate, studyController.createHighlight);
+
+router.get('/study/bookmarks', authenticate, studyController.getBookmarks);
+router.post('/study/bookmarks', authenticate, studyController.createBookmark);
+router.delete('/study/bookmarks/:id', authenticate, studyController.deleteBookmark);
+
+
 // Root
 router.get('/', (req, res) => res.json({ message: 'API root' }));
 
