@@ -7,7 +7,7 @@ import { getChildren, getChildProgress } from '../parentController.js';
 import { getStudents, getStudentProgressForTeacher, getClassSummary } from '../teacherController.js';
 import { sendMessage, getMessages, getMessagesByConversation, getPeerContacts, getOrCreatePeerConversation } from '../bridgeMessageController.js';
 import * as timetableController from '../controllers/timetableController.js';
-
+import * as libraryController from '../controllers/libraryController.js';
 // ✅ resourcesController is in src/
 import { getResources } from '../resourcesController.js';
 
@@ -27,6 +27,7 @@ import * as taskController from '../controllers/taskController.js';
 import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
+
 
 // ... rest of file unchanged
 
@@ -159,6 +160,23 @@ router.get('/study/bookmarks', authenticate, studyController.getBookmarks);
 router.post('/study/bookmarks', authenticate, studyController.createBookmark);
 router.delete('/study/bookmarks/:id', authenticate, studyController.deleteBookmark);
 
+router.get('/library/categories', authenticate, libraryController.getCategories);
+router.post('/library/categories', authenticate, libraryController.createCategory);
+router.delete('/library/categories/:id', authenticate, libraryController.deleteCategory);
+
+router.get('/library/books', authenticate, libraryController.getBooks);
+router.get('/library/books/:id', authenticate, libraryController.getBook);
+router.post('/library/books', authenticate, libraryController.createBook);
+router.put('/library/books/:id', authenticate, libraryController.updateBook);
+router.delete('/library/books/:id', authenticate, libraryController.deleteBook);
+
+router.get('/library/continue', authenticate, libraryController.getContinueReading);
+router.put('/library/books/:id/progress', authenticate, libraryController.updateProgress);
+router.get('/library/books/:id/progress', authenticate, libraryController.getProgress);
+
+router.get('/library/books/:id/bookmarks', authenticate, libraryController.getBookmarks);
+router.post('/library/books/:id/bookmarks', authenticate, libraryController.createBookmark);
+router.delete('/library/books/:id/bookmarks/:bookmarkId', authenticate, libraryController.deleteBookmark);
 
 // Root
 router.get('/', (req, res) => res.json({ message: 'API root' }));
