@@ -333,7 +333,13 @@ export const getCourses = async (req, res) => {
     const instRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
     const institution_id = instRes.rows[0]?.institution_id;
     if (!institution_id) return res.status(403).json({ error: 'Not an institution user' });
-    const result = await query('SELECT * FROM courses WHERE institution_id = $1 ORDER BY name', [institution_id]);
+    const result = await query(`
+      SELECT c.*, ag.name as department_name 
+      FROM courses c
+      LEFT JOIN academic_groups ag ON c.department_id = ag.id
+      WHERE c.institution_id = $1
+      ORDER BY c.name
+    `, [institution_id]);
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -343,15 +349,16 @@ export const getCourses = async (req, res) => {
 
 export const createCourse = async (req, res) => {
   const userId = req.user.id;
-  const { name, code, description } = req.body;
+  const { name, code, description, credits, department_id } = req.body;
   try {
     const instRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
     const institution_id = instRes.rows[0]?.institution_id;
     if (!institution_id) return res.status(403).json({ error: 'Not an institution user' });
     const result = await query(
-      `INSERT INTO courses (institution_id, name, code, description)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [institution_id, name, code, description]
+      `INSERT INTO courses (institution_id, name, code, description, credits, department_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [institution_id, name, code, description, credits, department_id]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -363,7 +370,7 @@ export const createCourse = async (req, res) => {
 export const updateCourse = async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
-  const { name, code, description } = req.body;
+  const { name, code, description, credits, department_id } = req.body;
   try {
     const instRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
     const institution_id = instRes.rows[0]?.institution_id;
@@ -372,10 +379,12 @@ export const updateCourse = async (req, res) => {
       `UPDATE courses SET
         name = COALESCE($1, name),
         code = COALESCE($2, code),
-        description = COALESCE($3, description)
-       WHERE id = $4 AND institution_id = $5
+        description = COALESCE($3, description),
+        credits = COALESCE($4, credits),
+        department_id = COALESCE($5, department_id)
+       WHERE id = $6 AND institution_id = $7
        RETURNING *`,
-      [name, code, description, id, institution_id]
+      [name, code, description, credits, department_id, id, institution_id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Course not found' });
     res.json(result.rows[0]);

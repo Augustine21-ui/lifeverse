@@ -6,13 +6,14 @@ import {
   Users, BookOpen, FileText, Calendar, Loader2,
   Plus, Edit, Trash2, Upload, Download, Link as LinkIcon,
   Megaphone, Paperclip, UserPlus, X, Check,
-  MapPin, Clock, Repeat
+  MapPin, Clock, Repeat, AlertCircle, Bookmark
 } from 'lucide-react';
 
 export default function InstitutionDashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
@@ -46,43 +47,61 @@ export default function InstitutionDashboard() {
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [loadingTeachers, setLoadingTeachers] = useState(false);
+  // For subjects dropdown: departments
+  const [departments, setDepartments] = useState([]);
 
   // Fetch dashboard data
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
+      console.log('🔍 Fetching institution dashboard...');
       const res = await api.getInstitutionDashboard();
-      setData(res);
-      // Also load groups for dropdowns
-      if (res.groups) setGroups(res.groups);
+      console.log('📊 Dashboard data:', res);
+      
+      if (!res || Object.keys(res).length === 0) {
+        setError('No data returned from server. You may not be linked to an institution.');
+        setData({ stats: { totalStudents: 0, totalTeachers: 0, totalGroups: 0, totalResources: 0 }, students: [], teachers: [], groups: [], announcements: [] });
+      } else {
+        setData(res);
+        if (res.groups) setGroups(res.groups);
+        // Extract departments from groups (type 'department')
+        if (res.groups) {
+          const deps = res.groups.filter(g => g.type === 'department');
+          setDepartments(deps);
+        }
+      }
     } catch (err) {
-      console.error(err);
+      console.error('❌ Error loading institution data:', err);
+      setError(err.message || 'Failed to load dashboard. Please try again.');
+      setData({ stats: { totalStudents: 0, totalTeachers: 0, totalGroups: 0, totalResources: 0 }, students: [], teachers: [], groups: [], announcements: [] });
     } finally {
       setLoading(false);
     }
   };
 
-  // Load hierarchy
+  // Load hierarchy, rooms, courses, teachers
   const loadHierarchy = async () => {
     setLoadingHierarchy(true);
     try {
       const res = await api.getHierarchy();
-      setHierarchy(res);
+      setHierarchy(res || []);
     } catch (err) {
       console.error('Error loading hierarchy:', err);
+      setHierarchy([]);
     } finally {
       setLoadingHierarchy(false);
     }
   };
 
-  // Load rooms, courses, teachers
   const loadRooms = async () => {
     setLoadingRooms(true);
     try {
       const res = await api.getInstitutionRooms();
-      setRooms(res);
+      setRooms(res || []);
     } catch (err) {
       console.error(err);
+      setRooms([]);
     } finally {
       setLoadingRooms(false);
     }
@@ -91,9 +110,10 @@ export default function InstitutionDashboard() {
     setLoadingCourses(true);
     try {
       const res = await api.getInstitutionCourses();
-      setCourses(res);
+      setCourses(res || []);
     } catch (err) {
       console.error(err);
+      setCourses([]);
     } finally {
       setLoadingCourses(false);
     }
@@ -102,9 +122,10 @@ export default function InstitutionDashboard() {
     setLoadingTeachers(true);
     try {
       const res = await api.getInstitutionTeachers();
-      setTeachers(res);
+      setTeachers(res || []);
     } catch (err) {
       console.error(err);
+      setTeachers([]);
     } finally {
       setLoadingTeachers(false);
     }
@@ -118,11 +139,19 @@ export default function InstitutionDashboard() {
     if (activeTab === 'groups') {
       loadHierarchy();
     }
-    if (activeTab === 'timetable') {
+    if (activeTab === 'timetable' || activeTab === 'subjects') {
+      loadCourses(); // Always load courses for subjects tab
       loadRooms();
-      loadCourses();
       loadTeachers();
-      // Also refresh groups if needed
+    }
+    if (activeTab === 'subjects') {
+      // Also load departments from groups
+      if (data?.groups) {
+        const deps = data.groups.filter(g => g.type === 'department');
+        setDepartments(deps);
+      } else {
+        loadHierarchy(); // fallback
+      }
     }
   }, [activeTab]);
 
@@ -137,9 +166,10 @@ export default function InstitutionDashboard() {
     setLoadingEntries(true);
     try {
       const res = await api.getTimetableByGroup(groupId);
-      setTimetableEntries(res);
+      setTimetableEntries(res || []);
     } catch (err) {
       console.error(err);
+      setTimetableEntries([]);
     } finally {
       setLoadingEntries(false);
     }
@@ -150,18 +180,49 @@ export default function InstitutionDashboard() {
     setLoadingResources(true);
     try {
       const res = await api.getResources(targetType, targetId);
-      setResourceList(res);
+      setResourceList(res || []);
     } catch (err) {
       console.error(err);
+      setResourceList([]);
     } finally {
       setLoadingResources(false);
     }
   };
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-400" size={40} /></div>;
-  if (!data) return <div className="p-6 text-center text-white/60">No data available</div>;
+  if (loading) {
+    return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-400" size={40} /></div>;
+  }
 
-  const { stats, students, teachers: teacherList, groups: groupList } = data;
+  if (error) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="card p-8 text-center border-red-500/30">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
+          <h2 className="text-xl font-bold text-red-400">Something went wrong</h2>
+          <p className="text-white/60 mt-2">{error}</p>
+          <button onClick={loadData} className="btn-primary mt-4">Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="card p-8 text-center">
+          <h2 className="text-xl font-bold">No institution data</h2>
+          <p className="text-white/60 mt-2">You may not be linked to an institution.</p>
+          <p className="text-sm text-white/40 mt-1">Contact your administrator to get access.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const stats = data.stats || { totalStudents: 0, totalTeachers: 0, totalGroups: 0, totalResources: 0 };
+  const students = data.students || [];
+  const teachers = data.teachers || [];
+  const groups = data.groups || [];
+  const announcements = data.announcements || [];
 
   // ---------- Modal helpers ----------
   const openModal = (type, item = null, initialFormData = null) => {
@@ -218,21 +279,29 @@ export default function InstitutionDashboard() {
           await api.createRoom(formData);
         }
         await loadRooms();
-      } else if (modalType === 'course') {
+      } else if (modalType === 'subject') {
+        // Course management
+        const payload = {
+          name: formData.name,
+          code: formData.code,
+          description: formData.description,
+          department_id: formData.department_id || null,
+          credits: parseInt(formData.credits) || null,
+        };
         if (editingItem?.id) {
-          await api.updateCourse(editingItem.id, formData);
+          await api.updateCourse(editingItem.id, payload);
         } else {
-          await api.createCourse(formData);
+          await api.createCourse(payload);
         }
         await loadCourses();
+        // Refresh data to update stats
+        await loadData();
       } else if (modalType === 'timetable') {
-        // Ensure group is selected
         if (!formData.class_id) {
           alert('Please select a class/group.');
           setSubmitting(false);
           return;
         }
-        // Ensure teacher, room, day, start/end time are filled
         const payload = {
           class_id: parseInt(formData.class_id),
           course_id: formData.course_id ? parseInt(formData.course_id) : null,
@@ -251,11 +320,11 @@ export default function InstitutionDashboard() {
         } else {
           await api.createTimetableEntry(payload);
         }
-        // Refresh timetable
         if (selectedGroup) await loadTimetable(selectedGroup);
       }
       await loadData();
       if (activeTab === 'groups') loadHierarchy();
+      if (activeTab === 'subjects') loadCourses();
       closeModal();
     } catch (err) {
       console.error(err);
@@ -291,10 +360,11 @@ export default function InstitutionDashboard() {
     try {
       if (type === 'group') await api.deleteGroup(id);
       else if (type === 'room') await api.deleteRoom(id);
-      else if (type === 'course') await api.deleteCourse(id);
+      else if (type === 'subject') await api.deleteCourse(id);
       else if (type === 'timetable') await api.deleteTimetableEntry(id);
       await loadData();
       if (activeTab === 'groups') loadHierarchy();
+      if (activeTab === 'subjects') loadCourses();
       if (activeTab === 'timetable') {
         if (selectedGroup) await loadTimetable(selectedGroup);
         await loadRooms();
@@ -381,26 +451,30 @@ export default function InstitutionDashboard() {
         </button>
       </div>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
-          <thead className="bg-white/5">
-            <tr className="text-white/40">
-              <th className="p-3 text-left">Name</th>
-              <th className="p-3 text-left">Group</th>
-              <th className="p-3 text-left">Level</th>
-              <th className="p-3 text-left">Year</th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.map(s => (
-              <tr key={s.id} className="border-t border-white/5 hover:bg-white/5">
-                <td className="p-3">{s.full_name}</td>
-                <td className="p-3">{s.group_name || '—'} ({s.group_type || '—'})</td>
-                <td className="p-3 capitalize">{s.education_level || '—'}</td>
-                <td className="p-3">{s.year_of_study || '—'}</td>
+        {students.length === 0 ? (
+          <p className="p-4 text-white/40 text-center">No students assigned yet.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-white/5">
+              <tr className="text-white/40">
+                <th className="p-3 text-left">Name</th>
+                <th className="p-3 text-left">Group</th>
+                <th className="p-3 text-left">Level</th>
+                <th className="p-3 text-left">Year</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {students.map(s => (
+                <tr key={s.id} className="border-t border-white/5 hover:bg-white/5">
+                  <td className="p-3">{s.full_name}</td>
+                  <td className="p-3">{s.group_name || '—'} ({s.group_type || '—'})</td>
+                  <td className="p-3 capitalize">{s.education_level || '—'}</td>
+                  <td className="p-3">{s.year_of_study || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
@@ -409,26 +483,30 @@ export default function InstitutionDashboard() {
     <div>
       <h2 className="text-xl font-semibold mb-4">Teachers</h2>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
-          <thead className="bg-white/5">
-            <tr className="text-white/40">
-              <th className="p-3 text-left">Name</th>
-              <th className="p-3 text-left">Assigned Groups</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teachers.map(t => (
-              <tr key={t.id} className="border-t border-white/5 hover:bg-white/5">
-                <td className="p-3">{t.full_name}</td>
-                <td className="p-3">
-                  {t.assigned_groups && t.assigned_groups.length > 0
-                    ? t.assigned_groups.map(g => g.group_name).join(', ')
-                    : '—'}
-                </td>
+        {teachers.length === 0 ? (
+          <p className="p-4 text-white/40 text-center">No teachers assigned yet.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-white/5">
+              <tr className="text-white/40">
+                <th className="p-3 text-left">Name</th>
+                <th className="p-3 text-left">Assigned Groups</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {teachers.map(t => (
+                <tr key={t.id} className="border-t border-white/5 hover:bg-white/5">
+                  <td className="p-3">{t.full_name}</td>
+                  <td className="p-3">
+                    {t.assigned_groups && t.assigned_groups.length > 0
+                      ? t.assigned_groups.map(g => g.group_name).join(', ')
+                      : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
@@ -467,7 +545,63 @@ export default function InstitutionDashboard() {
     </div>
   );
 
-  // ---- Timetable Tab ----
+  // NEW: Subjects Management
+  const renderSubjects = () => {
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">📚 Subjects / Courses</h2>
+          <button className="btn-primary text-sm" onClick={() => openModal('subject', null, {})}>
+            <Plus size={16} className="inline mr-1" /> Add Subject
+          </button>
+        </div>
+        <div className="card overflow-x-auto p-0">
+          {loadingCourses ? (
+            <div className="p-4 text-center"><Loader2 className="animate-spin text-brand-400" size={24} /></div>
+          ) : courses.length === 0 ? (
+            <p className="p-4 text-white/40 text-center">No subjects added yet. Click "Add Subject" to create one.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-white/5">
+                <tr className="text-white/40">
+                  <th className="p-3 text-left">Name</th>
+                  <th className="p-3 text-left">Code</th>
+                  <th className="p-3 text-left">Department</th>
+                  <th className="p-3 text-left">Credits</th>
+                  <th className="p-3 text-left">Description</th>
+                  <th className="p-3 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {courses.map(c => (
+                  <tr key={c.id} className="border-t border-white/5 hover:bg-white/5">
+                    <td className="p-3 font-medium">{c.name}</td>
+                    <td className="p-3">{c.code || '—'}</td>
+                    <td className="p-3">
+                      {c.department_name || c.department_id ? 
+                        (departments.find(d => d.id === c.department_id)?.name || '—') 
+                        : '—'}
+                    </td>
+                    <td className="p-3">{c.credits || '—'}</td>
+                    <td className="p-3 max-w-[200px] truncate">{c.description || '—'}</td>
+                    <td className="p-3">
+                      <button onClick={() => openModal('subject', c)} className="text-white/30 hover:text-brand-400 mr-2">
+                        <Edit size={16} />
+                      </button>
+                      <button onClick={() => handleDelete('subject', c.id)} className="text-white/30 hover:text-red-400">
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderTimetable = () => {
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     return (
@@ -480,9 +614,6 @@ export default function InstitutionDashboard() {
             </button>
             <button className="btn-secondary text-sm" onClick={() => openModal('room')}>
               <MapPin size={16} className="inline mr-1" /> Manage Rooms
-            </button>
-            <button className="btn-secondary text-sm" onClick={() => openModal('course')}>
-              <BookOpen size={16} className="inline mr-1" /> Manage Courses
             </button>
             <label className="btn-secondary text-sm cursor-pointer">
               <Upload size={16} className="inline mr-1" /> Upload CSV
@@ -516,7 +647,7 @@ export default function InstitutionDashboard() {
             {loadingEntries ? (
               <div className="p-4 text-center"><Loader2 className="animate-spin text-brand-400" size={24} /></div>
             ) : timetableEntries.length === 0 ? (
-              <p className="p-4 text-white/40">No timetable entries for this group.</p>
+              <p className="p-4 text-white/40 text-center">No timetable entries for this group.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-white/5">
@@ -582,23 +713,27 @@ export default function InstitutionDashboard() {
         <button className="btn-secondary text-sm" onClick={loadResources}>Refresh</button>
       </div>
       <div className="space-y-3">
-        {resourceList.map(r => (
-          <div key={r.id} className="card p-3 flex justify-between items-center">
-            <div>
-              <p className="font-medium">{r.title}</p>
-              <p className="text-sm text-white/40">{r.description}</p>
-              <div className="flex gap-2 text-xs text-white/30">
-                <span>{r.resource_type}</span>
-                <span>· {new Date(r.created_at).toLocaleDateString()}</span>
+        {resourceList.length === 0 ? (
+          <p className="text-white/40">No resources found.</p>
+        ) : (
+          resourceList.map(r => (
+            <div key={r.id} className="card p-3 flex justify-between items-center">
+              <div>
+                <p className="font-medium">{r.title}</p>
+                <p className="text-sm text-white/40">{r.description}</p>
+                <div className="flex gap-2 text-xs text-white/30">
+                  <span>{r.resource_type}</span>
+                  <span>· {new Date(r.created_at).toLocaleDateString()}</span>
+                </div>
               </div>
+              {r.file_url && (
+                <a href={r.file_url} target="_blank" rel="noopener noreferrer" className="text-brand-400 hover:underline">
+                  <LinkIcon size={16} />
+                </a>
+              )}
             </div>
-            {r.file_url && (
-              <a href={r.file_url} target="_blank" rel="noopener noreferrer" className="text-brand-400 hover:underline">
-                <LinkIcon size={16} />
-              </a>
-            )}
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
@@ -612,19 +747,20 @@ export default function InstitutionDashboard() {
         </button>
       </div>
       <div className="space-y-3">
-        {data.announcements?.map(a => (
-          <div key={a.id} className="card p-4 border-l-4 border-brand-500">
-            <h3 className="font-semibold">{a.title}</h3>
-            <p className="text-sm text-white/70 mt-1">{a.content}</p>
-            <div className="flex gap-3 text-xs text-white/40 mt-2">
-              <span>By {a.author_name}</span>
-              <span>· {new Date(a.created_at).toLocaleDateString()}</span>
-              <span>Target: {a.target_roles?.join(', ') || 'All'}</span>
-            </div>
-          </div>
-        ))}
-        {(!data.announcements || data.announcements.length === 0) && (
+        {announcements.length === 0 ? (
           <p className="text-white/40">No announcements yet.</p>
+        ) : (
+          announcements.map(a => (
+            <div key={a.id} className="card p-4 border-l-4 border-brand-500">
+              <h3 className="font-semibold">{a.title}</h3>
+              <p className="text-sm text-white/70 mt-1">{a.content}</p>
+              <div className="flex gap-3 text-xs text-white/40 mt-2">
+                <span>By {a.author_name}</span>
+                <span>· {new Date(a.created_at).toLocaleDateString()}</span>
+                <span>Target: {a.target_roles?.join(', ') || 'All'}</span>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>
@@ -725,12 +861,17 @@ export default function InstitutionDashboard() {
       </form>
     );
 
-    const renderCourseForm = () => (
+    const renderSubjectForm = () => (
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input type="text" className="input w-full" placeholder="Course Name" value={formData.name || ''} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
-        <input type="text" className="input w-full" placeholder="Course Code" value={formData.code || ''} onChange={(e) => setFormData({...formData, code: e.target.value})} />
+        <input type="text" className="input w-full" placeholder="Subject Name *" value={formData.name || ''} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+        <input type="text" className="input w-full" placeholder="Code (e.g., CS101)" value={formData.code || ''} onChange={(e) => setFormData({...formData, code: e.target.value})} />
+        <select className="input w-full" value={formData.department_id || ''} onChange={(e) => setFormData({...formData, department_id: e.target.value ? parseInt(e.target.value) : null})}>
+          <option value="">Select Department (optional)</option>
+          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+        <input type="number" className="input w-full" placeholder="Credits" value={formData.credits || ''} onChange={(e) => setFormData({...formData, credits: parseInt(e.target.value) || ''})} />
         <textarea className="input w-full" rows="2" placeholder="Description" value={formData.description || ''} onChange={(e) => setFormData({...formData, description: e.target.value})} />
-        <button type="submit" disabled={submitting} className="btn-primary w-full">{submitting ? 'Saving...' : editingItem ? 'Update Course' : 'Add Course'}</button>
+        <button type="submit" disabled={submitting} className="btn-primary w-full">{submitting ? 'Saving...' : editingItem ? 'Update Subject' : 'Add Subject'}</button>
       </form>
     );
 
@@ -743,7 +884,7 @@ export default function InstitutionDashboard() {
             {groups.map(g => <option key={g.id} value={g.id}>{g.name} ({g.type})</option>)}
           </select>
           <select className="input w-full" value={formData.course_id || ''} onChange={(e) => setFormData({...formData, course_id: parseInt(e.target.value)})}>
-            <option value="">Select Course (optional)</option>
+            <option value="">Select Subject (optional)</option>
             {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <select className="input w-full" value={formData.teacher_id || ''} onChange={(e) => setFormData({...formData, teacher_id: parseInt(e.target.value)})}>
@@ -781,7 +922,7 @@ export default function InstitutionDashboard() {
     else if (modalType === 'announcement') modalContent = renderAnnouncementForm();
     else if (modalType === 'assign') modalContent = renderAssignForm();
     else if (modalType === 'room') modalContent = renderRoomForm();
-    else if (modalType === 'course') modalContent = renderCourseForm();
+    else if (modalType === 'subject') modalContent = renderSubjectForm();
     else if (modalType === 'timetable') modalContent = renderTimetableForm();
 
     const modalTitle = {
@@ -790,7 +931,7 @@ export default function InstitutionDashboard() {
       announcement: 'New Announcement',
       assign: 'Assign Teacher to Group',
       room: editingItem ? 'Edit Room' : 'Add Room',
-      course: editingItem ? 'Edit Course' : 'Add Course',
+      subject: editingItem ? 'Edit Subject' : 'Add Subject',
       timetable: editingItem ? 'Edit Timetable Entry' : 'Add Timetable Entry',
     }[modalType] || 'Modal';
 
@@ -807,6 +948,7 @@ export default function InstitutionDashboard() {
     );
   };
 
+  // ---------- Main render ----------
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-2">🏫 Institution Dashboard</h1>
@@ -840,13 +982,14 @@ export default function InstitutionDashboard() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Added Subjects */}
       <div className="flex flex-wrap gap-2 border-b border-white/10 mb-6">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'students', label: 'Students' },
           { id: 'teachers', label: 'Teachers' },
           { id: 'groups', label: 'Groups' },
+          { id: 'subjects', label: 'Subjects' },
           { id: 'timetable', label: 'Timetable' },
           { id: 'resources', label: 'Resources' },
           { id: 'announcements', label: 'Announcements' },
@@ -866,6 +1009,7 @@ export default function InstitutionDashboard() {
       {activeTab === 'students' && renderStudents()}
       {activeTab === 'teachers' && renderTeachers()}
       {activeTab === 'groups' && renderGroups()}
+      {activeTab === 'subjects' && renderSubjects()}
       {activeTab === 'timetable' && renderTimetable()}
       {activeTab === 'resources' && renderResources()}
       {activeTab === 'announcements' && renderAnnouncements()}
