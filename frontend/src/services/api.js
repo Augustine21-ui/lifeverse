@@ -824,4 +824,20 @@ deleteTimetableEntry: (id) => api.delete(`/institution/timetable/${id}`),
 getTimetableDay: (date) => api.get(`/timetable/my/day/${date}`),
 getTimetableWeek: (startDate) => api.get(`/timetable/my/week/${startDate}`),
 getTimetableMonth: (year, month) => api.get(`/timetable/my/month/${year}/${month}`),
+
+// Study Notes
+getStudyNotes: () => api.get('/study/notes'),
+createStudyNote: (data) => api.post('/study/notes', data),
+updateStudyNote: (id, data) => api.put(`/study/notes/${id}`, data),
+deleteStudyNote: (id) => api.delete(`/study/notes/${id}`),
+pinStudyNote: (id, data) => api.patch(`/study/notes/${id}/pin`, data),
+
+// Highlights
+getHighlights: () => api.get('/study/highlights'),
+createHighlight: (data) => api.post('/study/highlights', data),
+
+// Bookmarks
+getBookmarks: () => api.get('/study/bookmarks'),
+createBookmark: (data) => api.post('/study/bookmarks', data),
+deleteBookmark: (id) => api.delete(`/study/bookmarks/${id}`),
 };
