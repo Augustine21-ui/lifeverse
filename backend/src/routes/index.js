@@ -6,6 +6,7 @@ import { getChallenges, submitChallenge, getUserChallenges } from '../challengeC
 import { getChildren, getChildProgress } from '../parentController.js';
 import { getStudents, getStudentProgressForTeacher, getClassSummary } from '../teacherController.js';
 import { sendMessage, getMessages, getMessagesByConversation, getPeerContacts, getOrCreatePeerConversation } from '../bridgeMessageController.js';
+import * as timetableController from '../controllers/timetableController.js';
 
 // ✅ resourcesController is in src/
 import { getResources } from '../resourcesController.js';
@@ -129,6 +130,20 @@ router.get('/skills/:skillId/my-practice', authenticate, skillGrowth.getUserPrac
 router.get('/skills/:skillId/recommendations', authenticate, skillGrowth.getRecommendations);
 router.post('/skills/create', authenticate, skillGrowth.createSkill);
 
+router.get('/timetable/my', authenticate, timetableController.getMyTimetable);
+router.get('/timetable/my/day/:date', authenticate, timetableController.getMyDay);
+router.get('/timetable/my/week/:startDate', authenticate, timetableController.getMyWeek);
+router.get('/timetable/my/month/:year/:month', authenticate, timetableController.getMyMonth);
+
+// Institution management
+router.get('/institution/timetable', authenticate, timetableController.getInstitutionTimetable);
+router.post('/institution/timetable', authenticate, timetableController.createTimetableEntry);
+router.put('/institution/timetable/:id', authenticate, timetableController.updateTimetableEntry);
+router.delete('/institution/timetable/:id', authenticate, timetableController.deleteTimetableEntry);
+router.get('/institution/rooms', authenticate, timetableController.getRooms);
+router.post('/institution/rooms', authenticate, timetableController.createRoom);
+router.get('/institution/courses', authenticate, timetableController.getCourses);
+router.post('/institution/courses', authenticate, timetableController.createCourse);
 // Root
 router.get('/', (req, res) => res.json({ message: 'API root' }));
 

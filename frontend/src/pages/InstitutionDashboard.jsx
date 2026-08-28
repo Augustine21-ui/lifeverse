@@ -5,7 +5,8 @@ import { api } from '../services/api';
 import {
   Users, BookOpen, FileText, Calendar, Loader2,
   Plus, Edit, Trash2, Upload, Download, Link as LinkIcon,
-  Megaphone, Paperclip, UserPlus, X, Check
+  Megaphone, Paperclip, UserPlus, X, Check,
+  MapPin, Clock, Repeat
 } from 'lucide-react';
 
 export default function InstitutionDashboard() {
@@ -37,12 +38,23 @@ export default function InstitutionDashboard() {
   const [hierarchy, setHierarchy] = useState([]);
   const [loadingHierarchy, setLoadingHierarchy] = useState(false);
 
+  // ---- Extra lists for timetable management ----
+  const [rooms, setRooms] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [teachers, setTeachers] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
+
   // Fetch dashboard data
   const loadData = async () => {
     setLoading(true);
     try {
       const res = await api.getInstitutionDashboard();
       setData(res);
+      // Also load groups for dropdowns
+      if (res.groups) setGroups(res.groups);
     } catch (err) {
       console.error(err);
     } finally {
@@ -63,18 +75,57 @@ export default function InstitutionDashboard() {
     }
   };
 
+  // Load rooms, courses, teachers
+  const loadRooms = async () => {
+    setLoadingRooms(true);
+    try {
+      const res = await api.getInstitutionRooms();
+      setRooms(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+  const loadCourses = async () => {
+    setLoadingCourses(true);
+    try {
+      const res = await api.getInstitutionCourses();
+      setCourses(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
+  const loadTeachers = async () => {
+    setLoadingTeachers(true);
+    try {
+      const res = await api.getInstitutionTeachers();
+      setTeachers(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingTeachers(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, []);
 
-  // Load hierarchy when switching to groups tab
   useEffect(() => {
     if (activeTab === 'groups') {
       loadHierarchy();
     }
+    if (activeTab === 'timetable') {
+      loadRooms();
+      loadCourses();
+      loadTeachers();
+      // Also refresh groups if needed
+    }
   }, [activeTab]);
 
-  // Load timetable when selectedGroup changes
   useEffect(() => {
     if (selectedGroup) {
       loadTimetable(selectedGroup);
@@ -94,13 +145,6 @@ export default function InstitutionDashboard() {
     }
   };
 
-  // Load resources when target changes
-  useEffect(() => {
-    if (targetId) {
-      loadResources();
-    }
-  }, [targetType, targetId]);
-
   const loadResources = async () => {
     if (!targetId) return;
     setLoadingResources(true);
@@ -117,7 +161,7 @@ export default function InstitutionDashboard() {
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-400" size={40} /></div>;
   if (!data) return <div className="p-6 text-center text-white/60">No data available</div>;
 
-  const { stats, students, teachers, groups } = data;
+  const { stats, students, teachers: teacherList, groups: groupList } = data;
 
   // ---------- Modal helpers ----------
   const openModal = (type, item = null, initialFormData = null) => {
@@ -148,33 +192,67 @@ export default function InstitutionDashboard() {
         }
       } else if (modalType === 'resource') {
         let resourceData = { ...formData };
-        console.log('🔍 Resource data before processing:', resourceData);
         if (resourceData.targetType === 'institution') {
           if (!user?.institution_id) {
-            alert('You are not linked to an institution. Please log out and log in again.');
+            alert('You are not linked to an institution.');
             setSubmitting(false);
             return;
           }
           resourceData.targetId = user.institution_id;
         } else if (resourceData.targetType === 'academic_group') {
           if (!resourceData.targetId) {
-            alert('Please select a group from the dropdown.');
+            alert('Please select a group.');
             setSubmitting(false);
             return;
           }
         }
-        // Ensure targetId is present
-        if (!resourceData.targetId) {
-          alert('Target ID is required. Please select a group or provide institution ID.');
-          setSubmitting(false);
-          return;
-        }
-        console.log('📤 Submitting resource:', resourceData);
         await api.createResource(resourceData);
       } else if (modalType === 'announcement') {
         await api.createAnnouncement(formData);
       } else if (modalType === 'assign') {
         await api.assignTeacher(formData);
+      } else if (modalType === 'room') {
+        if (editingItem?.id) {
+          await api.updateRoom(editingItem.id, formData);
+        } else {
+          await api.createRoom(formData);
+        }
+        await loadRooms();
+      } else if (modalType === 'course') {
+        if (editingItem?.id) {
+          await api.updateCourse(editingItem.id, formData);
+        } else {
+          await api.createCourse(formData);
+        }
+        await loadCourses();
+      } else if (modalType === 'timetable') {
+        // Ensure group is selected
+        if (!formData.class_id) {
+          alert('Please select a class/group.');
+          setSubmitting(false);
+          return;
+        }
+        // Ensure teacher, room, day, start/end time are filled
+        const payload = {
+          class_id: parseInt(formData.class_id),
+          course_id: formData.course_id ? parseInt(formData.course_id) : null,
+          teacher_id: formData.teacher_id ? parseInt(formData.teacher_id) : null,
+          room_id: formData.room_id ? parseInt(formData.room_id) : null,
+          day_of_week: parseInt(formData.day_of_week),
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          start_date: formData.start_date || null,
+          end_date: formData.end_date || null,
+          is_recurring: formData.is_recurring !== undefined ? formData.is_recurring : true,
+          semester: formData.semester || null,
+        };
+        if (editingItem?.id) {
+          await api.updateTimetableEntry(editingItem.id, payload);
+        } else {
+          await api.createTimetableEntry(payload);
+        }
+        // Refresh timetable
+        if (selectedGroup) await loadTimetable(selectedGroup);
       }
       await loadData();
       if (activeTab === 'groups') loadHierarchy();
@@ -198,6 +276,7 @@ export default function InstitutionDashboard() {
       setCsvFile(null);
       if (csvInputRef.current) csvInputRef.current.value = '';
       await loadData();
+      if (selectedGroup) await loadTimetable(selectedGroup);
     } catch (err) {
       console.error(err);
       alert('Upload failed');
@@ -207,15 +286,20 @@ export default function InstitutionDashboard() {
   };
 
   const handleDelete = async (type, id) => {
-    if (!id) {
-      alert('Invalid ID');
-      return;
-    }
+    if (!id) return;
     if (!confirm(`Delete this ${type}?`)) return;
     try {
       if (type === 'group') await api.deleteGroup(id);
+      else if (type === 'room') await api.deleteRoom(id);
+      else if (type === 'course') await api.deleteCourse(id);
+      else if (type === 'timetable') await api.deleteTimetableEntry(id);
       await loadData();
       if (activeTab === 'groups') loadHierarchy();
+      if (activeTab === 'timetable') {
+        if (selectedGroup) await loadTimetable(selectedGroup);
+        await loadRooms();
+        await loadCourses();
+      }
     } catch (err) {
       console.error(err);
       alert('Delete failed');
@@ -383,70 +467,96 @@ export default function InstitutionDashboard() {
     </div>
   );
 
-  const renderTimetable = () => (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Timetable</h2>
-      <div className="flex flex-wrap gap-4 mb-4">
-        <select
-          className="input flex-1 min-w-[200px]"
-          value={selectedGroup}
-          onChange={(e) => setSelectedGroup(e.target.value)}
-        >
-          <option value="">Select a group</option>
-          {groups.map(g => (
-            <option key={g.id} value={g.id}>{g.name} ({g.type})</option>
-          ))}
-        </select>
-        <label className="btn-secondary text-sm cursor-pointer">
-          <Upload size={16} className="inline mr-1" /> Upload CSV
-          <input
-            ref={csvInputRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={(e) => {
-              setCsvFile(e.target.files[0]);
-              if (e.target.files[0]) handleCsvUpload();
-            }}
-          />
-        </label>
-      </div>
-      {selectedGroup && (
-        <div className="card overflow-x-auto p-0">
-          {loadingEntries ? (
-            <div className="p-4 text-center"><Loader2 className="animate-spin text-brand-400" size={24} /></div>
-          ) : timetableEntries.length === 0 ? (
-            <p className="p-4 text-white/40">No timetable entries for this group.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-white/5">
-                <tr className="text-white/40">
-                  <th className="p-3 text-left">Day</th>
-                  <th className="p-3 text-left">Start</th>
-                  <th className="p-3 text-left">End</th>
-                  <th className="p-3 text-left">Subject</th>
-                  <th className="p-3 text-left">Teacher</th>
-                  <th className="p-3 text-left">Room</th>
-                </tr>
-              </thead>
-              <tbody>
-                {timetableEntries.map(t => (
-                  <tr key={t.id} className="border-t border-white/5">
-                    <td className="p-3 capitalize">{t.day_of_week}</td>
-                    <td className="p-3">{t.start_time?.slice(0,5)}</td>
-                    <td className="p-3">{t.end_time?.slice(0,5)}</td>
-                    <td className="p-3">{t.subject}</td>
-                    <td className="p-3">{t.teacher_name || '—'}</td>
-                    <td className="p-3">{t.room || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+  // ---- Timetable Tab ----
+  const renderTimetable = () => {
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+          <h2 className="text-xl font-semibold">Timetable</h2>
+          <div className="flex gap-2 flex-wrap">
+            <button className="btn-primary text-sm" onClick={() => openModal('timetable', null, { is_recurring: true })}>
+              <Plus size={16} className="inline mr-1" /> Add Entry
+            </button>
+            <button className="btn-secondary text-sm" onClick={() => openModal('room')}>
+              <MapPin size={16} className="inline mr-1" /> Manage Rooms
+            </button>
+            <button className="btn-secondary text-sm" onClick={() => openModal('course')}>
+              <BookOpen size={16} className="inline mr-1" /> Manage Courses
+            </button>
+            <label className="btn-secondary text-sm cursor-pointer">
+              <Upload size={16} className="inline mr-1" /> Upload CSV
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => {
+                  setCsvFile(e.target.files[0]);
+                  if (e.target.files[0]) handleCsvUpload();
+                }}
+              />
+            </label>
+          </div>
         </div>
-      )}
-    </div>
-  );
+        <div className="flex flex-wrap gap-4 mb-4">
+          <select
+            className="input flex-1 min-w-[200px]"
+            value={selectedGroup}
+            onChange={(e) => setSelectedGroup(e.target.value)}
+          >
+            <option value="">Select a class/group</option>
+            {groups.map(g => (
+              <option key={g.id} value={g.id}>{g.name} ({g.type})</option>
+            ))}
+          </select>
+        </div>
+        {selectedGroup && (
+          <div className="card overflow-x-auto p-0">
+            {loadingEntries ? (
+              <div className="p-4 text-center"><Loader2 className="animate-spin text-brand-400" size={24} /></div>
+            ) : timetableEntries.length === 0 ? (
+              <p className="p-4 text-white/40">No timetable entries for this group.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-white/5">
+                  <tr className="text-white/40">
+                    <th className="p-3 text-left">Day</th>
+                    <th className="p-3 text-left">Start</th>
+                    <th className="p-3 text-left">End</th>
+                    <th className="p-3 text-left">Course</th>
+                    <th className="p-3 text-left">Teacher</th>
+                    <th className="p-3 text-left">Room</th>
+                    <th className="p-3 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {timetableEntries.map(t => (
+                    <tr key={t.id} className="border-t border-white/5 hover:bg-white/5">
+                      <td className="p-3 capitalize">{dayNames[t.day_of_week]}</td>
+                      <td className="p-3">{t.start_time?.slice(0,5)}</td>
+                      <td className="p-3">{t.end_time?.slice(0,5)}</td>
+                      <td className="p-3">{t.course_name || '—'}</td>
+                      <td className="p-3">{t.teacher_name || '—'}</td>
+                      <td className="p-3">{t.room_name || '—'}</td>
+                      <td className="p-3">
+                        <button onClick={() => openModal('timetable', t)} className="text-white/30 hover:text-brand-400 mr-2">
+                          <Edit size={16} />
+                        </button>
+                        <button onClick={() => handleDelete('timetable', t.id)} className="text-white/30 hover:text-red-400">
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderResources = () => (
     <div>
@@ -605,28 +715,98 @@ export default function InstitutionDashboard() {
       </form>
     );
 
+    const renderRoomForm = () => (
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input type="text" className="input w-full" placeholder="Room Name" value={formData.name || ''} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+        <input type="number" className="input w-full" placeholder="Capacity" value={formData.capacity || ''} onChange={(e) => setFormData({...formData, capacity: parseInt(e.target.value)})} />
+        <input type="text" className="input w-full" placeholder="Building" value={formData.building || ''} onChange={(e) => setFormData({...formData, building: e.target.value})} />
+        <input type="number" className="input w-full" placeholder="Floor" value={formData.floor || ''} onChange={(e) => setFormData({...formData, floor: parseInt(e.target.value)})} />
+        <button type="submit" disabled={submitting} className="btn-primary w-full">{submitting ? 'Saving...' : editingItem ? 'Update Room' : 'Add Room'}</button>
+      </form>
+    );
+
+    const renderCourseForm = () => (
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input type="text" className="input w-full" placeholder="Course Name" value={formData.name || ''} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+        <input type="text" className="input w-full" placeholder="Course Code" value={formData.code || ''} onChange={(e) => setFormData({...formData, code: e.target.value})} />
+        <textarea className="input w-full" rows="2" placeholder="Description" value={formData.description || ''} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+        <button type="submit" disabled={submitting} className="btn-primary w-full">{submitting ? 'Saving...' : editingItem ? 'Update Course' : 'Add Course'}</button>
+      </form>
+    );
+
+    const renderTimetableForm = () => {
+      const dayOptions = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      return (
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <select className="input w-full" value={formData.class_id || ''} onChange={(e) => setFormData({...formData, class_id: parseInt(e.target.value)})} required>
+            <option value="">Select Class/Group</option>
+            {groups.map(g => <option key={g.id} value={g.id}>{g.name} ({g.type})</option>)}
+          </select>
+          <select className="input w-full" value={formData.course_id || ''} onChange={(e) => setFormData({...formData, course_id: parseInt(e.target.value)})}>
+            <option value="">Select Course (optional)</option>
+            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <select className="input w-full" value={formData.teacher_id || ''} onChange={(e) => setFormData({...formData, teacher_id: parseInt(e.target.value)})}>
+            <option value="">Select Teacher (optional)</option>
+            {teachers.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+          </select>
+          <select className="input w-full" value={formData.room_id || ''} onChange={(e) => setFormData({...formData, room_id: parseInt(e.target.value)})}>
+            <option value="">Select Room (optional)</option>
+            {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+          <select className="input w-full" value={formData.day_of_week || 0} onChange={(e) => setFormData({...formData, day_of_week: parseInt(e.target.value)})} required>
+            {dayOptions.map((d, i) => <option key={i} value={i}>{d}</option>)}
+          </select>
+          <div className="flex gap-3">
+            <input type="time" className="input w-1/2" value={formData.start_time || ''} onChange={(e) => setFormData({...formData, start_time: e.target.value})} required />
+            <input type="time" className="input w-1/2" value={formData.end_time || ''} onChange={(e) => setFormData({...formData, end_time: e.target.value})} required />
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" checked={formData.is_recurring !== false} onChange={(e) => setFormData({...formData, is_recurring: e.target.checked})} />
+            <label className="text-sm text-white/60">Recurring weekly</label>
+          </div>
+          <div className="flex gap-3">
+            <input type="date" className="input w-1/2" value={formData.start_date || ''} onChange={(e) => setFormData({...formData, start_date: e.target.value})} placeholder="Start date" />
+            <input type="date" className="input w-1/2" value={formData.end_date || ''} onChange={(e) => setFormData({...formData, end_date: e.target.value})} placeholder="End date" />
+          </div>
+          <input type="text" className="input w-full" placeholder="Semester (e.g., Fall 2025)" value={formData.semester || ''} onChange={(e) => setFormData({...formData, semester: e.target.value})} />
+          <button type="submit" disabled={submitting} className="btn-primary w-full">{submitting ? 'Saving...' : editingItem ? 'Update Entry' : 'Add Entry'}</button>
+        </form>
+      );
+    };
+
+    let modalContent = null;
+    if (modalType === 'group') modalContent = renderGroupForm();
+    else if (modalType === 'resource') modalContent = renderResourceForm();
+    else if (modalType === 'announcement') modalContent = renderAnnouncementForm();
+    else if (modalType === 'assign') modalContent = renderAssignForm();
+    else if (modalType === 'room') modalContent = renderRoomForm();
+    else if (modalType === 'course') modalContent = renderCourseForm();
+    else if (modalType === 'timetable') modalContent = renderTimetableForm();
+
+    const modalTitle = {
+      group: editingItem ? 'Edit Group' : 'New Group',
+      resource: 'Upload Resource',
+      announcement: 'New Announcement',
+      assign: 'Assign Teacher to Group',
+      room: editingItem ? 'Edit Room' : 'Add Room',
+      course: editingItem ? 'Edit Course' : 'Add Course',
+      timetable: editingItem ? 'Edit Timetable Entry' : 'Add Timetable Entry',
+    }[modalType] || 'Modal';
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-        <div className="w-full max-w-md card p-6">
+        <div className="w-full max-w-md card p-6 max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">
-              {modalType === 'group' && (editingItem ? 'Edit Group' : 'New Group')}
-              {modalType === 'resource' && 'Upload Resource'}
-              {modalType === 'announcement' && 'New Announcement'}
-              {modalType === 'assign' && 'Assign Teacher to Group'}
-            </h2>
+            <h2 className="text-xl font-bold">{modalTitle}</h2>
             <button onClick={closeModal} className="text-white/40 hover:text-white"><X size={20} /></button>
           </div>
-          {modalType === 'group' && renderGroupForm()}
-          {modalType === 'resource' && renderResourceForm()}
-          {modalType === 'announcement' && renderAnnouncementForm()}
-          {modalType === 'assign' && renderAssignForm()}
+          {modalContent}
         </div>
       </div>
     );
   };
 
-  // ---------- Main render ----------
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-2">🏫 Institution Dashboard</h1>

@@ -799,4 +799,29 @@ submitPracticeResult: (data) => api.post('/practice/submit', data),
 getUserPracticeResults: (skillId) => api.get(`/skills/${skillId}/my-practice`),
 getRecommendations: (skillId) => api.get(`/skills/${skillId}/recommendations`),
 createSkill: (data) => api.post('/skills/create', data),
+
+// ---- Rooms ----
+getInstitutionRooms: () => api.get('/institution/rooms'),
+createRoom: (data) => api.post('/institution/rooms', data),
+updateRoom: (id, data) => api.put(`/institution/rooms/${id}`, data),
+deleteRoom: (id) => api.delete(`/institution/rooms/${id}`),
+
+// ---- Courses ----
+getInstitutionCourses: () => api.get('/institution/courses'),
+createCourse: (data) => api.post('/institution/courses', data),
+updateCourse: (id, data) => api.put(`/institution/courses/${id}`, data),
+deleteCourse: (id) => api.delete(`/institution/courses/${id}`),
+
+// ---- Teachers for assignment ----
+getInstitutionTeachers: () => api.get('/institution/teachers'),
+
+// ---- Timetable entries ----
+createTimetableEntry: (data) => api.post('/institution/timetable', data),
+updateTimetableEntry: (id, data) => api.put(`/institution/timetable/${id}`, data),
+deleteTimetableEntry: (id) => api.delete(`/institution/timetable/${id}`),
+
+// Timetable endpoints
+getTimetableDay: (date) => api.get(`/timetable/my/day/${date}`),
+getTimetableWeek: (startDate) => api.get(`/timetable/my/week/${startDate}`),
+getTimetableMonth: (year, month) => api.get(`/timetable/my/month/${year}/${month}`),
 };
