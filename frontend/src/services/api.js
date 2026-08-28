@@ -851,4 +851,12 @@ getLibraryProgress: (bookId) => api.get(`/library/books/${bookId}/progress`),
 getLibraryBookmarks: (bookId) => api.get(`/library/books/${bookId}/bookmarks`),
 createLibraryBookmark: (bookId, data) => api.post(`/library/books/${bookId}/bookmarks`, data),
 deleteLibraryBookmark: (bookId, bookmarkId) => api.delete(`/library/books/${bookId}/bookmarks/${bookmarkId}`),
+
+// ─── Opportunities ──────────────────────────────────────────────────
+getOpportunitiesPersonalized: () => api.get('/opportunities/personalized'),
+getOpportunities: (params) => api.get('/opportunities', params),
+getOpportunity: (id) => api.get(`/opportunities/${id}`),
+applyOpportunity: (id) => api.post(`/opportunities/${id}/apply`),
+getMyApplications: () => api.get('/my-applications'),
+
 };

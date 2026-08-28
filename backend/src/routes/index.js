@@ -10,6 +10,7 @@ import * as timetableController from '../controllers/timetableController.js';
 import * as libraryController from '../controllers/libraryController.js';
 // ✅ resourcesController is in src/
 import { getResources } from '../resourcesController.js';
+import * as opportunityController from '../controllers/opportunityController.js';
 
 import { getOpportunities, applyOpportunity, getUserApplications } from '../opportunityController.js';
 import { getCommunities, getCommunityById, joinCommunity, leaveCommunity, getMyCommunities, getCommunityMessages, sendCommunityMessage, getCommunityMembers, updateMemberRole, createCommunity } from '../communityController.js';
@@ -159,6 +160,14 @@ router.post('/study/highlights', authenticate, studyController.createHighlight);
 router.get('/study/bookmarks', authenticate, studyController.getBookmarks);
 router.post('/study/bookmarks', authenticate, studyController.createBookmark);
 router.delete('/study/bookmarks/:id', authenticate, studyController.deleteBookmark);
+
+router.get('/opportunities/personalized', authenticate, opportunityController.getPersonalized);
+router.get('/opportunities', authenticate, opportunityController.getOpportunities);
+router.get('/opportunities/:id', authenticate, opportunityController.getOpportunity);
+router.post('/opportunities/:id/apply', authenticate, opportunityController.applyOpportunity);
+router.get('/my-applications', authenticate, opportunityController.getMyApplications);
+router.get('/organizations/:id', authenticate, opportunityController.getOrganization);
+
 
 router.get('/library/categories', authenticate, libraryController.getCategories);
 router.post('/library/categories', authenticate, libraryController.createCategory);
