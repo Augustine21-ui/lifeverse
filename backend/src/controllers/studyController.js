@@ -172,3 +172,62 @@ export const deleteBookmark = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// ─── Current Study Context ──────────────────────────────────────────
+
+export const getCurrentStudy = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const result = await query(
+      `SELECT subject, topic, grade, learning_style 
+       FROM user_study_context 
+       WHERE user_id = $1`,
+      [userId]
+    );
+    if (result.rows.length === 0) {
+      return res.json({ subject: null, topic: null, grade: null, learning_style: null });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching current study:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const updateCurrentStudy = async (req, res) => {
+  const userId = req.user.id;
+  const { subject, topic, grade, learning_style } = req.body;
+  try {
+    // Check if exists
+    const existing = await query(
+      'SELECT id FROM user_study_context WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (existing.rows.length === 0) {
+      // Insert
+      const result = await query(
+        `INSERT INTO user_study_context (user_id, subject, topic, grade, learning_style)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [userId, subject, topic, grade, learning_style]
+      );
+      return res.json(result.rows[0]);
+    } else {
+      // Update
+      const result = await query(
+        `UPDATE user_study_context SET
+          subject = COALESCE($1, subject),
+          topic = COALESCE($2, topic),
+          grade = COALESCE($3, grade),
+          learning_style = COALESCE($4, learning_style),
+          updated_at = NOW()
+         WHERE user_id = $5 RETURNING *`,
+        [subject, topic, grade, learning_style, userId]
+      );
+      return res.json(result.rows[0]);
+    }
+  } catch (err) {
+    console.error('Error updating current study:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
