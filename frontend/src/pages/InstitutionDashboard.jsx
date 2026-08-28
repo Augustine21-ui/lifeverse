@@ -64,7 +64,9 @@ export default function InstitutionDashboard() {
         setData({ stats: { totalStudents: 0, totalTeachers: 0, totalGroups: 0, totalResources: 0 }, students: [], teachers: [], groups: [], announcements: [] });
       } else {
         setData(res);
-        if (res.groups) setGroups(res.groups);
+        // Set state from data
+        setTeachers(res.teachers || []);
+        setGroups(res.groups || []);
         // Extract departments from groups (type 'department')
         if (res.groups) {
           const deps = res.groups.filter(g => g.type === 'department');
@@ -218,10 +220,12 @@ export default function InstitutionDashboard() {
     );
   }
 
+  // ---------- REMOVED DUPLICATE DECLARATIONS ----------
+  // const teachers = data.teachers || [];   // ❌ REMOVED – use state instead
+  // const groups = data.groups || [];       // ❌ REMOVED – use state instead
+  // Keep these (they don't conflict with state):
   const stats = data.stats || { totalStudents: 0, totalTeachers: 0, totalGroups: 0, totalResources: 0 };
   const students = data.students || [];
-  const teachers = data.teachers || [];
-  const groups = data.groups || [];
   const announcements = data.announcements || [];
 
   // ---------- Modal helpers ----------
