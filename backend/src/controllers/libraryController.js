@@ -6,16 +6,41 @@ import { query } from '../db.js';
 export const getCategories = async (req, res) => {
   const userId = req.user.id;
   try {
-    const instRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
-    const institution_id = instRes.rows[0]?.institution_id;
-    if (!institution_id) return res.status(403).json({ error: 'Not an institution user' });
+    // Get user's institution_id (if any)
+    const userRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
+    const institution_id = userRes.rows[0]?.institution_id;
     
-    const result = await query(
-      `SELECT * FROM library_categories 
-       WHERE institution_id = $1 
-       ORDER BY parent_id NULLS FIRST, name`,
-      [institution_id]
-    );
+    let result;
+    if (institution_id) {
+      // Institution user - get their institution's categories
+      result = await query(
+        `SELECT * FROM library_categories 
+         WHERE institution_id = $1 
+         ORDER BY parent_id NULLS FIRST, name`,
+        [institution_id]
+      );
+    } else {
+      // Student - get all public categories from their institution via academic groups
+      // First find the student's institution through their academic groups
+      const instRes = await query(
+        `SELECT ag.institution_id 
+         FROM user_academic_groups uag
+         JOIN academic_groups ag ON uag.academic_group_id = ag.id
+         WHERE uag.user_id = $1
+         LIMIT 1`,
+        [userId]
+      );
+      if (instRes.rows.length === 0) {
+        return res.json([]);
+      }
+      const studentInstId = instRes.rows[0].institution_id;
+      result = await query(
+        `SELECT * FROM library_categories 
+         WHERE institution_id = $1 
+         ORDER BY parent_id NULLS FIRST, name`,
+        [studentInstId]
+      );
+    }
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -27,9 +52,9 @@ export const createCategory = async (req, res) => {
   const userId = req.user.id;
   const { name, description, parent_id } = req.body;
   try {
-    const instRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
-    const institution_id = instRes.rows[0]?.institution_id;
-    if (!institution_id) return res.status(403).json({ error: 'Not an institution user' });
+    const userRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
+    const institution_id = userRes.rows[0]?.institution_id;
+    if (!institution_id) return res.status(403).json({ error: 'Only institution users can create categories' });
     
     const result = await query(
       `INSERT INTO library_categories (institution_id, name, description, parent_id)
@@ -47,11 +72,10 @@ export const deleteCategory = async (req, res) => {
   const userId = req.user.id;
   const { id } = req.params;
   try {
-    const instRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
-    const institution_id = instRes.rows[0]?.institution_id;
-    if (!institution_id) return res.status(403).json({ error: 'Not an institution user' });
+    const userRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
+    const institution_id = userRes.rows[0]?.institution_id;
+    if (!institution_id) return res.status(403).json({ error: 'Only institution users can delete categories' });
     
-    // Check if category has books
     const bookCheck = await query('SELECT id FROM library_books WHERE category_id = $1', [id]);
     if (bookCheck.rows.length > 0) {
       return res.status(400).json({ error: 'Cannot delete category with books. Move or delete books first.' });
@@ -71,9 +95,28 @@ export const getBooks = async (req, res) => {
   const userId = req.user.id;
   const { category, subject, search, course } = req.query;
   try {
-    const userRes = await query('SELECT institution_id, id FROM users WHERE id = $1', [userId]);
+    // Get user's institution_id
+    const userRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
     const institution_id = userRes.rows[0]?.institution_id;
-    const userId_val = userRes.rows[0]?.id;
+    
+    let institutionId = institution_id;
+    
+    // If student (no institution_id), get from academic_groups
+    if (!institutionId) {
+      const instRes = await query(
+        `SELECT ag.institution_id 
+         FROM user_academic_groups uag
+         JOIN academic_groups ag ON uag.academic_group_id = ag.id
+         WHERE uag.user_id = $1
+         LIMIT 1`,
+        [userId]
+      );
+      if (instRes.rows.length > 0) {
+        institutionId = instRes.rows[0].institution_id;
+      } else {
+        return res.json([]);
+      }
+    }
     
     let sql = `
       SELECT b.*, 
@@ -82,9 +125,9 @@ export const getBooks = async (req, res) => {
       FROM library_books b
       LEFT JOIN library_categories c ON b.category_id = c.id
       LEFT JOIN library_read_progress p ON p.book_id = b.id AND p.user_id = $1
-      WHERE b.institution_id = $2
+      WHERE b.institution_id = $2 AND b.is_approved = true
     `;
-    const params = [userId_val, institution_id];
+    const params = [userId, institutionId];
     let paramIndex = 3;
     
     if (category) {
@@ -140,9 +183,9 @@ export const createBook = async (req, res) => {
   const userId = req.user.id;
   const { title, author, description, file_url, cover_image_url, subject, course_id, unit, pages, category_id } = req.body;
   try {
-    const instRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
-    const institution_id = instRes.rows[0]?.institution_id;
-    if (!institution_id) return res.status(403).json({ error: 'Not an institution user' });
+    const userRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
+    const institution_id = userRes.rows[0]?.institution_id;
+    if (!institution_id) return res.status(403).json({ error: 'Only institution users can upload books' });
     
     const result = await query(
       `INSERT INTO library_books 
@@ -165,9 +208,9 @@ export const updateBook = async (req, res) => {
   const { id } = req.params;
   const { title, author, description, file_url, cover_image_url, subject, course_id, unit, pages, category_id } = req.body;
   try {
-    const instRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
-    const institution_id = instRes.rows[0]?.institution_id;
-    if (!institution_id) return res.status(403).json({ error: 'Not an institution user' });
+    const userRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
+    const institution_id = userRes.rows[0]?.institution_id;
+    if (!institution_id) return res.status(403).json({ error: 'Only institution users can update books' });
     
     const result = await query(
       `UPDATE library_books SET
@@ -197,9 +240,9 @@ export const deleteBook = async (req, res) => {
   const userId = req.user.id;
   const { id } = req.params;
   try {
-    const instRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
-    const institution_id = instRes.rows[0]?.institution_id;
-    if (!institution_id) return res.status(403).json({ error: 'Not an institution user' });
+    const userRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
+    const institution_id = userRes.rows[0]?.institution_id;
+    if (!institution_id) return res.status(403).json({ error: 'Only institution users can delete books' });
     
     await query('DELETE FROM library_books WHERE id = $1 AND institution_id = $2', [id, institution_id]);
     res.status(204).send();
@@ -213,10 +256,9 @@ export const deleteBook = async (req, res) => {
 
 export const updateProgress = async (req, res) => {
   const userId = req.user.id;
-  const { id } = req.params; // book_id
+  const { id } = req.params;
   const { current_page } = req.body;
   try {
-    // Get book total pages
     const bookRes = await query('SELECT pages FROM library_books WHERE id = $1', [id]);
     if (bookRes.rows.length === 0) return res.status(404).json({ error: 'Book not found' });
     const totalPages = bookRes.rows[0].pages || 100;
@@ -244,7 +286,7 @@ export const updateProgress = async (req, res) => {
 
 export const getProgress = async (req, res) => {
   const userId = req.user.id;
-  const { id } = req.params; // book_id
+  const { id } = req.params;
   try {
     const result = await query(
       `SELECT * FROM library_read_progress WHERE user_id = $1 AND book_id = $2`,
@@ -264,7 +306,7 @@ export const getProgress = async (req, res) => {
 
 export const getBookmarks = async (req, res) => {
   const userId = req.user.id;
-  const { id } = req.params; // book_id
+  const { id } = req.params;
   try {
     const result = await query(
       `SELECT * FROM library_bookmarks WHERE user_id = $1 AND book_id = $2 ORDER BY page_number`,
@@ -279,7 +321,7 @@ export const getBookmarks = async (req, res) => {
 
 export const createBookmark = async (req, res) => {
   const userId = req.user.id;
-  const { id } = req.params; // book_id
+  const { id } = req.params;
   const { page_number, note } = req.body;
   try {
     const result = await query(
@@ -311,18 +353,40 @@ export const deleteBookmark = async (req, res) => {
   }
 };
 
-// ─── Continue Reading (get all books with progress) ──────────────
+// ─── Continue Reading ──────────────────────────────────────────────
 
 export const getContinueReading = async (req, res) => {
   const userId = req.user.id;
   try {
+    // Get user's institution_id
+    const userRes = await query('SELECT institution_id FROM users WHERE id = $1', [userId]);
+    const institution_id = userRes.rows[0]?.institution_id;
+    
+    let institutionId = institution_id;
+    if (!institutionId) {
+      const instRes = await query(
+        `SELECT ag.institution_id 
+         FROM user_academic_groups uag
+         JOIN academic_groups ag ON uag.academic_group_id = ag.id
+         WHERE uag.user_id = $1
+         LIMIT 1`,
+        [userId]
+      );
+      if (instRes.rows.length > 0) {
+        institutionId = instRes.rows[0].institution_id;
+      } else {
+        return res.json([]);
+      }
+    }
+    
     const result = await query(
       `SELECT b.*, p.current_page, p.percentage, p.is_finished, p.last_read_at
        FROM library_books b
        JOIN library_read_progress p ON p.book_id = b.id
        WHERE p.user_id = $1 AND p.is_finished = false
+       AND b.institution_id = $2
        ORDER BY p.last_read_at DESC`,
-      [userId]
+      [userId, institutionId]
     );
     res.json(result.rows);
   } catch (err) {
