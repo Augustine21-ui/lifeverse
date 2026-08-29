@@ -28,6 +28,7 @@ import * as taskController from '../controllers/taskController.js';
 import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
+import { googleAuth } from '../controllers/authController.js';
 
 
 // ... rest of file unchanged
@@ -108,6 +109,9 @@ router.get('/parent/child/:id/progress', authenticate, getChildProgress);
 router.get('/teacher/students', authenticate, getStudents);
 router.get('/teacher/student/:id/progress', authenticate, getStudentProgressForTeacher);
 router.get('/teacher/class-summary', authenticate, getClassSummary);
+
+// Google OAuth
+router.post('/auth/google', googleAuth);
 
 // StudySphere
 router.get('/resources', authenticate, getResources);

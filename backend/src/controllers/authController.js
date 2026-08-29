@@ -5,8 +5,68 @@ import db from '../config/db.js';
 import crypto from 'crypto';
 import { sendResetEmail } from '../services/emailService.js';
 import { isInstitutionSubscribed, getUserAccess } from '../services/subscriptionService.js';
+import { OAuth2Client } from 'google-auth-library';
 
 const generateResetToken = () => crypto.randomBytes(32).toString('hex');
+
+const googleClient = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI || 'postmessage'
+);
+
+export const googleAuth = async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      return res.status(400).json({ error: 'Authorization code required' });
+    }
+
+    // Exchange code for tokens
+    const { tokens } = await googleClient.getToken(code);
+    googleClient.setCredentials(tokens);
+
+    // Verify ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    const { email, name, picture, sub: googleId } = payload;
+
+    // Find or create user in your database
+    let userRes = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    let user;
+    if (userRes.rows.length === 0) {
+      // Create new user
+      const insertRes = await db.query(
+        `INSERT INTO users (email, full_name, password_hash, role, profile_picture, google_id)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, full_name, role`,
+        [email, name, null, 'student', picture, googleId]
+      );
+      user = insertRes.rows[0];
+    } else {
+      user = userRes.rows[0];
+      // Optionally update google_id if not set
+      if (!user.google_id) {
+        await db.query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, user.id]);
+      }
+    }
+
+    // Generate your own JWT
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(200).json({ token, user });
+  } catch (err) {
+    console.error('Google auth error:', err);
+    res.status(500).json({ error: 'Google authentication failed', details: err.message });
+  }
+};
 
 // ---------- LOGIN ----------
 export const login = async (req, res) => {
