@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Mail, Lock, User, AlertCircle, Building, GraduationCap, Users, Eye, EyeOff, Plus, X } from 'lucide-react';
@@ -53,6 +52,7 @@ export default function RegisterPage() {
     email: '',
     password: '',
     fullName: '',
+    dateOfBirth: '', // <-- NEW
     educationLevel: educationLevels[0],
     institution: '',
     course: '',
@@ -132,7 +132,7 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
 
-    if (!form.username || !form.email || !form.password || !form.fullName || !form.institution) {
+    if (!form.username || !form.email || !form.password || !form.fullName || !form.institution || !form.dateOfBirth) {
       setError('Please fill in all required fields');
       setLoading(false);
       return;
@@ -158,11 +158,11 @@ export default function RegisterPage() {
       institution: form.institution,
       course: form.course,
       role: form.role,
+      date_of_birth: form.dateOfBirth, // <-- NEW
     };
 
     try {
       const data = await register(payload);
-      // After successful registration, redirect to academic onboarding
       showToast('Account created! Please complete your academic setup.', 'success');
       navigate('/academic-onboarding');
     } catch (err) {
@@ -204,7 +204,6 @@ export default function RegisterPage() {
                 <label className="label" style={{ color: 'var(--text-secondary)' }}>Full name</label>
                 <input 
                   className="input" 
-                  
                   value={form.fullName} 
                   onChange={set('fullName')} 
                   required 
@@ -219,7 +218,6 @@ export default function RegisterPage() {
                 <label className="label" style={{ color: 'var(--text-secondary)' }}>Username</label>
                 <input 
                   className="input" 
-                 
                   value={form.username} 
                   onChange={set('username')} 
                   required 
@@ -231,6 +229,24 @@ export default function RegisterPage() {
                   }}
                 />
               </div>
+            </div>
+
+            {/* ===== NEW: Date of Birth ===== */}
+            <div>
+              <label className="label" style={{ color: 'var(--text-secondary)' }}>Date of Birth</label>
+              <input
+                type="date"
+                className="input"
+                style={{
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  borderColor: 'var(--border)'
+                }}
+                value={form.dateOfBirth}
+                onChange={set('dateOfBirth')}
+                required
+                max={new Date().toISOString().split('T')[0]} // no future dates
+              />
             </div>
 
             <div>
@@ -246,7 +262,6 @@ export default function RegisterPage() {
                     color: 'var(--text-primary)',
                     borderColor: 'var(--border)'
                   }} 
-                 
                   value={form.email} 
                   onChange={set('email')} 
                   required 
@@ -470,7 +485,6 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          {/* ===== Google Sign-In Divider ===== */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t" style={{ borderColor: 'var(--border)' }} />
@@ -480,7 +494,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* ===== Google Sign-In Button ===== */}
           <GoogleSignInButton mode="register" />
 
           <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: 20 }}>

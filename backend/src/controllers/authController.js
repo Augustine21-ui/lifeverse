@@ -69,9 +69,13 @@ export const login = async (req, res) => {
 // ---------- REGISTER ----------
 export const register = async (req, res) => {
   try {
-    const { full_name, username, email, password, education_level, institution, course, role } = req.body;
-    if (!username || !email || !password || !full_name) {
-      return res.status(400).json({ error: 'Please provide all required fields' });
+    // ═══════════════════════════════════════════════════════
+    //  NEW: destructure date_of_birth from request body
+    // ═══════════════════════════════════════════════════════
+    const { full_name, username, email, password, education_level, institution, course, role, date_of_birth } = req.body;
+
+    if (!username || !email || !password || !full_name || !date_of_birth) {
+      return res.status(400).json({ error: 'Please provide all required fields (including date of birth)' });
     }
 
     // Check if user already exists
@@ -95,9 +99,7 @@ export const register = async (req, res) => {
       }
     }
 
-    // ============================================================
-    // NEW: Find or create a stream for the student's course
-    // ============================================================
+    // Find or create a stream for the student's course
     let academicGroupId = null;
     if (institutionId && course) {
       // 1. Find the course group
@@ -177,26 +179,28 @@ export const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ============================================================
-    // INSERT includes institution_id and academic_group_id
-    // ============================================================
+    // ═══════════════════════════════════════════════════════
+    //  INSERT includes date_of_birth
+    // ═══════════════════════════════════════════════════════
     const result = await db.query(
       `INSERT INTO users (
         full_name, username, email, password_hash, education_level, 
         institution, course, role,
         subscription_tier, subscription_status, trial_start_date, 
         trial_end_date, trial_used, institution_subscription_valid,
-        institution_id, academic_group_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        institution_id, academic_group_id,
+        date_of_birth                    -- <-- NEW COLUMN
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING id, username, email, full_name, role, subscription_tier, 
                 subscription_status, trial_end_date, institution_subscription_valid,
-                institution_id, academic_group_id`,
+                institution_id, academic_group_id, date_of_birth`,
       [
         full_name, username, email, hashedPassword, education_level || null,
         institution || null, course || null, role || 'student',
         subscriptionPlan, subscriptionStatus, trialStartDate,
         trialEndDate, trialUsed, institutionSubscribed,
-        institutionId, academicGroupId
+        institutionId, academicGroupId,
+        date_of_birth || null           // <-- NEW PARAMETER
       ]
     );
 
@@ -221,7 +225,8 @@ export const register = async (req, res) => {
         subscription_status: user.subscription_status,
         institution_subscription_valid: user.institution_subscription_valid,
         institution_id: user.institution_id,
-        academic_group_id: user.academic_group_id   // new
+        academic_group_id: user.academic_group_id,
+        date_of_birth: user.date_of_birth   // <-- returned to frontend
       }
     });
   } catch (err) {
@@ -292,7 +297,8 @@ export const getMe = async (req, res) => {
       `SELECT id, username, email, full_name, role, xp, level, streak_days,
               institution, subscription_tier, subscription_status, trial_end_date,
               subscription_end_date, institution_subscription_valid,
-              institution_id, academic_group_id
+              institution_id, academic_group_id,
+              date_of_birth                -- <-- include DOB for profile
        FROM users WHERE id = $1`,
       [userId]
     );
