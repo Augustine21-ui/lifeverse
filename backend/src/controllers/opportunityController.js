@@ -10,19 +10,33 @@ const getUserProfile = async (userId) => {
   );
   const skills = skillsRes.rows.map(r => r.name);
   
-  // Get interests (could be from goals or profile)
-  const interestsRes = await query(
-    `SELECT DISTINCT category FROM goals WHERE user_id = $1`,
+  // Get age from date_of_birth
+  const ageRes = await query(
+    `SELECT EXTRACT(YEAR FROM AGE(CURRENT_DATE, date_of_birth)) AS age FROM users WHERE id = $1`,
     [userId]
   );
-  const interests = interestsRes.rows.map(r => r.category).filter(Boolean);
+  const userAge = parseInt(ageRes.rows[0]?.age, 10) || 0;
   
-  // Get education level from user
+  // Get education level (separate query, no age)
   const userRes = await query(
-    `SELECT education_level, age FROM users WHERE id = $1`,
+    `SELECT education_level FROM users WHERE id = $1`,
     [userId]
   );
-  const user = userRes.rows[0] || {};
+  const education = userRes.rows[0]?.education_level || '';
+  
+  // Get interests – you need to define where interests come from.
+  // Example: if you have a 'user_interests' table, query it.
+  // For now, fallback to an empty array.
+  let interests = [];
+  try {
+    const interestsRes = await query(
+      `SELECT interest FROM user_interests WHERE user_id = $1`,
+      [userId]
+    );
+    interests = interestsRes.rows.map(r => r.interest);
+  } catch (e) {
+    // If table doesn't exist, ignore
+  }
   
   // Get goals
   const goalsRes = await query(
@@ -31,9 +45,8 @@ const getUserProfile = async (userId) => {
   );
   const goals = goalsRes.rows.map(g => g.title);
   
-  return { skills, interests, education: user.education_level, age: user.age, goals };
+  return { skills, interests, education, age: userAge, goals };
 };
-
 // ─── Calculate match score ──────────────────────────────────────────
 const calculateMatch = (opportunity, userProfile) => {
   const weights = opportunity.match_criteria || { skills: 0.4, interests: 0.25, education: 0.2, goals: 0.15 };
@@ -190,7 +203,13 @@ export const applyOpportunity = async (req, res) => {
   const userId = req.user.id;
   const { id } = req.params;
   try {
-    // Check if already applied
+    // 1. Check if opportunity exists
+    const oppCheck = await query('SELECT id FROM opportunities WHERE id = $1', [id]);
+    if (oppCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Opportunity not found' });
+    }
+    
+    // 2. Check if already applied
     const existing = await query(
       `SELECT id FROM opportunity_applications WHERE user_id = $1 AND opportunity_id = $2`,
       [userId, id]
@@ -198,6 +217,8 @@ export const applyOpportunity = async (req, res) => {
     if (existing.rows.length > 0) {
       return res.status(400).json({ error: 'Already applied' });
     }
+    
+    // 3. Insert application
     const result = await query(
       `INSERT INTO opportunity_applications (user_id, opportunity_id, status) VALUES ($1, $2, 'applied') RETURNING *`,
       [userId, id]
