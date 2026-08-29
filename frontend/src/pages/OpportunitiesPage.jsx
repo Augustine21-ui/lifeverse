@@ -43,36 +43,53 @@ export default function OpportunitiesPage() {
   const educationLevels = ['high_school', 'undergraduate', 'graduate', 'postgraduate'];
   const opportunityTypes = ['job', 'internship', 'scholarship', 'challenge', 'mentorship', 'bootcamp', 'fellowship', 'certification', 'training', 'exchange'];
 
+  // ─── For presentation: set to true to always use mock data ────────
+  const USE_MOCK_ONLY = false; // set to true to skip API calls entirely
+
   useEffect(() => {
     loadData();
   }, []);
 
+  // ─── UPDATED loadData with smart fallback ────────────────────────
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load personalized opportunities
-      const personalized = await api.getOpportunitiesPersonalized();
-      // Load all opportunities
-      const all = await api.getOpportunities();
-      // Load my applications
-      const apps = await api.getMyApplications();
-      
-      // Combine – use personalized for For You, all for other tabs
-      setOpportunities(all || []);
-      setFiltered(personalized || []);
-      setMyApplications(apps || []);
+      // If we want to skip API and just use mock
+      if (USE_MOCK_ONLY) {
+        loadMockData();
+        setLoading(false);
+        return;
+      }
+
+      // Attempt to fetch from API
+      const [personalized, all, apps] = await Promise.all([
+        api.getOpportunitiesPersonalized(),
+        api.getOpportunities(),
+        api.getMyApplications()
+      ]);
+
+      // If API returned data, use it; otherwise fallback to mock
+      const hasData = (personalized && personalized.length > 0) || (all && all.length > 0);
+      if (hasData) {
+        setOpportunities(all || []);
+        setFiltered(personalized || []);
+        setMyApplications(apps || []);
+      } else {
+        console.warn('API returned empty; loading mock data for presentation');
+        loadMockData();
+      }
     } catch (err) {
       console.error('Error loading opportunities:', err);
-      // Fallback to mock data if API fails
-      loadMockData();
+      loadMockData(); // fallback on error
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock data for prototype – clearly marked as DEMO
+  // ─── UPDATED Mock data with more opportunities ────────────────────
   const loadMockData = () => {
     const mockOpps = [
+      // ─── Jobs & Internships ──────────────────────────────────────
       {
         id: 1,
         title: 'Junior Web Developer Internship',
@@ -104,6 +121,61 @@ export default function OpportunitiesPage() {
       },
       {
         id: 2,
+        title: 'Data Analyst Graduate Trainee',
+        organization_name: 'NexaTech',
+        organization_logo: '🚀',
+        is_verified: true,
+        is_demo: true,
+        type: 'job',
+        description: 'Support our data team in building dashboards and analysing user behaviour.',
+        skills_required: ['Python', 'SQL', 'Data Visualization'],
+        interests: ['Data', 'Analytics'],
+        education_level: 'undergraduate',
+        location: 'Nairobi',
+        is_remote: false,
+        deadline: '2026-10-10',
+        match_score: 76,
+        match_details: {
+          skills: { score: 0.7, matched: ['Python', 'SQL'], total: 3 },
+          interests: { score: 0.8, matched: ['Data'], total: 1 },
+          education: { score: 1, required: 'undergraduate', user: 'undergraduate' },
+          goals: { score: 0.6 }
+        },
+        what_you_gain: ['Hands-on experience', 'Data skills', 'Mentorship'],
+        requirements: ['Python', 'SQL', 'Statistical knowledge'],
+        eligibility: ['Recent graduates', 'Kenya'],
+        created_at: '2026-08-20'
+      },
+      {
+        id: 3,
+        title: 'Product Design Intern (Remote)',
+        organization_name: 'Innovation Hub',
+        organization_logo: '💡',
+        is_verified: true,
+        is_demo: true,
+        type: 'internship',
+        description: 'Join our design team to create user-centric interfaces for educational apps.',
+        skills_required: ['UI/UX', 'Figma', 'User Research'],
+        interests: ['Design', 'Technology'],
+        education_level: 'undergraduate',
+        location: 'Remote',
+        is_remote: true,
+        deadline: '2026-09-25',
+        match_score: 73,
+        match_details: {
+          skills: { score: 0.6, matched: ['UI/UX'], total: 3 },
+          interests: { score: 0.8, matched: ['Design'], total: 1 },
+          education: { score: 1, required: 'undergraduate', user: 'undergraduate' },
+          goals: { score: 0.7 }
+        },
+        what_you_gain: ['Portfolio projects', 'Mentorship', 'Certificate'],
+        requirements: ['Figma', 'Portfolio'],
+        eligibility: ['University students', 'Kenya'],
+        created_at: '2026-08-18'
+      },
+      // ─── Scholarships & Learning ────────────────────────────────
+      {
+        id: 4,
         title: 'Future Innovators Scholarship',
         organization_name: 'Future Foundation',
         organization_logo: '🔮',
@@ -130,7 +202,62 @@ export default function OpportunitiesPage() {
         created_at: '2026-08-10'
       },
       {
-        id: 3,
+        id: 5,
+        title: 'AWS Cloud Practitioner Bootcamp',
+        organization_name: 'Cloud Academy',
+        organization_logo: '☁️',
+        is_verified: true,
+        is_demo: true,
+        type: 'bootcamp',
+        description: 'Intensive 4-week bootcamp preparing you for AWS Cloud Practitioner certification.',
+        skills_required: ['Cloud Basics', 'Linux'],
+        interests: ['Cloud', 'DevOps'],
+        education_level: 'undergraduate',
+        location: 'Virtual',
+        is_remote: true,
+        deadline: '2026-11-01',
+        match_score: 68,
+        match_details: {
+          skills: { score: 0.5, matched: ['Cloud Basics'], total: 2 },
+          interests: { score: 0.6, matched: ['Cloud'], total: 1 },
+          education: { score: 1, required: 'undergraduate', user: 'undergraduate' },
+          goals: { score: 0.8 }
+        },
+        what_you_gain: ['AWS certification', 'Hands-on labs', 'Career guidance'],
+        requirements: ['Basic IT knowledge'],
+        eligibility: ['University students', 'Kenya'],
+        created_at: '2026-08-22'
+      },
+      {
+        id: 6,
+        title: 'Women in STEM Fellowship',
+        organization_name: 'Equal Access Initiative',
+        organization_logo: '🌟',
+        is_verified: true,
+        is_demo: true,
+        type: 'fellowship',
+        description: 'A 6-month fellowship for women pursuing STEM careers, with mentorship and project funding.',
+        skills_required: ['Leadership', 'Project Management'],
+        interests: ['Women in Tech', 'Mentorship'],
+        education_level: 'undergraduate',
+        location: 'Kenya / Remote',
+        is_remote: true,
+        deadline: '2026-10-30',
+        match_score: 81,
+        match_details: {
+          skills: { score: 0.8, matched: ['Leadership'], total: 2 },
+          interests: { score: 0.9, matched: ['Women in Tech'], total: 1 },
+          education: { score: 1, required: 'undergraduate', user: 'undergraduate' },
+          goals: { score: 1 }
+        },
+        what_you_gain: ['Mentorship', 'Project funding', 'Networking'],
+        requirements: ['Female student', 'STEM field'],
+        eligibility: ['University women', 'Kenya'],
+        created_at: '2026-08-19'
+      },
+      // ─── Challenges ──────────────────────────────────────────────
+      {
+        id: 7,
         title: 'KEPSA Demo Challenge: Solve a Real Business Problem',
         organization_name: 'KEPSA',
         organization_logo: '🏢',
@@ -158,7 +285,35 @@ export default function OpportunitiesPage() {
         created_at: '2026-08-20'
       },
       {
-        id: 4,
+        id: 8,
+        title: 'Climate Action Hackathon',
+        organization_name: 'GreenTech Kenya',
+        organization_logo: '🌿',
+        is_verified: true,
+        is_demo: true,
+        type: 'challenge',
+        description: 'Build innovative solutions to combat climate change in Kenyan communities.',
+        skills_required: ['Sustainability', 'IoT', 'Data Analysis'],
+        interests: ['Environment', 'Technology'],
+        education_level: 'undergraduate',
+        location: 'Nairobi / Remote',
+        is_remote: true,
+        deadline: '2026-11-05',
+        match_score: 65,
+        match_details: {
+          skills: { score: 0.5, matched: ['Sustainability'], total: 3 },
+          interests: { score: 0.7, matched: ['Environment'], total: 1 },
+          education: { score: 1, required: 'undergraduate', user: 'undergraduate' },
+          goals: { score: 0.5 }
+        },
+        what_you_gain: ['Cash prize', 'Incubation support', 'Mentorship'],
+        requirements: ['Interest in climate', 'Team of 2-4'],
+        eligibility: ['Students', 'Kenya'],
+        created_at: '2026-08-25'
+      },
+      // ─── Mentorship ──────────────────────────────────────────────
+      {
+        id: 9,
         title: 'Women in Technology Mentorship',
         organization_name: 'Innovation Hub',
         organization_logo: '💡',
@@ -184,6 +339,33 @@ export default function OpportunitiesPage() {
         eligibility: ['University students', 'Kenya'],
         created_at: '2026-08-18'
       },
+      {
+        id: 10,
+        title: 'KUA Career Mentorship Program',
+        organization_name: 'KUA Partners',
+        organization_logo: '⚡',
+        is_verified: true,
+        is_demo: true,
+        type: 'mentorship',
+        description: 'Get paired with a senior professional in your field. 12-week program with weekly check-ins.',
+        skills_required: ['Career Planning', 'Networking'],
+        interests: ['Mentorship', 'Career Growth'],
+        education_level: 'undergraduate',
+        location: 'Virtual',
+        is_remote: true,
+        deadline: '2026-10-15',
+        match_score: 85,
+        match_details: {
+          skills: { score: 0.9, matched: ['Career Planning'], total: 2 },
+          interests: { score: 0.9, matched: ['Mentorship'], total: 1 },
+          education: { score: 1, required: 'undergraduate', user: 'undergraduate' },
+          goals: { score: 0.8 }
+        },
+        what_you_gain: ['Career guidance', 'Industry insights', 'Networking'],
+        requirements: ['Active student', 'Career-oriented'],
+        eligibility: ['University students', 'Kenya'],
+        created_at: '2026-08-21'
+      }
     ];
     setOpportunities(mockOpps);
     setFiltered(mockOpps);
