@@ -17,14 +17,16 @@ const googleClient = new OAuth2Client(
 
 export const googleAuth = async (req, res) => {
   try {
-    const { code } = req.body;
+    const { code, mode } = req.body;
+    console.log('🔐 Google auth request received, code:', code ? 'present' : 'missing');
+
     if (!code) {
-      return res.status(400).json({ error: 'Authorization code required' });
+      return res.status(400).json({ error: 'Authorization code is required' });
     }
 
     // Exchange code for tokens
     const { tokens } = await googleClient.getToken(code);
-    googleClient.setCredentials(tokens);
+    console.log('✅ Tokens obtained from Google');
 
     // Verify ID token
     const ticket = await googleClient.verifyIdToken({
@@ -32,23 +34,26 @@ export const googleAuth = async (req, res) => {
       audience: process.env.GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
+    console.log('👤 User info from Google:', payload.email);
 
     const { email, name, picture, sub: googleId } = payload;
 
-    // Find or create user in your database
+    // Check if user exists by email
     let userRes = await db.query('SELECT * FROM users WHERE email = $1', [email]);
     let user;
+
     if (userRes.rows.length === 0) {
-      // Create new user
+      // Create new user (password_hash is null for Google users)
       const insertRes = await db.query(
         `INSERT INTO users (email, full_name, password_hash, role, profile_picture, google_id)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, full_name, role`,
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, email, full_name, role`,
         [email, name, null, 'student', picture, googleId]
       );
       user = insertRes.rows[0];
     } else {
       user = userRes.rows[0];
-      // Optionally update google_id if not set
+      // If user exists but google_id is not set, update it
       if (!user.google_id) {
         await db.query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, user.id]);
       }
@@ -63,7 +68,7 @@ export const googleAuth = async (req, res) => {
 
     res.status(200).json({ token, user });
   } catch (err) {
-    console.error('Google auth error:', err);
+    console.error('❌ Google auth error:', err);
     res.status(500).json({ error: 'Google authentication failed', details: err.message });
   }
 };
