@@ -12,17 +12,18 @@ export default function GoogleSignInButton({ mode = 'login' }) {
     try {
       console.log('🔍 Google auth code response:', codeResponse);
 
-      // Send the authorization code to your backend
-      const res = await fetch('/api/auth/google', {
+      // ✅ Use environment variable – fallback to localhost for development
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(`${API_BASE}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code: codeResponse.code,   // <- send the code, not access_token
+          code: codeResponse.code,
           mode: mode,
         }),
       });
 
-      // Read the response as text first (for debugging)
+      // Read as text first for better error debugging
       const text = await res.text();
       console.log('📦 Backend response:', text);
 
@@ -30,7 +31,6 @@ export default function GoogleSignInButton({ mode = 'login' }) {
         throw new Error(text || 'Google authentication failed');
       }
 
-      // Parse JSON
       const data = JSON.parse(text);
 
       if (data.token) {
@@ -65,8 +65,8 @@ export default function GoogleSignInButton({ mode = 'login' }) {
     onError: () => {
       showToast('Google login failed. Please try again.', 'error');
     },
-    flow: 'auth-code', // <-- CHANGE HERE
-    // redirect_uri: 'postmessage', // optional – defaults to postmessage
+    flow: 'auth-code',
+    // redirect_uri: 'postmessage', // defaults to postmessage
   });
 
   return (
