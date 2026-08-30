@@ -1,4 +1,4 @@
-import db from '../config/db.js';
+import { query } from '../db.js';
 
 // ===== GET COMMUNITIES =====
 export const getCommunities = async (req, res) => {
