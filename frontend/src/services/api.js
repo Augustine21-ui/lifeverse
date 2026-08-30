@@ -863,4 +863,8 @@ getAllEvents: () => fetch(`${API_BASE}/events`, {
   headers: authHeaders()
 }).then(handleResponse),
 
+getNotifications: () => fetch(`${API_BASE}/notifications`, {
+  headers: authHeaders()
+}).then(handleResponse),
+
 };

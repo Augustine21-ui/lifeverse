@@ -1,29 +1,31 @@
 // frontend/src/components/NotificationBell.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, X, Heart, MessageCircle, Calendar, UserPlus, Check } from 'lucide-react';
-
-const MOCK_NOTIFICATIONS = [
-  { id: 1, type: 'like', message: 'Aisha W. liked your post.', time: '2 min ago', read: false },
-  { id: 2, type: 'comment', message: 'Kevin M. commented on your post.', time: '15 min ago', read: false },
-  { id: 3, type: 'event', message: 'New event: KCSE Mathematics Revision tomorrow.', time: '1 hour ago', read: false },
-  { id: 4, type: 'member', message: 'John D. joined your community Web Developers Kenya.', time: '2 hours ago', read: true },
-  { id: 5, type: 'like', message: 'Mary A. liked your comment.', time: '3 hours ago', read: true },
-  { id: 6, type: 'comment', message: 'Peter O. replied to your discussion.', time: '5 hours ago', read: true },
-];
-
-const getIcon = (type) => {
-  switch(type) {
-    case 'like': return Heart;
-    case 'comment': return MessageCircle;
-    case 'event': return Calendar;
-    case 'member': return UserPlus;
-    default: return Bell;
-  }
-};
+import { api } from '../services/api';
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadNotifications();
+    }
+  }, [isOpen]);
+
+  const loadNotifications = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getNotifications();
+      setNotifications(data || []);
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markAsRead = (id) => {
@@ -34,6 +36,16 @@ export default function NotificationBell() {
 
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const getIcon = (type) => {
+    switch(type) {
+      case 'like': return Heart;
+      case 'comment': return MessageCircle;
+      case 'event': return Calendar;
+      case 'member': return UserPlus;
+      default: return Bell;
+    }
   };
 
   return (
@@ -71,7 +83,9 @@ export default function NotificationBell() {
           </div>
 
           <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {loading ? (
+              <div className="p-4 text-center text-white/40">Loading...</div>
+            ) : notifications.length === 0 ? (
               <div className="p-4 text-center text-white/40">No notifications</div>
             ) : (
               notifications.map((notif) => {
@@ -82,7 +96,12 @@ export default function NotificationBell() {
                     className={`flex items-start gap-3 p-3 hover:bg-white/5 transition cursor-pointer ${
                       !notif.read ? 'bg-white/5' : ''
                     }`}
-                    onClick={() => markAsRead(notif.id)}
+                    onClick={() => {
+                      markAsRead(notif.id);
+                      if (notif.link) {
+                        window.location.href = notif.link;
+                      }
+                    }}
                   >
                     <div className="w-8 h-8 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-400 flex-shrink-0">
                       <Icon size={16} />
@@ -92,7 +111,7 @@ export default function NotificationBell() {
                         {notif.message}
                       </p>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {notif.time}
+                        {new Date(notif.time).toLocaleString()}
                       </p>
                     </div>
                     {!notif.read && (

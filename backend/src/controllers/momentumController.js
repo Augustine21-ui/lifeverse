@@ -349,3 +349,132 @@ export const rsvpEvent = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// ===== GET NOTIFICATIONS =====
+export const getNotifications = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    // 1. Recent likes on posts (including user's own posts)
+    const likes = await db.query(`
+      SELECT 
+        l.created_at,
+        u.full_name AS actor_name,
+        'like' AS type,
+        p.id AS post_id,
+        p.content AS post_content
+      FROM likes l
+      JOIN users u ON l.user_id = u.id
+      JOIN posts p ON l.post_id = p.id
+      WHERE p.user_id = $1 OR p.id IN (
+        SELECT post_id FROM community_posts cp 
+        JOIN community_members cm ON cp.community_id = cm.community_id 
+        WHERE cm.user_id = $1
+      )
+      ORDER BY l.created_at DESC
+      LIMIT 20
+    `, [userId]);
+
+    // 2. Recent comments on posts
+    const comments = await db.query(`
+      SELECT 
+        c.created_at,
+        u.full_name AS actor_name,
+        'comment' AS type,
+        c.post_id,
+        p.content AS post_content,
+        c.content AS comment_content
+      FROM comments c
+      JOIN users u ON c.user_id = u.id
+      JOIN posts p ON c.post_id = p.id
+      WHERE p.user_id = $1 OR p.id IN (
+        SELECT post_id FROM community_posts cp 
+        JOIN community_members cm ON cp.community_id = cm.community_id 
+        WHERE cm.user_id = $1
+      )
+      ORDER BY c.created_at DESC
+      LIMIT 20
+    `, [userId]);
+
+    // 3. New members joining communities the user is admin of (or a member of)
+    const newMembers = await db.query(`
+      SELECT 
+        cm.joined_at,
+        u.full_name AS actor_name,
+        'member' AS type,
+        c.name AS community_name,
+        cm.community_id
+      FROM community_members cm
+      JOIN users u ON cm.user_id = u.id
+      JOIN communities c ON cm.community_id = c.id
+      WHERE c.created_by = $1 OR cm.community_id IN (
+        SELECT community_id FROM community_members WHERE user_id = $1
+      )
+      ORDER BY cm.joined_at DESC
+      LIMIT 20
+    `, [userId]);
+
+    // 4. Upcoming events in communities the user is a member of (or created by them)
+    const events = await db.query(`
+      SELECT 
+        e.created_at,
+        'event' AS type,
+        e.title,
+        e.event_date,
+        c.name AS community_name
+      FROM community_events e
+      JOIN communities c ON e.community_id = c.id
+      WHERE e.community_id IN (
+        SELECT community_id FROM community_members WHERE user_id = $1
+      ) OR e.created_by = $1
+      ORDER BY e.event_date ASC
+      LIMIT 5
+    `, [userId]);
+
+    // Combine and sort by date
+    const allNotifications = [
+      ...likes.rows.map(r => ({
+        id: `like_${r.post_id}_${r.created_at}`,
+        type: 'like',
+        message: `${r.actor_name} liked your post: "${r.post_content?.substring(0, 30)}${r.post_content?.length > 30 ? '...' : ''}"`,
+        time: r.created_at,
+        read: false, // we don't track read state
+        link: `/momentum/post/${r.post_id}`
+      })),
+      ...comments.rows.map(r => ({
+        id: `comment_${r.post_id}_${r.created_at}`,
+        type: 'comment',
+        message: `${r.actor_name} commented on your post: "${r.comment_content?.substring(0, 30)}${r.comment_content?.length > 30 ? '...' : ''}"`,
+        time: r.created_at,
+        read: false,
+        link: `/momentum/post/${r.post_id}`
+      })),
+      ...newMembers.rows.map(r => ({
+        id: `member_${r.community_id}_${r.joined_at}`,
+        type: 'member',
+        message: `${r.actor_name} joined your community: ${r.community_name}`,
+        time: r.joined_at,
+        read: false,
+        link: `/momentum/community/${r.community_id}`
+      })),
+      ...events.rows.map(r => ({
+        id: `event_${r.title}_${r.created_at}`,
+        type: 'event',
+        message: `Upcoming event: ${r.title} in ${r.community_name} on ${new Date(r.event_date).toLocaleDateString()}`,
+        time: r.created_at,
+        read: false,
+        link: `/momentum/community/${r.community_id}`
+      }))
+    ];
+
+    // Sort by time descending
+    allNotifications.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+    // Take the most recent 30
+    const recentNotifications = allNotifications.slice(0, 30);
+
+    res.json(recentNotifications);
+  } catch (err) {
+    console.error('getNotifications error:', err);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+};

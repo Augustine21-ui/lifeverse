@@ -21,6 +21,7 @@ import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
 import { googleAuth } from '../controllers/authController.js';
+import { getNotifications } from '../controllers/momentumController.js';
 
 // ─── MOMENTUM CONTROLLER – all community functions ──────────────
 import { 
@@ -193,6 +194,8 @@ router.get('/bridge/messages/conversation/:userId', authenticate, getOrCreatePee
 
 // ===== RESOURCES =====
 router.get('/resources', authenticate, getResources);
+
+router.get('/notifications', authenticate, getNotifications);
 
 // ===== COMMUNITY CHAT (if you still have these) =====
 // If your momentumController doesn't have these, you might need to import them from communityController.
