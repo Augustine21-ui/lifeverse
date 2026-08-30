@@ -287,7 +287,7 @@ export const addComment = async (req, res) => {
 export const getCommunityEvents = async (req, res) => {
   const { communityId } = req.params;
   try {
-    const result = await db.query(`   -- ✅ Changed to db.query
+    const result = await db.query(`
       SELECT 
         e.id, 
         e.title, 
@@ -317,7 +317,7 @@ export const rsvpEvent = async (req, res) => {
   console.log('🔍 RSVP request - eventId:', eventId, 'type:', typeof eventId, 'userId:', userId);
 
   try {
-    // Check if event exists
+    // 1. Check if event exists
     const eventCheck = await db.query(
       'SELECT id FROM community_events WHERE id = $1',
       [eventId]
@@ -328,7 +328,22 @@ export const rsvpEvent = async (req, res) => {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    // ... rest of the function
+    // 2. Check if user already RSVP'd
+    const existing = await db.query(
+      'SELECT id FROM event_rsvps WHERE event_id = $1 AND user_id = $2',
+      [eventId, userId]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Already RSVP\'d' });
+    }
+
+    // 3. Insert RSVP
+    const result = await db.query(
+      'INSERT INTO event_rsvps (event_id, user_id) VALUES ($1, $2) RETURNING *',
+      [eventId, userId]
+    );
+    
+    res.json(result.rows[0]);
   } catch (err) {
     console.error('rsvpEvent error:', err);
     res.status(500).json({ error: err.message });
