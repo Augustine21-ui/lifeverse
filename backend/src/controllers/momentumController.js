@@ -285,43 +285,59 @@ export const addComment = async (req, res) => {
 
 // ===== GET EVENTS =====
 export const getCommunityEvents = async (req, res) => {
+  const { communityId } = req.params;
   try {
-    const { id } = req.params;
-    const userId = req.user.id;
-    const result = await db.query(
-      `SELECT e.*, u.full_name as creator_name,
-        EXISTS (SELECT 1 FROM event_rsvps WHERE event_id = e.id AND user_id = $1) as user_rsvped
-       FROM community_events e
-       JOIN users u ON e.created_by = u.id
-       WHERE e.community_id = $2
-       ORDER BY e.start_time ASC`,
-      [userId, id]
-    );
+    const result = await query(`
+      SELECT 
+        e.id, 
+        e.title, 
+        e.description, 
+        e.event_date AS start_time,   -- ← aliased
+        e.location, 
+        e.created_by, 
+        e.created_at,
+        u.full_name AS organizer,
+        (SELECT COUNT(*) FROM event_rsvps WHERE event_id = e.id) AS attending_count
+      FROM community_events e
+      LEFT JOIN users u ON e.created_by = u.id
+      WHERE e.community_id = $1
+      ORDER BY e.event_date ASC
+    `, [communityId]);
     res.json(result.rows);
   } catch (err) {
     console.error('getCommunityEvents error:', err);
-    res.status(500).json({ error: 'Failed to fetch events' });
+    res.status(500).json({ error: err.message });
   }
 };
 
 // ===== RSVP EVENT =====
 export const rsvpEvent = async (req, res) => {
+  const { eventId } = req.params;
+  const userId = req.user.id;
   try {
-    const { event_id } = req.params;
-    const { status } = req.body;
-    const userId = req.user.id;
-    
-    await db.query(
-      `INSERT INTO event_rsvps (event_id, user_id, status)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (event_id, user_id) 
-       DO UPDATE SET status = $3`,
-      [event_id, userId, status]
+    // 1. Check if event exists
+    const eventCheck = await query('SELECT id FROM community_events WHERE id = $1', [eventId]);
+    if (eventCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    // 2. Check if user already RSVP'd
+    const existing = await query(
+      'SELECT id FROM event_rsvps WHERE event_id = $1 AND user_id = $2',
+      [eventId, userId]
     );
-    
-    res.json({ success: true, message: 'RSVP updated' });
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Already RSVP\'d' });
+    }
+
+    // 3. Insert RSVP
+    const result = await query(
+      'INSERT INTO event_rsvps (event_id, user_id) VALUES ($1, $2) RETURNING *',
+      [eventId, userId]
+    );
+    res.json(result.rows[0]);
   } catch (err) {
     console.error('rsvpEvent error:', err);
-    res.status(500).json({ error: 'Failed to RSVP' });
+    res.status(500).json({ error: err.message });
   }
 };
