@@ -16,7 +16,7 @@ import GlanceTicker from '../components/GlanceTicker';
 import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
-import OrbitProgressCard from '../components/orbit/OrbitProgressCard';
+// 🗑️ REMOVED: import OrbitProgressCard from '../components/orbit/OrbitProgressCard';
 import { useTheme } from '../context/ThemeContext';
 
 // ---- Confetti ----
@@ -95,14 +95,6 @@ const QUOTES = [
   "Strive for progress, not perfection.",
 ];
 const getDailyQuote = () => QUOTES[new Date().getDate() % QUOTES.length];
-
-// ---- Mock notifications ----
-const MOCK_NOTIFICATIONS = [
-  { id: 1, message: 'Assignment due tomorrow: Biology', type: 'deadline' },
-  { id: 2, message: 'Teacher uploaded Chemistry notes', type: 'update' },
-  { id: 3, message: 'New Orbit challenge available: Algebra', type: 'challenge' },
-  { id: 4, message: 'Bridge message from your parent', type: 'bridge' },
-];
 
 // ---- Mobile Navigation ----
 const MobileNav = ({ active, navigate }) => {
@@ -202,7 +194,7 @@ export default function DashboardPage() {
   const [studyTime, setStudyTime] = useState(0);
   const [brainDump, setBrainDump] = useState(() => localStorage.getItem('brainDump') || '');
   const [showBrainDump, setShowBrainDump] = useState(false);
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  // 🗑️ REMOVED: mock notifications state and usage
   const [quickAddType, setQuickAddType] = useState('task');
   const [quickAddText, setQuickAddText] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -276,7 +268,15 @@ export default function DashboardPage() {
     if (!silent) setFeedLoading(true);
     try {
       const data = await api.getFeedPosts(20, 0);
-      setFeedPosts(data.posts || data);
+      // 🛠️ FIX: deduplicate posts by id to avoid duplicates
+      const uniquePosts = data.posts || data || [];
+      const uniqueMap = new Map();
+      uniquePosts.forEach(post => {
+        if (!uniqueMap.has(post.id)) {
+          uniqueMap.set(post.id, post);
+        }
+      });
+      setFeedPosts(Array.from(uniqueMap.values()));
     } catch (err) {
       console.error(err);
       if (!silent) showToast('Failed to load feed', 'error');
@@ -432,10 +432,6 @@ export default function DashboardPage() {
     localStorage.setItem('brainDump', brainDump);
     showToast('Brain dump saved!');
     setShowBrainDump(false);
-  };
-
-  const clearNotification = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   // ---- Computed ----
@@ -796,28 +792,7 @@ export default function DashboardPage() {
             <button className="mt-2 text-sm text-brand-400 hover:underline">Refresh suggestions</button>
           </Card>
 
-          {/* Notifications */}
-          <Card className="mb-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                <Bell size={18} className="text-blue-400" /> Notifications
-              </h3>
-              <span className="text-sm text-white/30">{notifications.length} new</span>
-            </div>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {notifications.slice(0, 3).map((n) => (
-                <div key={n.id} className="flex items-start gap-3 p-3 bg-white/10 rounded-xl">
-                  <span className="text-sm text-white/80 flex-1">{n.message}</span>
-                  <button onClick={() => clearNotification(n.id)} className="text-white/20 hover:text-white transition">
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-              {notifications.length > 3 && (
-                <p className="text-sm text-white/30 text-center">+{notifications.length - 3} more</p>
-              )}
-            </div>
-          </Card>
+          {/* 🗑️ NOTIFICATIONS CARD REMOVED */}
 
           {/* Today's Schedule */}
           <Card className="mb-4">
@@ -841,8 +816,7 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          {/* ===== ORBIT PROGRESS CARD (Mobile) ===== */}
-          <OrbitProgressCard />
+          {/* 🗑️ ORBIT PROGRESS CARD REMOVED */}
 
           {/* Brain Dump */}
           <Card className="mb-4">
@@ -920,7 +894,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ============================================================= */}
-        {/* DESKTOP LAYOUT – all cards present */}
+        {/* DESKTOP LAYOUT */}
         {/* ============================================================= */}
         <div className="hidden lg:block">
           {/* Daily Progress Stats */}
@@ -1147,29 +1121,9 @@ export default function DashboardPage() {
                 <button className="mt-3 text-xs text-brand-400 hover:underline">Refresh</button>
               </Card>
 
-              {/* Notifications */}
-              <Card>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-white font-semibold flex items-center gap-2">
-                    <Bell size={18} className="text-blue-400" /> Notifications
-                  </h3>
-                  <span className="text-sm text-white/40">{notifications.length} new</span>
-                </div>
-                <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
-                  {notifications.slice(0, 3).map((n) => (
-                    <div key={n.id} className="flex items-start gap-3 p-3 bg-white/10 rounded-xl">
-                      <span className="text-sm text-white/80 flex-1">{n.message}</span>
-                      <button onClick={() => clearNotification(n.id)} className="text-white/20 hover:text-white transition">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                {notifications.length > 3 && <p className="text-xs text-white/40 mt-2">+{notifications.length - 3} more</p>}
-              </Card>
+              {/* 🗑️ NOTIFICATIONS CARD REMOVED */}
 
-              {/* ===== ORBIT PROGRESS CARD (Desktop) ===== */}
-              <OrbitProgressCard />
+              {/* 🗑️ ORBIT PROGRESS CARD REMOVED */}
 
               {/* Today's Schedule */}
               <Card>
