@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
+import NotificationBell from '../components/NotificationBell'; // <-- NEW
 import { 
   Search, Users, Plus, Filter, BookOpen, MessageCircle, 
   Crown, Sparkles, Calendar, Grid, List, Heart, 
@@ -11,7 +12,7 @@ import {
   TrendingUp, Star, Hash, Globe, Lock, ChevronRight,
   Image, Video, Link2, Smile, Send, X, Home, 
   Book, Calendar as CalendarIcon, Users as UsersIcon,
-  ArrowRight // <-- ADDED for "View all" links
+  ArrowRight
 } from 'lucide-react';
 
 export default function MomentumPage() {
@@ -37,27 +38,32 @@ export default function MomentumPage() {
   const [communities, setCommunities] = useState([]);
   const [communitiesLoading, setCommunitiesLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [communitySearch, setCommunitySearch] = useState(''); // renamed to avoid conflict with global search
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newCommunity, setNewCommunity] = useState({
     name: '',
     description: '',
     type: 'study_group',
     category: '',
-    visibility: 'public', // ADDED
+    visibility: 'public',
   });
 
-  // ─── NEW: Trending communities ────────────────────────────
+  // Trending communities
   const [trending, setTrending] = useState([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
 
-  // ─── NEW: My communities ──────────────────────────────────
+  // My communities
   const [myCommunities, setMyCommunities] = useState([]);
   const [myCommunitiesLoading, setMyCommunitiesLoading] = useState(true);
 
-  // ─── NEW: Events list ─────────────────────────────────────
+  // Events
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+
+  // ─── NEW: Global search states ──────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState({ communities: [], posts: [], events: [] });
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   useEffect(() => {
     loadFeed();
@@ -146,13 +152,13 @@ export default function MomentumPage() {
     }
   };
 
-  // ===== COMMUNITY FUNCTIONS (updated) =====
+  // ===== COMMUNITY FUNCTIONS =====
   const loadCommunities = async () => {
     setCommunitiesLoading(true);
     try {
       const params = {};
       if (selectedType !== 'all') params.type = selectedType;
-      if (searchQuery) params.search = searchQuery;
+      if (communitySearch) params.search = communitySearch;
       const data = await api.getCommunities(params);
       setCommunities(data || []);
     } catch (err) {
@@ -162,18 +168,14 @@ export default function MomentumPage() {
     }
   };
 
-  // ─── NEW: Load trending communities ──────────────────────
   const loadTrending = async () => {
     setTrendingLoading(true);
     try {
-      // Fetch all communities and sort by member_count (descending)
       const data = await api.getCommunities({ limit: 10 });
-      // Sort by member_count (if available) or just take first 6
       const sorted = data.sort((a, b) => (b.member_count || 0) - (a.member_count || 0));
       setTrending(sorted.slice(0, 6));
     } catch (err) {
       console.warn('Using mock trending:', err);
-      // Fallback mock data
       setTrending([
         { id: 1, name: 'Computer Science Study Hub', member_count: 2400, type: 'study_group', icon: '💻' },
         { id: 2, name: 'Young Entrepreneurs Kenya', member_count: 3200, type: 'discussion', icon: '🚀' },
@@ -187,17 +189,13 @@ export default function MomentumPage() {
     }
   };
 
-  // ─── NEW: Load my communities ────────────────────────────
   const loadMyCommunities = async () => {
     setMyCommunitiesLoading(true);
     try {
-      // Use your existing API to get communities the user is a member of
-      // If you have a dedicated endpoint, use it; otherwise filter from all
-      const data = await api.getMyCommunities(); // assuming this exists
+      const data = await api.getMyCommunities();
       setMyCommunities(data || []);
     } catch (err) {
       console.warn('Using mock my communities:', err);
-      // Fallback mock data
       setMyCommunities([
         { id: 1, name: 'Computer Science Study Hub', member_count: 2400, type: 'study_group' },
         { id: 2, name: 'Young Entrepreneurs Kenya', member_count: 3200, type: 'discussion' },
@@ -208,13 +206,10 @@ export default function MomentumPage() {
     }
   };
 
-  // ─── NEW: Load events ─────────────────────────────────────
   const loadEvents = async () => {
     setEventsLoading(true);
     try {
-      // Try to fetch events from all communities (if you have an endpoint)
-      // For now, use mock data
-      // You can later replace with a real API call
+      // Try to fetch real events if you have an API endpoint, else use mock
       const mockEvents = [
         { id: 1, title: 'KCSE Mathematics Revision', community_name: 'Mathematics Revision Hub', start_time: '2026-09-05T10:00:00', location: 'Online', attending_count: 124, user_rsvped: false },
         { id: 2, title: 'Web Development Workshop', community_name: 'Web Developers Kenya', start_time: '2026-09-06T16:00:00', location: 'Nairobi, Kenya', attending_count: 87, user_rsvped: false },
@@ -230,13 +225,10 @@ export default function MomentumPage() {
     }
   };
 
-  // ─── NEW: RSVP to event ──────────────────────────────────
   const handleRSVP = async (eventId) => {
     try {
-      // Use your existing RSVP API
       await api.rsvpEvent(eventId, 'going');
       showToast('You\'re attending!', 'success');
-      // Update local state
       setEvents(prev => prev.map(e => 
         e.id === eventId ? { ...e, user_rsvped: true, attending_count: e.attending_count + 1 } : e
       ));
@@ -259,7 +251,7 @@ export default function MomentumPage() {
         visibility: 'public',
       });
       loadCommunities();
-      loadTrending(); // refresh trending
+      loadTrending();
     } catch (err) {
       showToast(err.message || 'Failed to create community', 'error');
     }
@@ -270,10 +262,31 @@ export default function MomentumPage() {
       await api.joinCommunity(communityId);
       showToast('Joined community!', 'success');
       loadCommunities();
-      loadMyCommunities(); // refresh my communities
+      loadMyCommunities();
     } catch (err) {
       showToast(err.message || 'Failed to join', 'error');
     }
+  };
+
+  // ─── NEW: Global search function ──────────────────────────────
+  const performSearch = (query) => {
+    if (!query.trim()) {
+      setShowSearchResults(false);
+      setSearchResults({ communities: [], posts: [], events: [] });
+      return;
+    }
+    const q = query.toLowerCase().trim();
+    const communitiesResults = communities.filter(c =>
+      c.name.toLowerCase().includes(q) || (c.description && c.description.toLowerCase().includes(q))
+    );
+    const postsResults = feedPosts.filter(p =>
+      p.content.toLowerCase().includes(q) || (p.full_name && p.full_name.toLowerCase().includes(q))
+    );
+    const eventsResults = events.filter(e =>
+      e.title.toLowerCase().includes(q) || (e.description && e.description.toLowerCase().includes(q))
+    );
+    setSearchResults({ communities: communitiesResults, posts: postsResults, events: eventsResults });
+    setShowSearchResults(true);
   };
 
   // ===== RENDER =====
@@ -288,8 +301,8 @@ export default function MomentumPage() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        {/* ─── Header with search and notification ────────────── */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
               🌊 Momentum
@@ -298,15 +311,78 @@ export default function MomentumPage() {
               Learn together. Connect. Create. Grow.
             </p>
           </div>
-          <button
-            onClick={() => setShowPostModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-white bg-gradient-to-r from-brand-500 to-violet-600 hover:opacity-90 transition"
-          >
-            <Plus size={18} /> New Post
-          </button>
+          <div className="flex items-center gap-3">
+            {/* ─── NEW: Global Search bar ───────────────────── */}
+            <div className="relative w-64">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                placeholder="Search Momentum..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  performSearch(e.target.value);
+                }}
+                onFocus={() => searchQuery.trim() && setShowSearchResults(true)}
+                onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
+                className="w-full input pl-10"
+              />
+              {/* ─── Search results dropdown ────────────────── */}
+              {showSearchResults && (
+                <div className="absolute left-0 right-0 mt-2 bg-gray-800 rounded-xl shadow-xl border border-white/10 z-50 max-h-80 overflow-y-auto">
+                  {searchResults.communities.length === 0 && searchResults.posts.length === 0 && searchResults.events.length === 0 ? (
+                    <div className="p-4 text-center text-white/40">No results found</div>
+                  ) : (
+                    <>
+                      {searchResults.communities.length > 0 && (
+                        <div className="p-2">
+                          <h4 className="text-xs font-semibold text-white/40 px-2 py-1">Communities</h4>
+                          {searchResults.communities.slice(0, 3).map(c => (
+                            <div key={c.id} className="p-2 hover:bg-white/5 rounded-lg cursor-pointer" onClick={() => navigate(`/momentum/community/${c.id}`)}>
+                              <p className="text-sm text-white">{c.name}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {searchResults.posts.length > 0 && (
+                        <div className="p-2 border-t border-white/10">
+                          <h4 className="text-xs font-semibold text-white/40 px-2 py-1">Posts</h4>
+                          {searchResults.posts.slice(0, 3).map(p => (
+                            <div key={p.id} className="p-2 hover:bg-white/5 rounded-lg cursor-pointer" onClick={() => setActiveTab('feed')}>
+                              <p className="text-sm text-white">{p.content.substring(0, 60)}...</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {searchResults.events.length > 0 && (
+                        <div className="p-2 border-t border-white/10">
+                          <h4 className="text-xs font-semibold text-white/40 px-2 py-1">Events</h4>
+                          {searchResults.events.slice(0, 3).map(e => (
+                            <div key={e.id} className="p-2 hover:bg-white/5 rounded-lg cursor-pointer" onClick={() => setActiveTab('events')}>
+                              <p className="text-sm text-white">{e.title}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ─── NEW: Notification Bell ────────────────────── */}
+            <NotificationBell />
+
+            <button
+              onClick={() => setShowPostModal(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-white bg-gradient-to-r from-brand-500 to-violet-600 hover:opacity-90 transition"
+            >
+              <Plus size={18} /> New Post
+            </button>
+          </div>
         </div>
 
-        {/* ─── NEW: Trending Communities ─────────────────────── */}
+        {/* ─── Trending Communities (unchanged) ────────────── */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -349,7 +425,7 @@ export default function MomentumPage() {
           )}
         </div>
 
-        {/* ─── NEW: My Communities ───────────────────────────── */}
+        {/* ─── My Communities (unchanged) ──────────────────── */}
         {myCommunities.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
@@ -387,7 +463,7 @@ export default function MomentumPage() {
           </div>
         )}
 
-        {/* Tabs */}
+        {/* Tabs (unchanged) */}
         <div className="flex gap-2 mb-6 border-b border-white/10">
           <button
             onClick={() => setActiveTab('feed')}
@@ -427,7 +503,7 @@ export default function MomentumPage() {
         {/* ===== FEED TAB (unchanged) ===== */}
         {activeTab === 'feed' && (
           <div>
-            {/* Create Post Modal (unchanged) */}
+            {/* Create Post Modal – unchanged */}
             {showPostModal && (
               <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
                 <div className="bg-gray-800 rounded-xl p-6 max-w-lg w-full">
@@ -463,7 +539,7 @@ export default function MomentumPage() {
               </div>
             )}
 
-            {/* Feed */}
+            {/* Feed content – unchanged */}
             {feedLoading ? (
               <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>Loading posts...</div>
             ) : feedPosts.length === 0 ? (
@@ -479,6 +555,7 @@ export default function MomentumPage() {
               </div>
             ) : (
               <div className="space-y-4">
+                {/* ... post rendering (unchanged) ... */}
                 {feedPosts.map((post) => (
                   <div key={post.id} className="card p-4">
                     <div className="flex items-center gap-3 mb-3">
@@ -502,18 +579,14 @@ export default function MomentumPage() {
                     <div className="flex items-center gap-6 text-sm" style={{ color: 'var(--text-muted)' }}>
                       <button
                         onClick={() => handleLike(post.id)}
-                        className={`flex items-center gap-1 transition ${
-                          post.user_liked ? 'text-red-400' : 'hover:text-white'
-                        }`}
+                        className={`flex items-center gap-1 transition ${post.user_liked ? 'text-red-400' : 'hover:text-white'}`}
                       >
                         <Heart size={16} className={post.user_liked ? 'fill-red-400' : ''} />
                         <span>{post.likes_count}</span>
                       </button>
                       <button
                         onClick={() => {
-                          if (!showComments[post.id]) {
-                            loadComments(post.id);
-                          }
+                          if (!showComments[post.id]) loadComments(post.id);
                           setShowComments(prev => ({ ...prev, [post.id]: !prev[post.id] }));
                         }}
                         className="flex items-center gap-1 hover:text-white transition"
@@ -523,7 +596,6 @@ export default function MomentumPage() {
                       </button>
                     </div>
 
-                    {/* Comments */}
                     {showComments[post.id] && (
                       <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
                         <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -553,24 +625,15 @@ export default function MomentumPage() {
                               className="flex-1 input text-sm"
                               onKeyDown={(e) => e.key === 'Enter' && handleComment(post.id)}
                             />
-                            <button
-                              onClick={() => handleComment(post.id)}
-                              className="px-3 py-1 bg-brand-500 rounded-lg text-white text-sm"
-                            >
+                            <button onClick={() => handleComment(post.id)} className="px-3 py-1 bg-brand-500 rounded-lg text-white text-sm">
                               Reply
                             </button>
-                            <button
-                              onClick={() => setCommentingPost(null)}
-                              className="px-3 py-1 bg-white/10 rounded-lg text-white text-sm"
-                            >
+                            <button onClick={() => setCommentingPost(null)} className="px-3 py-1 bg-white/10 rounded-lg text-white text-sm">
                               Cancel
                             </button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => setCommentingPost(post.id)}
-                            className="text-sm text-brand-400 hover:underline mt-2"
-                          >
+                          <button onClick={() => setCommentingPost(post.id)} className="text-sm text-brand-400 hover:underline mt-2">
                             Add comment
                           </button>
                         )}
@@ -586,15 +649,14 @@ export default function MomentumPage() {
         {/* ===== COMMUNITIES TAB (unchanged) ===== */}
         {activeTab === 'communities' && (
           <div>
-            {/* Search and Filter */}
             <div className="flex flex-wrap gap-4 mb-6">
               <div className="flex-1 min-w-[200px] relative">
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
                 <input
                   type="text"
                   placeholder="Search communities..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={communitySearch}
+                  onChange={(e) => setCommunitySearch(e.target.value)}
                   className="w-full input pl-10"
                 />
               </div>
@@ -602,9 +664,7 @@ export default function MomentumPage() {
                 <button
                   onClick={() => setSelectedType('all')}
                   className={`px-4 py-2 rounded-lg text-sm transition ${
-                    selectedType === 'all' 
-                      ? 'bg-brand-500 text-white' 
-                      : 'bg-white/5 text-white/70 hover:bg-white/10'
+                    selectedType === 'all' ? 'bg-brand-500 text-white' : 'bg-white/5 text-white/70 hover:bg-white/10'
                   }`}
                 >
                   All
@@ -614,9 +674,7 @@ export default function MomentumPage() {
                     key={type}
                     onClick={() => setSelectedType(type)}
                     className={`px-4 py-2 rounded-lg text-sm transition ${
-                      selectedType === type 
-                        ? 'bg-brand-500 text-white' 
-                        : 'bg-white/5 text-white/70 hover:bg-white/10'
+                      selectedType === type ? 'bg-brand-500 text-white' : 'bg-white/5 text-white/70 hover:bg-white/10'
                     }`}
                   >
                     {type === 'study_group' ? '📖 Study' :
@@ -633,17 +691,13 @@ export default function MomentumPage() {
               </div>
             </div>
 
-            {/* Community List */}
             {communitiesLoading ? (
               <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>Loading communities...</div>
             ) : communities.length === 0 ? (
               <div className="card p-12 text-center" style={{ color: 'var(--text-muted)' }}>
                 <Users size={48} className="mx-auto mb-3 opacity-30" />
                 <p>No communities found. Be the first to create one!</p>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="mt-3 px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-white"
-                >
+                <button onClick={() => setShowCreateModal(true)} className="mt-3 px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-white">
                   Create Community
                 </button>
               </div>
@@ -699,7 +753,7 @@ export default function MomentumPage() {
           </div>
         )}
 
-        {/* ===== EVENTS TAB – UPDATED ===== */}
+        {/* ===== EVENTS TAB (unchanged) ===== */}
         {activeTab === 'events' && (
           <div>
             {eventsLoading ? (
@@ -740,16 +794,13 @@ export default function MomentumPage() {
                       <button
                         onClick={() => {
                           if (event.user_rsvped) {
-                            // Optionally allow cancel
                             showToast('You\'re already attending!', 'info');
                             return;
                           }
                           handleRSVP(event.id);
                         }}
                         className={`px-4 py-1.5 rounded-lg text-sm transition ${
-                          event.user_rsvped
-                            ? 'bg-green-500/20 text-green-400'
-                            : 'bg-brand-500 text-white hover:bg-brand-600'
+                          event.user_rsvped ? 'bg-green-500/20 text-green-400' : 'bg-brand-500 text-white hover:bg-brand-600'
                         }`}
                       >
                         {event.user_rsvped ? '✅ Going' : 'RSVP'}
@@ -763,7 +814,7 @@ export default function MomentumPage() {
         )}
       </div>
 
-      {/* Create Community Modal – updated with visibility */}
+      {/* Create Community Modal (unchanged) */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full">
@@ -811,7 +862,6 @@ export default function MomentumPage() {
                   placeholder="e.g., Mathematics, Programming"
                 />
               </div>
-              {/* ─── NEW: Visibility ──────────────────────────── */}
               <div>
                 <label className="text-white/80 text-sm font-medium">Visibility</label>
                 <select
