@@ -29,6 +29,7 @@ import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
 import { googleAuth } from '../controllers/authController.js';
+import { rsvpEvent } from '../controllers/momentumController.js';
 
 
 // ... rest of file unchanged
@@ -190,6 +191,9 @@ router.get('/library/books/:id/progress', authenticate, libraryController.getPro
 router.get('/library/books/:id/bookmarks', authenticate, libraryController.getBookmarks);
 router.post('/library/books/:id/bookmarks', authenticate, libraryController.createBookmark);
 router.delete('/library/books/:id/bookmarks/:bookmarkId', authenticate, libraryController.deleteBookmark);
+
+router.post('/events/:eventId/rsvp', rsvpEvent);
+
 
 // Root
 router.get('/', (req, res) => res.json({ message: 'API root' }));

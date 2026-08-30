@@ -727,7 +727,7 @@ export const api = {
   getCommunityEvents: (id) => fetch(`${API_BASE}/momentum/communities/${id}/events`, {
     headers: authHeaders()
   }).then(handleResponse),
-  rsvpEvent: (eventId, status) => fetch(`${API_BASE}/momentum/events/${eventId}/rsvp`, {
+  rsvpEvent: (eventId, status) => fetch(`${API_BASE}/events/${eventId}/rsvp`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ status }),
