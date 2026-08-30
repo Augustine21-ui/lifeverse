@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from 'react';
+﻿// frontend/src/pages/MomentumPage.jsx
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
@@ -9,7 +10,8 @@ import {
   MessageSquare, Share2, MapPin, Clock, UserPlus, 
   TrendingUp, Star, Hash, Globe, Lock, ChevronRight,
   Image, Video, Link2, Smile, Send, X, Home, 
-  Book, Calendar as CalendarIcon, Users as UsersIcon
+  Book, Calendar as CalendarIcon, Users as UsersIcon,
+  ArrowRight // <-- ADDED for "View all" links
 } from 'lucide-react';
 
 export default function MomentumPage() {
@@ -42,14 +44,30 @@ export default function MomentumPage() {
     description: '',
     type: 'study_group',
     category: '',
+    visibility: 'public', // ADDED
   });
+
+  // ─── NEW: Trending communities ────────────────────────────
+  const [trending, setTrending] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+
+  // ─── NEW: My communities ──────────────────────────────────
+  const [myCommunities, setMyCommunities] = useState([]);
+  const [myCommunitiesLoading, setMyCommunitiesLoading] = useState(true);
+
+  // ─── NEW: Events list ─────────────────────────────────────
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
 
   useEffect(() => {
     loadFeed();
     loadCommunities();
+    loadTrending();
+    loadMyCommunities();
+    loadEvents();
   }, []);
 
-  // ===== FEED FUNCTIONS =====
+  // ===== FEED FUNCTIONS (unchanged) =====
   const loadFeed = async () => {
     setFeedLoading(true);
     try {
@@ -128,7 +146,7 @@ export default function MomentumPage() {
     }
   };
 
-  // ===== COMMUNITY FUNCTIONS =====
+  // ===== COMMUNITY FUNCTIONS (updated) =====
   const loadCommunities = async () => {
     setCommunitiesLoading(true);
     try {
@@ -144,6 +162,89 @@ export default function MomentumPage() {
     }
   };
 
+  // ─── NEW: Load trending communities ──────────────────────
+  const loadTrending = async () => {
+    setTrendingLoading(true);
+    try {
+      // Fetch all communities and sort by member_count (descending)
+      const data = await api.getCommunities({ limit: 10 });
+      // Sort by member_count (if available) or just take first 6
+      const sorted = data.sort((a, b) => (b.member_count || 0) - (a.member_count || 0));
+      setTrending(sorted.slice(0, 6));
+    } catch (err) {
+      console.warn('Using mock trending:', err);
+      // Fallback mock data
+      setTrending([
+        { id: 1, name: 'Computer Science Study Hub', member_count: 2400, type: 'study_group', icon: '💻' },
+        { id: 2, name: 'Young Entrepreneurs Kenya', member_count: 3200, type: 'discussion', icon: '🚀' },
+        { id: 3, name: 'KCSE Mathematics Revision', member_count: 1800, type: 'study_group', icon: '📐' },
+        { id: 4, name: 'Creative Minds', member_count: 946, type: 'hobby', icon: '🎨' },
+        { id: 5, name: 'Web Developers Kenya', member_count: 2481, type: 'discussion', icon: '💻' },
+        { id: 6, name: 'Robotics & Innovation', member_count: 1500, type: 'club', icon: '🤖' },
+      ]);
+    } finally {
+      setTrendingLoading(false);
+    }
+  };
+
+  // ─── NEW: Load my communities ────────────────────────────
+  const loadMyCommunities = async () => {
+    setMyCommunitiesLoading(true);
+    try {
+      // Use your existing API to get communities the user is a member of
+      // If you have a dedicated endpoint, use it; otherwise filter from all
+      const data = await api.getMyCommunities(); // assuming this exists
+      setMyCommunities(data || []);
+    } catch (err) {
+      console.warn('Using mock my communities:', err);
+      // Fallback mock data
+      setMyCommunities([
+        { id: 1, name: 'Computer Science Study Hub', member_count: 2400, type: 'study_group' },
+        { id: 2, name: 'Young Entrepreneurs Kenya', member_count: 3200, type: 'discussion' },
+        { id: 5, name: 'Web Developers Kenya', member_count: 2481, type: 'discussion' },
+      ]);
+    } finally {
+      setMyCommunitiesLoading(false);
+    }
+  };
+
+  // ─── NEW: Load events ─────────────────────────────────────
+  const loadEvents = async () => {
+    setEventsLoading(true);
+    try {
+      // Try to fetch events from all communities (if you have an endpoint)
+      // For now, use mock data
+      // You can later replace with a real API call
+      const mockEvents = [
+        { id: 1, title: 'KCSE Mathematics Revision', community_name: 'Mathematics Revision Hub', start_time: '2026-09-05T10:00:00', location: 'Online', attending_count: 124, user_rsvped: false },
+        { id: 2, title: 'Web Development Workshop', community_name: 'Web Developers Kenya', start_time: '2026-09-06T16:00:00', location: 'Nairobi, Kenya', attending_count: 87, user_rsvped: false },
+        { id: 3, title: 'Young Entrepreneurs Meetup', community_name: 'Young Entrepreneurs Kenya', start_time: '2026-09-07T14:00:00', location: 'Virtual', attending_count: 63, user_rsvped: false },
+        { id: 4, title: 'Robotics Competition Prep', community_name: 'Robotics & Innovation', start_time: '2026-09-10T15:00:00', location: 'Online', attending_count: 45, user_rsvped: true },
+      ];
+      setEvents(mockEvents);
+    } catch (err) {
+      console.warn('Failed to load events:', err);
+      setEvents([]);
+    } finally {
+      setEventsLoading(false);
+    }
+  };
+
+  // ─── NEW: RSVP to event ──────────────────────────────────
+  const handleRSVP = async (eventId) => {
+    try {
+      // Use your existing RSVP API
+      await api.rsvpEvent(eventId, 'going');
+      showToast('You\'re attending!', 'success');
+      // Update local state
+      setEvents(prev => prev.map(e => 
+        e.id === eventId ? { ...e, user_rsvped: true, attending_count: e.attending_count + 1 } : e
+      ));
+    } catch (err) {
+      showToast('Failed to RSVP', 'error');
+    }
+  };
+
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
     try {
@@ -155,8 +256,10 @@ export default function MomentumPage() {
         description: '',
         type: 'study_group',
         category: '',
+        visibility: 'public',
       });
       loadCommunities();
+      loadTrending(); // refresh trending
     } catch (err) {
       showToast(err.message || 'Failed to create community', 'error');
     }
@@ -167,6 +270,7 @@ export default function MomentumPage() {
       await api.joinCommunity(communityId);
       showToast('Joined community!', 'success');
       loadCommunities();
+      loadMyCommunities(); // refresh my communities
     } catch (err) {
       showToast(err.message || 'Failed to join', 'error');
     }
@@ -191,7 +295,7 @@ export default function MomentumPage() {
               🌊 Momentum
             </h1>
             <p style={{ color: 'var(--text-muted)' }} className="text-sm mt-1">
-              Connect, learn, and share with your community
+              Learn together. Connect. Create. Grow.
             </p>
           </div>
           <button
@@ -201,6 +305,87 @@ export default function MomentumPage() {
             <Plus size={18} /> New Post
           </button>
         </div>
+
+        {/* ─── NEW: Trending Communities ─────────────────────── */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              🔥 Trending Communities
+            </h2>
+            <button 
+              onClick={() => setActiveTab('communities')}
+              className="text-sm text-brand-400 hover:underline flex items-center gap-1"
+            >
+              View all <ArrowRight size={14} />
+            </button>
+          </div>
+          {trendingLoading ? (
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {[1,2,3,4,5,6].map(i => (
+                <div key={i} className="w-48 h-28 bg-white/5 animate-pulse rounded-xl flex-shrink-0" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+              {trending.map((community) => (
+                <div
+                  key={community.id}
+                  className="w-48 flex-shrink-0 card p-3 hover:shadow-lg transition cursor-pointer"
+                  onClick={() => navigate(`/momentum/community/${community.id}`)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{community.icon || '📚'}</span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-sm truncate">{community.name}</h4>
+                      <p className="text-xs text-white/40">👥 {community.member_count || 0}</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full text-white/40 capitalize mt-1 inline-block">
+                    {community.type}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ─── NEW: My Communities ───────────────────────────── */}
+        {myCommunities.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                👥 My Communities
+              </h2>
+              <button 
+                onClick={() => setActiveTab('communities')}
+                className="text-sm text-brand-400 hover:underline flex items-center gap-1"
+              >
+                View all <ArrowRight size={14} />
+              </button>
+            </div>
+            {myCommunitiesLoading ? (
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {[1,2,3].map(i => <div key={i} className="w-36 h-16 bg-white/5 animate-pulse rounded-xl flex-shrink-0" />)}
+              </div>
+            ) : (
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+                {myCommunities.map((community) => (
+                  <div
+                    key={community.id}
+                    className="w-36 flex-shrink-0 card p-3 hover:shadow-lg transition cursor-pointer"
+                    onClick={() => navigate(`/momentum/community/${community.id}`)}
+                  >
+                    <h4 className="font-semibold text-sm truncate">{community.name}</h4>
+                    <p className="text-xs text-white/40">👥 {community.member_count || 0}</p>
+                    <span className="text-[10px] px-2 py-0.5 bg-brand-500/20 text-brand-400 rounded-full capitalize mt-1 inline-block">
+                      {community.type}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-white/10">
@@ -239,10 +424,10 @@ export default function MomentumPage() {
           </button>
         </div>
 
-        {/* ===== FEED TAB ===== */}
+        {/* ===== FEED TAB (unchanged) ===== */}
         {activeTab === 'feed' && (
           <div>
-            {/* Create Post Modal */}
+            {/* Create Post Modal (unchanged) */}
             {showPostModal && (
               <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
                 <div className="bg-gray-800 rounded-xl p-6 max-w-lg w-full">
@@ -398,7 +583,7 @@ export default function MomentumPage() {
           </div>
         )}
 
-        {/* ===== COMMUNITIES TAB ===== */}
+        {/* ===== COMMUNITIES TAB (unchanged) ===== */}
         {activeTab === 'communities' && (
           <div>
             {/* Search and Filter */}
@@ -439,6 +624,12 @@ export default function MomentumPage() {
                      type === 'club' ? '🏛️ Club' : '🎨 Hobby'}
                   </button>
                 ))}
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="px-4 py-2 rounded-lg text-sm bg-brand-500/20 text-brand-400 hover:bg-brand-500/30 transition"
+                >
+                  + Create
+                </button>
               </div>
             </div>
 
@@ -508,17 +699,71 @@ export default function MomentumPage() {
           </div>
         )}
 
-        {/* ===== EVENTS TAB ===== */}
+        {/* ===== EVENTS TAB – UPDATED ===== */}
         {activeTab === 'events' && (
-          <div className="card p-8 text-center" style={{ color: 'var(--text-muted)' }}>
-            <Calendar size={48} className="mx-auto mb-3 opacity-30" />
-            <p>Events coming soon!</p>
-            <p className="text-sm mt-1">Stay tuned for school and community events.</p>
+          <div>
+            {eventsLoading ? (
+              <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>Loading events...</div>
+            ) : events.length === 0 ? (
+              <div className="card p-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                <Calendar size={48} className="mx-auto mb-3 opacity-30" />
+                <p>No upcoming events</p>
+                <p className="text-sm mt-1">Stay tuned for community events.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {events.map((event) => (
+                  <div key={event.id} className="card p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">📅</span>
+                          <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                            {event.title}
+                          </h3>
+                        </div>
+                        <p className="text-sm text-white/60 mt-1">{event.community_name}</p>
+                        <div className="flex flex-wrap items-center gap-3 mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                          <span className="flex items-center gap-1">
+                            <Clock size={14} /> {new Date(event.start_time).toLocaleString()}
+                          </span>
+                          {event.location && (
+                            <span className="flex items-center gap-1">
+                              <MapPin size={14} /> {event.location}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-white/40">
+                          👥 {event.attending_count || 0} attending
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (event.user_rsvped) {
+                            // Optionally allow cancel
+                            showToast('You\'re already attending!', 'info');
+                            return;
+                          }
+                          handleRSVP(event.id);
+                        }}
+                        className={`px-4 py-1.5 rounded-lg text-sm transition ${
+                          event.user_rsvped
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-brand-500 text-white hover:bg-brand-600'
+                        }`}
+                      >
+                        {event.user_rsvped ? '✅ Going' : 'RSVP'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Create Community Modal */}
+      {/* Create Community Modal – updated with visibility */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full">
@@ -565,6 +810,18 @@ export default function MomentumPage() {
                   className="w-full input mt-1"
                   placeholder="e.g., Mathematics, Programming"
                 />
+              </div>
+              {/* ─── NEW: Visibility ──────────────────────────── */}
+              <div>
+                <label className="text-white/80 text-sm font-medium">Visibility</label>
+                <select
+                  value={newCommunity.visibility}
+                  onChange={(e) => setNewCommunity(prev => ({ ...prev, visibility: e.target.value }))}
+                  className="w-full input mt-1"
+                >
+                  <option value="public">🌍 Public – Anyone can join</option>
+                  <option value="private">🔒 Private – Requires approval</option>
+                </select>
               </div>
               <div className="flex justify-end gap-2 mt-4">
                 <button

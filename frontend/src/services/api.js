@@ -859,4 +859,8 @@ getOpportunity: (id) => api.get(`/opportunities/${id}`),
 applyOpportunity: (id) => api.post(`/opportunities/${id}/apply`),
 getMyApplications: () => api.get('/my-applications'),
 
+getAllEvents: () => fetch(`${API_BASE}/events`, {
+  headers: authHeaders()
+}).then(handleResponse),
+
 };
