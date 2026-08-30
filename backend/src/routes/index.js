@@ -30,7 +30,36 @@ import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
 import { googleAuth } from '../controllers/authController.js';
 import { rsvpEvent } from '../controllers/momentumController.js';
+import { 
+  getCommunities, 
+  getCommunity, 
+  createCommunity, 
+  joinCommunity, 
+  leaveCommunity, 
+  getCommunityPosts, 
+  createPost, 
+  toggleLike, 
+  getComments, 
+  addComment, 
+  getCommunityEvents, 
+  rsvpEvent 
+} from '../controllers/momentumController.js';
 
+// ... other routes
+
+// Momentum routes
+router.get('/communities', getCommunities);
+router.get('/communities/:id', getCommunity);
+router.post('/communities', createCommunity);
+router.post('/communities/:id/join', joinCommunity);
+router.delete('/communities/:id/leave', leaveCommunity);
+router.get('/communities/:id/posts', getCommunityPosts);
+router.post('/posts', createPost);
+router.post('/posts/:post_id/like', toggleLike);
+router.get('/posts/:post_id/comments', getComments);
+router.post('/posts/:post_id/comments', addComment);
+router.get('/communities/:communityId/events', getCommunityEvents);
+router.post('/events/:eventId/rsvp', rsvpEvent);  // <-- THIS ONE
 
 // ... rest of file unchanged
 
