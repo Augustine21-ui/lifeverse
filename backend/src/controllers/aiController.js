@@ -55,7 +55,8 @@ export const explain = async (req, res) => {
 };
 
 // ─── NEW: AI TUTOR CHAT (for frontend) ──────────────────────────
-export const tutorChat = async (req, res) => {
+
+    export const tutorChat = async (req, res) => {
   try {
     const { message, context } = req.body;
     const userId = req.user.id;
@@ -64,22 +65,26 @@ export const tutorChat = async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // (Optional) Get user context from DB
+    // Get user context – handle missing columns gracefully
     let userContext = '';
     try {
+      // Only select columns that likely exist
       const userRes = await query(
-        'SELECT education_level, subjects FROM users WHERE id = $1',
+        'SELECT education_level, institution FROM users WHERE id = $1',
         [userId]
       );
       if (userRes.rows.length > 0) {
         const user = userRes.rows[0];
         userContext = `Student is at ${user.education_level || 'university'} level.`;
-        if (user.subjects) {
-          userContext += ` Studying: ${user.subjects}.`;
+        if (user.institution) {
+          userContext += ` Attends: ${user.institution}.`;
         }
+      } else {
+        userContext = 'Student is at university level.';
       }
     } catch (err) {
       console.warn('Could not fetch user context:', err.message);
+      userContext = 'Student is at university level.';
     }
 
     // Use AI if available, otherwise mock
@@ -87,7 +92,7 @@ export const tutorChat = async (req, res) => {
       return res.json({
         reply: generateMockResponse('tutor', message),
         mock: true,
-        message: 'AI is currently in mock mode. Add GROQ_API_KEY to enable real AI.'
+        message: 'AI is currently in mock mode. Add GROQ_API_KEY or OPENAI_API_KEY to enable real AI.'
       });
     }
 
@@ -96,7 +101,7 @@ export const tutorChat = async (req, res) => {
       const completion = await openai.chat.completions.create({
         model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
         messages: [
-          { role: 'system', content: `You are KUA AI Tutor. ${userContext} Provide clear, helpful explanations.` },
+          { role: 'system', content: `You are KUA AI Tutor. ${userContext} Provide clear, helpful explanations. If you cannot access real data, give a general response.` },
           { role: 'user', content: message }
         ],
         max_tokens: 500,
@@ -107,6 +112,7 @@ export const tutorChat = async (req, res) => {
       res.json({ reply, mock: false, aiProvider });
     } catch (aiError) {
       console.error('AI API error:', aiError);
+      // Fallback to mock
       res.json({
         reply: generateMockResponse('tutor', message),
         mock: true,
@@ -118,7 +124,6 @@ export const tutorChat = async (req, res) => {
     res.status(500).json({ error: 'AI Tutor failed', details: error.message });
   }
 };
-
 // ─── NEW: GENERATE QUIZ ─────────────────────────────────────────
 export const generateQuiz = async (req, res) => {
   try {
