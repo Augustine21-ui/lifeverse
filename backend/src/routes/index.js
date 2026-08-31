@@ -22,6 +22,12 @@ import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
 import { googleAuth } from '../controllers/authController.js';
 import { getNotifications } from '../controllers/momentumController.js';
+import { 
+  tutorChat, 
+  generateQuiz, 
+  generateOrbitContent, 
+  getPersonalizedRecommendations 
+} from '../controllers/aiController.js';
 
 // ─── MOMENTUM CONTROLLER – all community functions ──────────────
 import { 
@@ -79,6 +85,12 @@ router.post('/feed/posts/:id/like', authenticate, likePost);
 router.get('/feed/posts/:id/comments', authenticate, getComments);
 router.post('/feed/posts/:id/comments', authenticate, addComment);
 router.delete('/feed/posts/:id', authenticate, deletePost);
+
+
+router.post('/ai/tutor', authenticate, tutorChat);
+router.post('/ai/quiz', authenticate, generateQuiz);
+router.post('/ai/orbit/generate', authenticate, generateOrbitContent);
+router.get('/ai/recommendations', authenticate, getPersonalizedRecommendations);
 
 // ===== MOMENTUM – Communities =====
 router.get('/communities', authenticate, getCommunities);
