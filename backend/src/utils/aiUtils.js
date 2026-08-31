@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 let openai = null;
 let isAIAvailable = false;
 let aiProvider = 'none';
+let activeModel = null;
 
 const groqApiKey = process.env.GROQ_API_KEY;
 const openAiKey = process.env.OPENAI_API_KEY;
@@ -17,7 +18,9 @@ if (groqApiKey && groqApiKey !== "your_groq_api_key_here" && groqApiKey.startsWi
     });
     isAIAvailable = true;
     aiProvider = "groq";
-    console.log("✅ Groq AI initialized successfully");
+    // Set a default model – can be overridden by environment
+    activeModel = process.env.GROQ_MODEL || "llama3-8b-8192";
+    console.log(`✅ Groq AI initialized successfully (model: ${activeModel})`);
   } catch (error) {
     console.warn("⚠️ Failed to initialize Groq:", error.message);
   }
@@ -28,7 +31,8 @@ if (groqApiKey && groqApiKey !== "your_groq_api_key_here" && groqApiKey.startsWi
     });
     isAIAvailable = true;
     aiProvider = "openai";
-    console.log("✅ OpenAI initialized successfully");
+    activeModel = process.env.OPENAI_MODEL || "gpt-4o-mini";
+    console.log(`✅ OpenAI initialized successfully (model: ${activeModel})`);
   } catch (error) {
     console.warn("⚠️ Failed to initialize OpenAI:", error.message);
   }
@@ -49,7 +53,15 @@ export const isAIAvailableCheck = () => isAIAvailable;
 
 export const getAIProvider = () => aiProvider;
 
-// Mock response generator (remains the same)
+export const getModelForProvider = (provider) => {
+  if (provider === 'groq') {
+    // Prefer environment variable, else fallback to a widely available model
+    return process.env.GROQ_MODEL || "llama3-8b-8192";
+  }
+  return process.env.OPENAI_MODEL || "gpt-4o-mini";
+};
+
+// Mock response generator
 export const generateMockResponse = (type, topic) => {
   const mockResponses = {
     focus: `Here's a focus tip for ${topic}: Break down your study session into 25-minute blocks with 5-minute breaks in between.`,
@@ -59,15 +71,4 @@ export const generateMockResponse = (type, topic) => {
     tutor: `Let me help you with ${topic}. The key to understanding this concept is to practice regularly and ask questions.`
   };
   return mockResponses[type] || `Here's some help with ${topic}: Keep learning and stay curious!`;
-};
-
-// backend/src/utils/aiUtils.js
-// ... existing code ...
-
-export const getModelForProvider = (provider) => {
-  if (provider === 'groq') {
-    return process.env.GROQ_MODEL || "llama3-70b-8192";
-  }
-  // Default to OpenAI model
-  return process.env.OPENAI_MODEL || "gpt-4o-mini";
 };

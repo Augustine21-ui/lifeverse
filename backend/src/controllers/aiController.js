@@ -44,6 +44,9 @@ export const explain = async (req, res) => {
       });
     } catch (aiError) {
       console.error('AI API error:', aiError);
+      console.error('❌ Status:', aiError.status);
+      console.error('❌ Message:', aiError.message);
+      console.error('❌ Response data:', aiError.response?.data);
       res.json({
         explanation: generateMockResponse('tutor', concept),
         mock: true,
