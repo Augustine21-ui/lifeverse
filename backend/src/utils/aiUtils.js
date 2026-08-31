@@ -1,4 +1,5 @@
 ﻿// backend/src/utils/aiUtils.js
+import OpenAI from 'openai';
 
 let openai = null;
 let isAIAvailable = false;
@@ -10,7 +11,6 @@ const openAiKey = process.env.OPENAI_API_KEY;
 // Try to initialize with GROQ_API_KEY first
 if (groqApiKey && groqApiKey !== "your_groq_api_key_here" && groqApiKey.startsWith("gsk_")) {
   try {
-    const { default: OpenAI } = await import("openai");
     openai = new OpenAI({
       apiKey: groqApiKey,
       baseURL: "https://api.groq.com/openai/v1",
@@ -21,9 +21,8 @@ if (groqApiKey && groqApiKey !== "your_groq_api_key_here" && groqApiKey.startsWi
   } catch (error) {
     console.warn("⚠️ Failed to initialize Groq:", error.message);
   }
-} else if (openAiKey && openAiKey !== "your_openai_api_key_here") {
+} else if (openAiKey && openAiKey !== "your_openai_api_key_here" && openAiKey.startsWith("sk-")) {
   try {
-    const { default: OpenAI } = await import("openai");
     openai = new OpenAI({
       apiKey: openAiKey,
     });
@@ -50,7 +49,7 @@ export const isAIAvailableCheck = () => isAIAvailable;
 
 export const getAIProvider = () => aiProvider;
 
-// Mock response generator
+// Mock response generator (remains the same)
 export const generateMockResponse = (type, topic) => {
   const mockResponses = {
     focus: `Here's a focus tip for ${topic}: Break down your study session into 25-minute blocks with 5-minute breaks in between.`,
