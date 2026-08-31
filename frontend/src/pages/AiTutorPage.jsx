@@ -1,7 +1,8 @@
 ﻿// frontend/src/pages/AiTutorPage.jsx
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, Loader2, X, Paperclip } from 'lucide-react';
+import { Bot, Send, Loader2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { api } from '../services/api';  // ✅ use the api service
 import PageBackground from '../components/PageBackground';
 
 export default function AiTutorPage() {
@@ -10,16 +11,9 @@ export default function AiTutorPage() {
   const [conversation, setConversation] = useState([]);
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState(null);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [uploadingFile, setUploadingFile] = useState(false);
-  const [uploadedFileUrl, setUploadedFileUrl] = useState(null);
-  const [filePreview, setFilePreview] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  const getToken = () => localStorage.getItem('token') || '';
-
+  // Initialize conversation ID (client-side only)
   useEffect(() => {
     let id = localStorage.getItem('aiTutorConversationId');
     if (!id) {
@@ -27,135 +21,34 @@ export default function AiTutorPage() {
       localStorage.setItem('aiTutorConversationId', id);
     }
     setConversationId(id);
-    fetchHistory(id);
+    // Optionally load a welcome message
+    if (conversation.length === 0) {
+      setConversation([
+        { role: 'ai', content: 'Hello! I\'m your AI Tutor. Ask me anything about your studies, and I\'ll help you learn. 🎓' }
+      ]);
+    }
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
 
-  const fetchHistory = async (id) => {
-    if (!id) return;
-    setLoadingHistory(true);
-    try {
-      const token = getToken();
-      if (!token) {
-        setLoadingHistory(false);
-        return;
-      }
-      const res = await fetch(`/api/tutor/conversation/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.messages && data.messages.length > 0) {
-          const history = data.messages.map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'ai',
-            content: msg.content,
-          }));
-          setConversation(history);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching history:', err);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setSelectedFile(file);
-    // Generate preview
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = () => setFilePreview(reader.result);
-      reader.readAsDataURL(file);
-    } else {
-      setFilePreview(file.name);
-    }
-    // Upload the file
-    await uploadFile(file);
-    // Reset the file input
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const uploadFile = async (file) => {
-    setUploadingFile(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const token = getToken();
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        setUploadedFileUrl(data.url);
-        // Optionally add a system message about the file
-        setConversation(prev => [
-          ...prev,
-          { role: 'ai', content: `📎 Uploaded: ${file.name}` }
-        ]);
-      } else {
-        console.error('Upload failed', data);
-        setFilePreview(null);
-      }
-    } catch (err) {
-      console.error('Upload error', err);
-      setFilePreview(null);
-    } finally {
-      setUploadingFile(false);
-      setSelectedFile(null);
-    }
-  };
-
   const handleSend = async () => {
-    if ((!message.trim() && !uploadedFileUrl) || loading) return;
+    if (!message.trim() || loading) return;
 
-    const userMessageContent = message + (uploadedFileUrl ? `\n[File: ${uploadedFileUrl}]` : '');
-    const userMessage = { role: 'user', content: userMessageContent };
+    const userMessage = { role: 'user', content: message.trim() };
     setConversation(prev => [...prev, userMessage]);
     setMessage('');
     setLoading(true);
 
     try {
-      const token = getToken();
-      if (!token) {
-        throw new Error('Please log in to use the AI Tutor.');
-      }
-      const response = await fetch('/api/tutor/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          message: message,
-          conversationId: conversationId,
-          fileUrl: uploadedFileUrl, // send file URL if any
-        }),
-      });
-      const data = await response.json();
-      if (response.ok && data.reply) {
-        const aiMessage = { role: 'ai', content: data.reply };
-        setConversation(prev => [...prev, aiMessage]);
-        if (data.conversationId && data.conversationId !== conversationId) {
-          setConversationId(data.conversationId);
-          localStorage.setItem('aiTutorConversationId', data.conversationId);
-        }
-        // Clear uploaded file after successful send
-        setUploadedFileUrl(null);
-        setFilePreview(null);
-      } else {
-        throw new Error(data.error || 'Failed to get response');
-      }
+      // ✅ Use the api service method
+      const response = await api.aiTutorChat(message.trim());
+      const aiMessage = { role: 'ai', content: response.reply || 'I apologize, I could not generate a response. Please try again.' };
+      setConversation(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error('AI Tutor error:', error);
-      const errorMessage = { role: 'ai', content: error.message || 'Sorry, I encountered an error.' };
+      const errorMessage = { role: 'ai', content: error.message || 'Sorry, I encountered an error. Please try again later.' };
       setConversation(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
@@ -164,26 +57,30 @@ export default function AiTutorPage() {
 
   return (
     <PageBackground imageUrl="/ai-tutor-bg.jpg">
-      {/* ✅ Increased max-width to full-width with padding, taller height */}
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="flex items-center gap-3 mb-6">
           <Bot size={36} className="text-brand-400" />
-          <h1 className="text-3xl font-bold">AI Tutor</h1>
+          <h1 className="text-3xl font-bold text-white">AI Tutor</h1>
         </div>
 
-        {/* ✅ Larger chat container – increased height and full width */}
-        <div className="card p-6 h-[600px] flex flex-col">
-          <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-            {loadingHistory ? (
-              <div className="text-center text-white/40 mt-20">Loading history...</div>
-            ) : conversation.length === 0 ? (
+        {/* Chat container */}
+        <div className="bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 p-4 h-[500px] flex flex-col">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto space-y-3 mb-4">
+            {conversation.length === 0 ? (
               <div className="text-center text-white/40 mt-20">
                 Ask me anything about your studies, challenges, or career path.
               </div>
             ) : (
               conversation.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-4 rounded-xl ${msg.role === 'user' ? 'bg-brand-500 text-white' : 'bg-white/10 text-white'}`}>
+                  <div
+                    className={`max-w-[80%] p-3 rounded-xl ${
+                      msg.role === 'user'
+                        ? 'bg-brand-500 text-white'
+                        : 'bg-white/10 text-white/90'
+                    }`}
+                  >
                     {msg.content}
                   </div>
                 </div>
@@ -191,69 +88,39 @@ export default function AiTutorPage() {
             )}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-white/10 p-3 rounded-xl">Thinking...</div>
+                <div className="bg-white/10 p-3 rounded-xl text-white/60 flex items-center gap-2">
+                  <Loader2 size={16} className="animate-spin" /> Thinking...
+                </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* File preview */}
-          {filePreview && (
-            <div className="mb-2 p-2 bg-white/5 rounded flex items-center gap-2">
-              {filePreview.startsWith('data:image') ? (
-                <img src={filePreview} alt="preview" className="max-h-12 rounded" />
-              ) : (
-                <span className="text-sm">{filePreview}</span>
-              )}
-              <button
-                onClick={() => {
-                  setFilePreview(null);
-                  setUploadedFileUrl(null);
-                  setSelectedFile(null);
-                }}
-                className="text-red-400 hover:text-red-300"
-              >
-                <X size={16} />
-              </button>
-              {uploadingFile && <Loader2 size={16} className="animate-spin ml-auto" />}
-            </div>
-          )}
-
-          {/* Input area – larger */}
-          <div className="flex gap-2 items-center">
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              onChange={handleFileChange}
-              accept="image/*,.pdf,.txt"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="btn-secondary px-3 py-2"
-              disabled={uploadingFile}
-              title="Attach file"
-            >
-              <Paperclip size={20} />
-            </button>
+          {/* Input area – fixed layout */}
+          <div className="flex gap-2 items-center border-t border-white/10 pt-3">
             <input
               type="text"
-              className="flex-1 input py-3 text-base"
+              className="flex-1 input py-2.5 text-base"
               placeholder="Ask a question..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              disabled={loading || uploadingFile}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              disabled={loading}
             />
             <button
               onClick={handleSend}
-              disabled={loading || uploadingFile}
-              className="btn-primary px-5 py-3"
+              disabled={loading || !message.trim()}
+              className="btn-primary px-4 py-2.5 flex items-center gap-1 disabled:opacity-50"
             >
-              {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
             </button>
           </div>
         </div>
+
+        {/* Optional: Context hint */}
+        <p className="text-xs text-white/30 text-center mt-3">
+          Your conversation is stored locally and will be cleared on logout.
+        </p>
       </div>
     </PageBackground>
   );

@@ -867,4 +867,26 @@ getNotifications: () => fetch(`${API_BASE}/notifications`, {
   headers: authHeaders()
 }).then(handleResponse),
 
+aiTutorChat: (message, context) => fetch(`${API_BASE}/ai/tutor`, {
+  method: 'POST',
+  headers: authHeaders(),
+  body: JSON.stringify({ message, context }),
+}).then(handleResponse),
+
+aiGenerateQuiz: (data) => fetch(`${API_BASE}/ai/quiz`, {
+  method: 'POST',
+  headers: authHeaders(),
+  body: JSON.stringify(data),
+}).then(handleResponse),
+
+aiGenerateOrbitContent: (data) => fetch(`${API_BASE}/ai/orbit/generate`, {
+  method: 'POST',
+  headers: authHeaders(),
+  body: JSON.stringify(data),
+}).then(handleResponse),
+
+aiGetRecommendations: () => fetch(`${API_BASE}/ai/recommendations`, {
+  headers: authHeaders()
+}).then(handleResponse),
+
 };
