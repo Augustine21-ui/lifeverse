@@ -21,15 +21,17 @@ import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
 import { googleAuth } from '../controllers/authController.js';
-import { getNotifications } from '../controllers/momentumController.js';
+
+// ─── AI CONTROLLER (all AI functions) ──────────────────────────
 import { 
+  explain,
   tutorChat, 
   generateQuiz, 
   generateOrbitContent, 
   getPersonalizedRecommendations 
 } from '../controllers/aiController.js';
 
-// ─── MOMENTUM CONTROLLER – all community functions ──────────────
+// ─── MOMENTUM CONTROLLER (communities, events, etc.) ──────────
 import { 
   getCommunities, 
   getCommunity, 
@@ -37,23 +39,28 @@ import {
   joinCommunity, 
   leaveCommunity, 
   getCommunityPosts, 
-  createPost as createCommunityPost,   // renamed to avoid conflict with feed createPost
+  createPost as createCommunityPost,
   toggleLike, 
   getComments as getPostComments, 
   addComment as addPostComment, 
   getCommunityEvents, 
-  rsvpEvent 
+  rsvpEvent,
+  getNotifications   // ✅ added export
 } from '../controllers/momentumController.js';
 
 const router = express.Router();
 
-// ===== AUTH =====
+// =============================================================
+//  AUTH
+// =============================================================
 router.post('/auth/register', register);
 router.post('/auth/login', login);
 router.get('/auth/me', authenticate, getMe);
 router.post('/auth/google', googleAuth);
 
-// ===== DASHBOARD & TASKS =====
+// =============================================================
+//  DASHBOARD & TASKS
+// =============================================================
 router.get('/dashboard/stats', authenticate, getDashboardStats);
 router.get('/tasks', authenticate, getTodayTasks);
 router.patch('/tasks/:id/complete', authenticate, taskController.completeTask);
@@ -65,12 +72,16 @@ router.post('/mood', authenticate, recordMood);
 router.post('/tasks', authenticate, createTask);
 router.delete('/tasks/:id', authenticate, deleteTask);
 
-// ===== CHALLENGES =====
+// =============================================================
+//  CHALLENGES
+// =============================================================
 router.get('/challenges', authenticate, getChallenges);
 router.post('/challenges/submit', authenticate, submitChallenge);
 router.get('/my-challenges', authenticate, getUserChallenges);
 
-// ===== OPPORTUNITIES =====
+// =============================================================
+//  OPPORTUNITIES
+// =============================================================
 router.get('/opportunities/personalized', authenticate, opportunityController.getPersonalized);
 router.get('/opportunities', authenticate, opportunityController.getOpportunities);
 router.get('/opportunities/:id', authenticate, opportunityController.getOpportunity);
@@ -78,7 +89,9 @@ router.post('/opportunities/:id/apply', authenticate, opportunityController.appl
 router.get('/my-applications', authenticate, opportunityController.getMyApplications);
 router.get('/organizations/:id', authenticate, opportunityController.getOrganization);
 
-// ===== FEED (global posts) =====
+// =============================================================
+//  FEED (global)
+// =============================================================
 router.post('/feed/posts', authenticate, createPost);
 router.get('/feed/posts', authenticate, getPosts);
 router.post('/feed/posts/:id/like', authenticate, likePost);
@@ -86,36 +99,40 @@ router.get('/feed/posts/:id/comments', authenticate, getComments);
 router.post('/feed/posts/:id/comments', authenticate, addComment);
 router.delete('/feed/posts/:id', authenticate, deletePost);
 
-
+// =============================================================
+//  AI ROUTES  🧠
+// =============================================================
+router.post('/ai/explain', authenticate, explain);
 router.post('/ai/tutor', authenticate, tutorChat);
 router.post('/ai/quiz', authenticate, generateQuiz);
 router.post('/ai/orbit/generate', authenticate, generateOrbitContent);
 router.get('/ai/recommendations', authenticate, getPersonalizedRecommendations);
 
-// ===== MOMENTUM – Communities =====
+// =============================================================
+//  MOMENTUM – Communities
+// =============================================================
 router.get('/communities', authenticate, getCommunities);
 router.get('/communities/:id', authenticate, getCommunity);
 router.post('/communities', authenticate, createCommunity);
 router.post('/communities/:id/join', authenticate, joinCommunity);
 router.delete('/communities/:id/leave', authenticate, leaveCommunity);
 router.get('/communities/:id/posts', authenticate, getCommunityPosts);
-router.post('/posts', authenticate, createCommunityPost); // community-specific post
+router.post('/posts', authenticate, createCommunityPost);
 router.post('/posts/:post_id/like', authenticate, toggleLike);
 router.get('/posts/:post_id/comments', authenticate, getPostComments);
 router.post('/posts/:post_id/comments', authenticate, addPostComment);
 router.get('/communities/:communityId/events', authenticate, getCommunityEvents);
 router.post('/events/:eventId/rsvp', authenticate, rsvpEvent);
 
-// ===== COMMUNITY CHAT (if you still have these endpoints) =====
-// These are likely still in communityController, but we can keep them if they exist.
-// If not, you can remove these routes.
-// router.get('/communities/:id/members', authenticate, getCommunityMembers); // commented out – use from momentumController if needed
-
-// ===== BADGES =====
+// =============================================================
+//  BADGES
+// =============================================================
 router.get('/badges', authenticate, getBadges);
 router.get('/my-badges', authenticate, getUserBadges);
 
-// ===== GOALS =====
+// =============================================================
+//  GOALS
+// =============================================================
 router.get('/goals', authenticate, getGoals);
 router.post('/goals', authenticate, createGoal);
 router.put('/goals/:id', authenticate, updateGoal);
@@ -124,13 +141,17 @@ router.patch('/goals/:id/milestones/:milestoneId/toggle', authenticate, toggleMi
 router.get('/goals/:id/actions', authenticate, goalsController.getGoalActions);
 router.post('/goals/:id/complete', authenticate, goalsController.completeGoal);
 
-// ===== SKILLS =====
+// =============================================================
+//  SKILLS
+// =============================================================
 router.get('/skills', authenticate, skillsController.getSkills);
 router.get('/user-skills', authenticate, skillsController.getUserSkills);
 router.put('/user-skills', authenticate, skillsController.updateUserSkill);
 router.get('/skills-summary', authenticate, skillsController.getSkillsSummary);
 
-// ===== SKILL GROWTH =====
+// =============================================================
+//  SKILL GROWTH
+// =============================================================
 router.get('/skills/:skillId/progress', authenticate, skillGrowth.getSkillProgress);
 router.get('/skills/:skillId/projects', authenticate, skillGrowth.getProjects);
 router.post('/projects/assign', authenticate, skillGrowth.assignProject);
@@ -145,7 +166,9 @@ router.get('/skills/:skillId/my-practice', authenticate, skillGrowth.getUserPrac
 router.get('/skills/:skillId/recommendations', authenticate, skillGrowth.getRecommendations);
 router.post('/skills/create', authenticate, skillGrowth.createSkill);
 
-// ===== TIMETABLE =====
+// =============================================================
+//  TIMETABLE
+// =============================================================
 router.get('/timetable/my', authenticate, timetableController.getMyTimetable);
 router.get('/timetable/my/day/:date', authenticate, timetableController.getMyDay);
 router.get('/timetable/my/week/:startDate', authenticate, timetableController.getMyWeek);
@@ -161,7 +184,9 @@ router.post('/institution/rooms', authenticate, timetableController.createRoom);
 router.get('/institution/courses', authenticate, timetableController.getCourses);
 router.post('/institution/courses', authenticate, timetableController.createCourse);
 
-// ===== STUDY =====
+// =============================================================
+//  STUDY
+// =============================================================
 router.get('/study/notes', authenticate, studyController.getNotes);
 router.post('/study/notes', authenticate, studyController.createNote);
 router.put('/study/notes/:id', authenticate, studyController.updateNote);
@@ -173,7 +198,9 @@ router.get('/study/bookmarks', authenticate, studyController.getBookmarks);
 router.post('/study/bookmarks', authenticate, studyController.createBookmark);
 router.delete('/study/bookmarks/:id', authenticate, studyController.deleteBookmark);
 
-// ===== LIBRARY =====
+// =============================================================
+//  LIBRARY
+// =============================================================
 router.get('/library/categories', authenticate, libraryController.getCategories);
 router.post('/library/categories', authenticate, libraryController.createCategory);
 router.delete('/library/categories/:id', authenticate, libraryController.deleteCategory);
@@ -189,38 +216,37 @@ router.get('/library/books/:id/bookmarks', authenticate, libraryController.getBo
 router.post('/library/books/:id/bookmarks', authenticate, libraryController.createBookmark);
 router.delete('/library/books/:id/bookmarks/:bookmarkId', authenticate, libraryController.deleteBookmark);
 
-// ===== PARENT & TEACHER =====
+// =============================================================
+//  PARENT & TEACHER
+// =============================================================
 router.get('/parent/children', authenticate, getChildren);
 router.get('/parent/child/:id/progress', authenticate, getChildProgress);
 router.get('/teacher/students', authenticate, getStudents);
 router.get('/teacher/student/:id/progress', authenticate, getStudentProgressForTeacher);
 router.get('/teacher/class-summary', authenticate, getClassSummary);
 
-// ===== BRIDGE (messaging) =====
+// =============================================================
+//  BRIDGE (messaging)
+// =============================================================
 router.get('/bridge/peer-contacts', authenticate, getPeerContacts);
 router.get('/bridge/conversations', authenticate, getMessages);
-// Additional bridge messages endpoints if needed
 router.post('/bridge/messages', authenticate, sendMessage);
 router.get('/bridge/messages/:conversationId', authenticate, getMessagesByConversation);
 router.get('/bridge/messages/conversation/:userId', authenticate, getOrCreatePeerConversation);
 
-// ===== RESOURCES =====
+// =============================================================
+//  RESOURCES
+// =============================================================
 router.get('/resources', authenticate, getResources);
 
+// =============================================================
+//  NOTIFICATIONS
+// =============================================================
 router.get('/notifications', authenticate, getNotifications);
 
-// ===== COMMUNITY CHAT (if you still have these) =====
-// If your momentumController doesn't have these, you might need to import them from communityController.
-// For now, I'll leave them commented. You can add them if needed.
-// router.get('/communities/:id/members', authenticate, getCommunityMembers);
-// router.get('/communities/:id/messages', authenticate, getCommunityMessages);
-// router.post('/communities/:id/messages', authenticate, sendCommunityMessage);
-// router.patch('/communities/:id/members/role', authenticate, updateMemberRole);
-
-// ===== MY COMMUNITIES (already covered by /communities with user check) =====
-// You can add a dedicated endpoint if needed, but the main /communities already returns is_member.
-
-// ===== ROOT =====
+// =============================================================
+//  ROOT
+// =============================================================
 router.get('/', (req, res) => res.json({ message: 'API root' }));
 
 export default router;
