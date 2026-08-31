@@ -18,8 +18,8 @@ if (groqApiKey && groqApiKey !== "your_groq_api_key_here" && groqApiKey.startsWi
     });
     isAIAvailable = true;
     aiProvider = "groq";
-    // Use Mixtral – widely available and reliable
-    activeModel = process.env.GROQ_MODEL || "mixtral-8x7b-32768";
+    // Use Gemma 2 9B – often available
+    activeModel = process.env.GROQ_MODEL || "gemma2-9b-it";
     console.log(`✅ Groq AI initialized successfully (default model: ${activeModel})`);
   } catch (error) {
     console.warn("⚠️ Failed to initialize Groq:", error.message);
@@ -55,13 +55,12 @@ export const getAIProvider = () => aiProvider;
 
 export const getModelForProvider = (provider) => {
   if (provider === 'groq') {
-    // Use environment variable if set, otherwise default to Mixtral
-    return process.env.GROQ_MODEL || "mixtral-8x7b-32768";
+    // Use environment variable if set, otherwise default to Gemma 2
+    return process.env.GROQ_MODEL || "gemma2-9b-it";
   }
   return process.env.OPENAI_MODEL || "gpt-4o-mini";
 };
 
-// Mock response generator (unchanged)
 export const generateMockResponse = (type, topic) => {
   const mockResponses = {
     focus: `Here's a focus tip for ${topic}: Break down your study session into 25-minute blocks with 5-minute breaks in between.`,
