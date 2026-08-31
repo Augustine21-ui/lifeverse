@@ -60,3 +60,14 @@ export const generateMockResponse = (type, topic) => {
   };
   return mockResponses[type] || `Here's some help with ${topic}: Keep learning and stay curious!`;
 };
+
+// backend/src/utils/aiUtils.js
+// ... existing code ...
+
+export const getModelForProvider = (provider) => {
+  if (provider === 'groq') {
+    return process.env.GROQ_MODEL || "llama3-70b-8192";
+  }
+  // Default to OpenAI model
+  return process.env.OPENAI_MODEL || "gpt-4o-mini";
+};

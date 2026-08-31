@@ -3,7 +3,13 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import db from '../config/db.js';
-import { getAI, isAIAvailableCheck, generateMockResponse } from '../utils/aiUtils.js';
+import { 
+  getAI, 
+  isAIAvailableCheck, 
+  generateMockResponse, 
+  getModelForProvider,
+  getAIProvider 
+} from '../utils/aiUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -100,7 +106,6 @@ export const generateTaskQuiz = async (req, res) => {
     const { taskId, topic } = req.body;
     if (!topic) return res.status(400).json({ error: "Topic required" });
 
-    // If AI is not available, return mock quiz
     if (!isAIAvailableCheck()) {
       console.log('ℹ️ Using mock quiz for task:', taskId);
       const mockQuiz = generateMockQuiz(topic);
@@ -115,6 +120,7 @@ export const generateTaskQuiz = async (req, res) => {
     }
 
     const { openai, aiProvider } = getAI();
+    const model = getModelForProvider(aiProvider);
     const prompt = `Generate a 5-question multiple-choice quiz on the topic: "${topic}". 
     Each question must have 4 options (A, B, C, D). Return ONLY valid JSON:
     {
@@ -124,7 +130,7 @@ export const generateTaskQuiz = async (req, res) => {
     }`;
 
     const completion = await openai.chat.completions.create({
-      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-4o-mini",
+      model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
       max_tokens: 2000,
@@ -142,12 +148,11 @@ export const generateTaskQuiz = async (req, res) => {
     res.json({
       quizId,
       questions: quizData.questions,
-      aiProvider: aiProvider,
+      aiProvider,
       mock: false
     });
   } catch (err) {
     console.error('Quiz generation error:', err);
-    // Fallback to mock quiz
     const mockQuiz = generateMockQuiz(req.body.topic || 'general');
     const quizId = `task_${req.body.taskId || 'unknown'}_mock_${Date.now()}`;
     global.taskQuizStore.set(quizId, { ...mockQuiz, taskId: req.body.taskId, topic: req.body.topic, mock: true });

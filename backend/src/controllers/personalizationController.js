@@ -1,6 +1,12 @@
 // backend/src/controllers/personalizationController.js
 import db from '../config/db.js';
-import { getAI, isAIAvailableCheck, generateMockResponse } from '../utils/aiUtils.js';
+import { 
+  getAI, 
+  isAIAvailableCheck, 
+  generateMockResponse, 
+  getModelForProvider,
+  getAIProvider 
+} from '../utils/aiUtils.js';
 
 // Helper: get user data for context
 const getUserProfile = async (userId) => {
@@ -66,13 +72,11 @@ const generateRecommendations = async (userId) => {
   const profile = await getUserProfile(userId);
   const activity = await getRecentActivity(userId);
 
-  // If AI is not available, return mock data
   if (!isAIAvailableCheck()) {
     console.log('ℹ️ Using mock recommendations for personalization');
     return generateMockRecommendations(profile);
   }
 
-  // Build context from user profile
   const context = `
 User Profile:
 - Name: ${profile?.full_name || 'Learner'}
@@ -111,8 +115,9 @@ Format:
 
   try {
     const { openai, aiProvider } = getAI();
+    const model = getModelForProvider(aiProvider);
     const completion = await openai.chat.completions.create({
-      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-4o-mini",
+      model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.8,
       max_tokens: 800,
@@ -124,7 +129,6 @@ Format:
     return JSON.parse(jsonMatch[0]);
   } catch (err) {
     console.error('❌ AI error in generateRecommendations:', err.message);
-    // Fallback to mock recommendations
     return generateMockRecommendations(profile);
   }
 };
@@ -185,7 +189,6 @@ export const actOnRecommendation = async (req, res) => {
   }
 };
 
-// Health check
 export const checkPersonalizationStatus = async (req, res) => {
   res.json({
     aiAvailable: isAIAvailableCheck(),

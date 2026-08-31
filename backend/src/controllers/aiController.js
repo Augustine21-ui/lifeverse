@@ -1,8 +1,13 @@
 // backend/src/controllers/aiController.js
-import { getAI, isAIAvailableCheck, getAIProvider, generateMockResponse } from '../utils/aiUtils.js';
-import { query } from '../db.js'; // ✅ needed for user context
+import { 
+  getAI, 
+  isAIAvailableCheck, 
+  generateMockResponse, 
+  getModelForProvider 
+} from '../utils/aiUtils.js';
+import { query } from '../db.js';
 
-// ─── YOUR EXISTING `explain` ──────────────────────────────────────
+// ─── EXPLAIN ──────────────────────────────────────────────────────
 export const explain = async (req, res) => {
   try {
     const { concept, level } = req.body;
@@ -11,34 +16,34 @@ export const explain = async (req, res) => {
       return res.status(400).json({ error: 'Concept is required' });
     }
 
-    // Check if AI is available
     if (!isAIAvailableCheck()) {
       return res.json({
         explanation: generateMockResponse('tutor', concept),
         mock: true,
-        message: 'AI is currently in mock mode. Add GROQ_API_KEY to enable real AI.'
+        message: 'AI is currently in mock mode. Add GROQ_API_KEY or OPENAI_API_KEY to enable real AI.'
       });
     }
 
     try {
       const { openai, aiProvider } = getAI();
+      const model = getModelForProvider(aiProvider);
       const completion = await openai.chat.completions.create({
-        model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
+        model,
         messages: [
           { role: 'system', content: 'You are an AI tutor. Explain concepts clearly and concisely.' },
           { role: 'user', content: `Explain the concept of "${concept}" at a ${level || 'beginner'} level.` }
         ],
         max_tokens: 300,
+        temperature: 0.7,
       });
 
       res.json({
         explanation: completion.choices[0].message.content,
         mock: false,
-        aiProvider: aiProvider
+        aiProvider
       });
     } catch (aiError) {
       console.error('AI API error:', aiError);
-      // Fallback to mock
       res.json({
         explanation: generateMockResponse('tutor', concept),
         mock: true,
@@ -54,9 +59,8 @@ export const explain = async (req, res) => {
   }
 };
 
-// ─── NEW: AI TUTOR CHAT (for frontend) ──────────────────────────
-
-    export const tutorChat = async (req, res) => {
+// ─── AI TUTOR CHAT ──────────────────────────────────────────────
+export const tutorChat = async (req, res) => {
   try {
     const { message, context } = req.body;
     const userId = req.user.id;
@@ -65,10 +69,9 @@ export const explain = async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Get user context – handle missing columns gracefully
+    // Get user context – only use columns that exist
     let userContext = '';
     try {
-      // Only select columns that likely exist
       const userRes = await query(
         'SELECT education_level, institution FROM users WHERE id = $1',
         [userId]
@@ -87,7 +90,6 @@ export const explain = async (req, res) => {
       userContext = 'Student is at university level.';
     }
 
-    // Use AI if available, otherwise mock
     if (!isAIAvailableCheck()) {
       return res.json({
         reply: generateMockResponse('tutor', message),
@@ -98,8 +100,9 @@ export const explain = async (req, res) => {
 
     try {
       const { openai, aiProvider } = getAI();
+      const model = getModelForProvider(aiProvider);
       const completion = await openai.chat.completions.create({
-        model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
+        model,
         messages: [
           { role: 'system', content: `You are KUA AI Tutor. ${userContext} Provide clear, helpful explanations. If you cannot access real data, give a general response.` },
           { role: 'user', content: message }
@@ -112,7 +115,6 @@ export const explain = async (req, res) => {
       res.json({ reply, mock: false, aiProvider });
     } catch (aiError) {
       console.error('AI API error:', aiError);
-      // Fallback to mock
       res.json({
         reply: generateMockResponse('tutor', message),
         mock: true,
@@ -124,7 +126,8 @@ export const explain = async (req, res) => {
     res.status(500).json({ error: 'AI Tutor failed', details: error.message });
   }
 };
-// ─── NEW: GENERATE QUIZ ─────────────────────────────────────────
+
+// ─── GENERATE QUIZ ──────────────────────────────────────────────
 export const generateQuiz = async (req, res) => {
   try {
     const { topic, subject, difficulty = 'medium', questionCount = 5 } = req.body;
@@ -144,10 +147,11 @@ export const generateQuiz = async (req, res) => {
     }
 
     const { openai, aiProvider } = getAI();
+    const model = getModelForProvider(aiProvider);
     const systemPrompt = `You are an AI quiz generator. Generate ${questionCount} multiple-choice questions about "${topic}" in ${subject}. Difficulty: ${difficulty}. Return ONLY a JSON array with objects: { question, options (array of 4), correct_answer (index 0-3), explanation (brief) }.`;
 
     const response = await openai.chat.completions.create({
-      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Generate ${questionCount} questions about ${topic} in ${subject}.` }
@@ -177,7 +181,7 @@ export const generateQuiz = async (req, res) => {
   }
 };
 
-// ─── NEW: GENERATE ORBIT CONTENT ────────────────────────────────
+// ─── GENERATE ORBIT CONTENT ─────────────────────────────────────
 export const generateOrbitContent = async (req, res) => {
   try {
     const { subject, topic, activityType, grade = 'university' } = req.body;
@@ -200,10 +204,11 @@ export const generateOrbitContent = async (req, res) => {
     }
 
     const { openai, aiProvider } = getAI();
+    const model = getModelForProvider(aiProvider);
     const systemPrompt = `You are an AI content generator for KUA Orbit. Generate a ${activityType || 'educational'} activity about "${topic}" in ${subject} for ${grade} level. Make it engaging and age-appropriate. Return a JSON object with: title, instructions, content, hints (array), feedback.`;
 
     const response = await openai.chat.completions.create({
-      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Create a ${activityType || 'learning'} activity about ${topic} in ${subject}.` }
@@ -236,14 +241,14 @@ export const generateOrbitContent = async (req, res) => {
   }
 };
 
-// ─── NEW: PERSONALIZED RECOMMENDATIONS ──────────────────────────
+// ─── PERSONALIZED RECOMMENDATIONS ──────────────────────────────
 export const getPersonalizedRecommendations = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Get user data
+    // Get user data – only use columns that exist
     const userRes = await query(
-      'SELECT full_name, education_level, subjects FROM users WHERE id = $1',
+      'SELECT full_name, education_level FROM users WHERE id = $1',
       [userId]
     );
     const user = userRes.rows[0] || {};
@@ -274,10 +279,10 @@ export const getPersonalizedRecommendations = async (req, res) => {
     }
 
     const { openai, aiProvider } = getAI();
+    const model = getModelForProvider(aiProvider);
     const context = `
 User: ${user.full_name || 'Student'}
 Education Level: ${user.education_level || 'Not specified'}
-Subjects: ${user.subjects || 'Not specified'}
 Weak Areas: ${weakAreas.map(w => `${w.subject} - ${w.topic} (${w.accuracy}% accuracy)`).join(', ') || 'None identified'}
 Goals: ${goals.map(g => `${g.category}: ${g.title}`).join(', ') || 'No active goals'}
 `;
@@ -285,7 +290,7 @@ Goals: ${goals.map(g => `${g.category}: ${g.title}`).join(', ') || 'No active go
     const systemPrompt = `You are KUA AI Assistant. Provide 3 personalized learning recommendations for a student. Format: JSON array with objects { title, description, action, priority }. Keep it relevant to Kenya.`;
 
     const response = await openai.chat.completions.create({
-      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: context }
