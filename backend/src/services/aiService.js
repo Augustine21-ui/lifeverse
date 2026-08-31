@@ -1,41 +1,23 @@
 // backend/src/services/aiService.js
-import OpenAI from 'openai';
+import { getAI, isAIAvailableCheck, generateMockResponse } from '../utils/aiUtils.js';
 
-// ✅ Initialize OpenAI if API key is available
-let openai = null;
-let isOpenAIAvailable = false;
-
-const openaiApiKey = process.env.OPENAI_API_KEY;
-const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-
-if (openaiApiKey && openaiApiKey !== 'your_openai_api_key_here' && openaiApiKey.startsWith('sk-')) {
-  try {
-    openai = new OpenAI({
-      apiKey: openaiApiKey,
-    });
-    isOpenAIAvailable = true;
-    console.log('✅ OpenAI service initialized successfully (model: ' + model + ')');
-  } catch (error) {
-    console.warn('⚠️ Failed to initialize OpenAI:', error.message);
-  }
-}
-
-if (!isOpenAIAvailable) {
-  console.log('ℹ️ OpenAI service disabled - running in mock mode');
-  console.log('   Set OPENAI_API_KEY to enable real AI');
-}
+// Helper to choose correct model based on provider
+const getModel = (provider) => {
+  return provider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-4o-mini";
+};
 
 /**
  * Generic generate function with fallback
  */
 const generate = async (prompt, temperature = 0.7, jsonMode = false) => {
-  // If OpenAI is not available, return mock data
-  if (!isOpenAIAvailable || !openai) {
+  if (!isAIAvailableCheck()) {
     console.log('ℹ️ Using mock response for prompt:', prompt.substring(0, 50) + '...');
     return generateMockResponse(prompt);
   }
 
   try {
+    const { openai, aiProvider } = getAI();
+    const model = getModel(aiProvider);
     const response = await openai.chat.completions.create({
       model,
       messages: [
@@ -43,71 +25,16 @@ const generate = async (prompt, temperature = 0.7, jsonMode = false) => {
         { role: 'user', content: prompt }
       ],
       temperature,
-      response_format: jsonMode ? { type: 'json_object' } : undefined,
+      // response_format: jsonMode ? { type: 'json_object' } : undefined, // Groq may not support
     });
     return response.choices[0]?.message?.content || '';
   } catch (error) {
-    console.error('OpenAI API error:', error.message);
+    console.error('AI API error:', error.message);
     return generateMockResponse(prompt);
   }
 };
 
-/**
- * Generate mock response when AI is unavailable
- */
-const generateMockResponse = (prompt) => {
-  const mockResponses = {
-    'multiple-choice': JSON.stringify({
-      questions: [
-        { question: 'What is the main concept?', options: ['Option A', 'Option B', 'Option C', 'Option D'], correct: 0 },
-        { question: 'Which statement is correct?', options: ['Statement 1', 'Statement 2', 'Statement 3', 'Statement 4'], correct: 1 },
-        { question: 'What is the best approach?', options: ['Approach 1', 'Approach 2', 'Approach 3', 'Approach 4'], correct: 2 }
-      ]
-    }),
-    'flashcards': JSON.stringify({
-      flashcards: [
-        { question: 'What is this concept?', answer: 'This is a mock answer' },
-        { question: 'Why is this important?', answer: 'Because it helps learning' }
-      ]
-    }),
-    'memory_match': JSON.stringify({
-      pairs: [
-        { term: 'Term 1', definition: 'Definition 1' },
-        { term: 'Term 2', definition: 'Definition 2' },
-        { term: 'Term 3', definition: 'Definition 3' },
-        { term: 'Term 4', definition: 'Definition 4' }
-      ]
-    }),
-    'cluepath': JSON.stringify({
-      story: 'A mysterious event occurred in the lab.',
-      question: 'What was the main cause?',
-      options: ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
-      correct: 0
-    }),
-    'pathfinder': JSON.stringify({
-      instruction: 'Order the following steps:',
-      steps: ['Step 1', 'Step 2', 'Step 3', 'Step 4', 'Step 5']
-    }),
-    'reflex': JSON.stringify({
-      questions: [
-        { question: 'What is 2+2?', answer: '4' },
-        { question: 'What is the capital of France?', answer: 'Paris' }
-      ]
-    })
-  };
-
-  let type = 'multiple-choice';
-  if (prompt.includes('flashcard')) type = 'flashcards';
-  else if (prompt.includes('memory match')) type = 'memory_match';
-  else if (prompt.includes('mystery')) type = 'cluepath';
-  else if (prompt.includes('sequence ordering')) type = 'pathfinder';
-  else if (prompt.includes('rapid-fire')) type = 'reflex';
-
-  return mockResponses[type] || mockResponses['multiple-choice'];
-};
-
 // ===== CORTEX ACTIVITIES =====
-
 export const generateCortexQuiz = async ({ subject, topic, grade, count = 5 }) => {
   const prompt = `Generate ${count} multiple-choice questions about "${topic}" in ${subject} for grade ${grade}. 
   Return a JSON object with key "questions" containing an array of objects. 
@@ -169,7 +96,6 @@ export const generateMemoryMatch = async ({ subject, topic, grade }) => {
 };
 
 // ===== CLUEPATH =====
-
 export const generateCluePath = async ({ subject, topic, grade }) => {
   const prompt = `Create a short mystery story about "${topic}" in ${subject} for grade ${grade}. 
   Include a question that the student must answer to solve the mystery. 
@@ -195,7 +121,6 @@ export const generateCluePath = async ({ subject, topic, grade }) => {
 };
 
 // ===== PATHFINDER =====
-
 export const generatePathfinder = async ({ subject, topic, grade }) => {
   const prompt = `Create a sequence ordering activity about "${topic}" in ${subject} for grade ${grade}. 
   Provide 4-5 steps/items in the correct order. 
@@ -217,7 +142,6 @@ export const generatePathfinder = async ({ subject, topic, grade }) => {
 };
 
 // ===== REFLEX =====
-
 export const generateReflex = async ({ subject, topic, grade, count = 3 }) => {
   const prompt = `Generate ${count} very short rapid-fire questions about "${topic}" in ${subject} for grade ${grade}. 
   Each question should be a single sentence and the answer should be a single word or number. 
@@ -236,21 +160,20 @@ export const generateReflex = async ({ subject, topic, grade, count = 3 }) => {
   }
 };
 
-// ============================================================
-// NEW ORBIT ACTIVITY GENERATOR (single, no duplicate)
-// ============================================================
-
+// ===== GENERIC ORBIT ACTIVITY GENERATOR =====
 export const generateOrbitActivity = async (activityType, context) => {
   const { subject, topic, grade, learningStyle } = context;
 
-  if (!isOpenAIAvailable || !openai) {
-    console.warn('OpenAI not available – using mock activity');
+  if (!isAIAvailableCheck()) {
+    console.warn('AI not available – using mock activity');
     return generateMockActivityContent(activityType, context);
   }
 
   const prompt = buildPrompt(activityType, context);
 
   try {
+    const { openai, aiProvider } = getAI();
+    const model = getModel(aiProvider);
     const completion = await openai.chat.completions.create({
       model,
       messages: [
@@ -258,11 +181,10 @@ export const generateOrbitActivity = async (activityType, context) => {
         { role: 'user', content: prompt }
       ],
       temperature: 0.7,
-      response_format: { type: 'json_object' },
+      // response_format: { type: 'json_object' },
     });
 
     const content = completion.choices[0].message.content;
-    // Try to parse JSON
     try {
       return JSON.parse(content);
     } catch (e) {
@@ -277,49 +199,39 @@ export const generateOrbitActivity = async (activityType, context) => {
 
 const buildPrompt = (activityType, context) => {
   const { subject, topic, grade, learningStyle } = context;
-
   const promptTemplates = {
     quiz: `Generate 5 multiple-choice questions about "${topic}" in "${subject}" for ${grade} level.
            Learning style: ${learningStyle}.
            Each question should have 4 options and a correct answer index (0-3).
            Return ONLY valid JSON:
            { "questions": [ { "question": "...", "options": ["A", "B", "C", "D"], "correct": 0, "explanation": "..." } ] }`,
-
     flashcards: `Generate 8 flashcards about "${topic}" in "${subject}" for ${grade} level.
                  Return ONLY valid JSON:
                  { "flashcards": [ { "question": "...", "answer": "..." } ] }`,
-
     memory_match: `Create a memory match game with 6 pairs about "${topic}" in "${subject}".
                    Return ONLY valid JSON:
                    { "pairs": [ { "term": "...", "definition": "..." } ] }`,
-
     crossword: `Create a crossword puzzle with 8 clues about "${topic}" in "${subject}".
                 Return ONLY valid JSON:
                 { "clues": [ { "clue": "...", "answer": "...", "row": 0, "col": 0, "direction": "across" } ] }`,
-
     detective_mission: `Create a detective mission story about solving a mystery related to "${topic}" in "${subject}".
                         Include 3 decision points with options. Return ONLY valid JSON:
                         { "title": "...", "story": "...", "decisions": [ { "step": 1, "text": "...", "options": ["A", "B", "C"], "correct": 0 } ] }`,
-
     story_adventure: `Create a short educational story adventure about "${topic}" in "${subject}" for ${grade} level.
                       Include 2-3 questions the student must answer. Return ONLY valid JSON:
                       { "title": "...", "chapters": [ { "text": "...", "question": "...", "options": ["A", "B", "C"], "correct": 0 } ] }`,
-
     knowledge_maze: `Create a knowledge maze about "${topic}" in "${subject}" with 5 questions.
                      Each correct answer unlocks the next question. Return ONLY valid JSON:
                      { "maze": [ { "question": "...", "options": ["A", "B", "C", "D"], "correct": 0 } ] }`,
-
     rapid_fire: `Generate 10 rapid-fire questions about "${topic}" in "${subject}" for ${grade} level.
                  These should be quick to answer (single word or number). Return ONLY valid JSON:
                  { "questions": [ { "question": "...", "answer": "..." } ] }`
   };
-
   return promptTemplates[activityType] || promptTemplates.quiz;
 };
 
 const generateMockActivityContent = (activityType, context) => {
   const { subject, topic } = context;
-
   const mockContent = {
     quiz: {
       questions: [
@@ -351,7 +263,6 @@ const generateMockActivityContent = (activityType, context) => {
       ]
     }
   };
-
   return mockContent[activityType] || mockContent.quiz;
 };
 
@@ -361,7 +272,7 @@ export const generateQuiz = async ({ title, description, count = 5 }) => {
   Each question should have 4 options and a correct answer index (0-3).
   Return ONLY valid JSON:
   { "questions": [ { "question": "...", "options": ["A", "B", "C", "D"], "correct": 0 } ] }`;
-  
+
   try {
     const response = await generate(prompt, 0.5, true);
     const parsed = JSON.parse(response);

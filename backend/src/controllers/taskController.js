@@ -3,50 +3,11 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import db from '../config/db.js';
+import { getAI, isAIAvailableCheck, generateMockResponse } from '../utils/aiUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 dotenv.config({ path: resolve(__dirname, '../../.env') });
-
-// ✅ Conditional initialization - try Groq first
-let openai = null;
-let isAIAvailable = false;
-let aiProvider = 'none';
-
-const groqApiKey = process.env.GROQ_API_KEY;
-const openAiKey = process.env.OPENAI_API_KEY;
-
-// Try to initialize with GROQ_API_KEY first
-if (groqApiKey && groqApiKey !== 'your_groq_api_key_here' && groqApiKey.startsWith('gsk_')) {
-  try {
-    const { default: OpenAI } = await import('openai');
-    openai = new OpenAI({
-      apiKey: groqApiKey,
-      baseURL: "https://api.groq.com/openai/v1",
-    });
-    isAIAvailable = true;
-    aiProvider = 'groq';
-    console.log('✅ Groq AI initialized for tasks');
-  } catch (error) {
-    console.warn('⚠️ Failed to initialize Groq for tasks:', error.message);
-  }
-} else if (openAiKey && openAiKey !== 'your_openai_api_key_here') {
-  try {
-    const { default: OpenAI } = await import('openai');
-    openai = new OpenAI({
-      apiKey: openAiKey,
-    });
-    isAIAvailable = true;
-    aiProvider = 'openai';
-    console.log('✅ OpenAI initialized for tasks');
-  } catch (error) {
-    console.warn('⚠️ Failed to initialize OpenAI for tasks:', error.message);
-  }
-}
-
-if (!isAIAvailable) {
-  console.log('ℹ️ Task AI disabled - running in mock mode');
-}
 
 // In-memory store for generated quizzes
 if (!global.taskQuizStore) global.taskQuizStore = new Map();
@@ -140,19 +101,20 @@ export const generateTaskQuiz = async (req, res) => {
     if (!topic) return res.status(400).json({ error: "Topic required" });
 
     // If AI is not available, return mock quiz
-    if (!isAIAvailable || !openai) {
+    if (!isAIAvailableCheck()) {
       console.log('ℹ️ Using mock quiz for task:', taskId);
       const mockQuiz = generateMockQuiz(topic);
       const quizId = `task_${taskId}_mock_${Date.now()}`;
       global.taskQuizStore.set(quizId, { ...mockQuiz, taskId, topic, mock: true });
-      return res.json({ 
-        quizId, 
+      return res.json({
+        quizId,
         questions: mockQuiz.questions,
         mock: true,
         message: "AI is currently unavailable. Using mock quiz."
       });
     }
 
+    const { openai, aiProvider } = getAI();
     const prompt = `Generate a 5-question multiple-choice quiz on the topic: "${topic}". 
     Each question must have 4 options (A, B, C, D). Return ONLY valid JSON:
     {
@@ -162,7 +124,7 @@ export const generateTaskQuiz = async (req, res) => {
     }`;
 
     const completion = await openai.chat.completions.create({
-      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
+      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
       max_tokens: 2000,
@@ -177,8 +139,8 @@ export const generateTaskQuiz = async (req, res) => {
     const quizId = `task_${taskId}_${Date.now()}`;
     global.taskQuizStore.set(quizId, { ...quizData, taskId, topic, mock: false });
 
-    res.json({ 
-      quizId, 
+    res.json({
+      quizId,
       questions: quizData.questions,
       aiProvider: aiProvider,
       mock: false
@@ -189,8 +151,8 @@ export const generateTaskQuiz = async (req, res) => {
     const mockQuiz = generateMockQuiz(req.body.topic || 'general');
     const quizId = `task_${req.body.taskId || 'unknown'}_mock_${Date.now()}`;
     global.taskQuizStore.set(quizId, { ...mockQuiz, taskId: req.body.taskId, topic: req.body.topic, mock: true });
-    res.json({ 
-      quizId, 
+    res.json({
+      quizId,
       questions: mockQuiz.questions,
       mock: true,
       message: "AI service unavailable. Using mock quiz."
@@ -205,7 +167,6 @@ export const submitTaskQuiz = async (req, res) => {
     const quizData = global.taskQuizStore.get(quizId);
     if (!quizData) return res.status(404).json({ error: 'Quiz expired or not found' });
 
-    // Validate that the task exists
     const taskCheck = await db.query(`SELECT id, xp_reward FROM tasks WHERE id = $1`, [quizData.taskId]);
     if (taskCheck.rows.length === 0) {
       global.taskQuizStore.delete(quizId);
@@ -234,17 +195,14 @@ export const submitTaskQuiz = async (req, res) => {
     let message = '';
     if (passed) {
       xpEarned = task.xp_reward || 30;
-      // Update user XP and level
       await db.query(`UPDATE users SET xp = xp + $1 WHERE id = $2`, [xpEarned, userId]);
       await db.query(`UPDATE users SET level = FLOOR(xp / 500) + 1 WHERE id = $1`, [userId]);
-      // Mark task as completed
       await db.query(`UPDATE tasks SET is_completed = TRUE, completed_at = NOW() WHERE id = $1`, [quizData.taskId]);
       message = `✅ Great! You scored ${percentage}% and earned ${xpEarned} XP!`;
     } else {
       message = `❌ You scored ${percentage}%. Need at least 50% to pass. Try a new quiz!`;
     }
 
-    // Record attempt – now task_id is guaranteed valid
     await db.query(
       `INSERT INTO task_quiz_attempts (task_id, user_id, score, total_questions, xp_earned, passed)
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -269,12 +227,11 @@ export const submitTaskQuiz = async (req, res) => {
   }
 };
 
-// Health check for AI status
 export const checkTaskAIStatus = async (req, res) => {
   res.json({
-    aiAvailable: isAIAvailable,
-    aiProvider: aiProvider,
-    mockMode: !isAIAvailable
+    aiAvailable: isAIAvailableCheck(),
+    aiProvider: getAIProvider?.() || 'none',
+    mockMode: !isAIAvailableCheck()
   });
 };
 
@@ -282,24 +239,15 @@ export const completeTask = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-
-    // Only update is_completed – ignore other fields
     const result = await db.query(
       `UPDATE tasks SET is_completed = TRUE, completed_at = NOW() 
-       WHERE id = $1 AND user_id = $2 
-       RETURNING *`,
+       WHERE id = $1 AND user_id = $2 RETURNING *`,
       [id, userId]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
-
-    // Award XP
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Task not found' });
     const task = result.rows[0];
     await db.query(`UPDATE users SET xp = xp + $1 WHERE id = $2`, [task.xp_reward || 30, userId]);
     await db.query(`UPDATE users SET level = FLOOR(xp / 500) + 1 WHERE id = $1`, [userId]);
-
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);

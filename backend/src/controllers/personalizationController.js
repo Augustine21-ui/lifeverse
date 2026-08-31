@@ -1,45 +1,6 @@
 // backend/src/controllers/personalizationController.js
 import db from '../config/db.js';
-
-// ✅ Conditional initialization - try Groq first
-let openai = null;
-let isAIAvailable = false;
-let aiProvider = 'none';
-
-const groqApiKey = process.env.GROQ_API_KEY;
-const openAiKey = process.env.OPENAI_API_KEY;
-
-// Try to initialize with GROQ_API_KEY first
-if (groqApiKey && groqApiKey !== 'your_groq_api_key_here' && groqApiKey.startsWith('gsk_')) {
-  try {
-    const { default: OpenAI } = await import('openai');
-    openai = new OpenAI({
-      apiKey: groqApiKey,
-      baseURL: "https://api.groq.com/openai/v1",
-    });
-    isAIAvailable = true;
-    aiProvider = 'groq';
-    console.log('✅ Groq AI initialized for personalization');
-  } catch (error) {
-    console.warn('⚠️ Failed to initialize Groq for personalization:', error.message);
-  }
-} else if (openAiKey && openAiKey !== 'your_openai_api_key_here') {
-  try {
-    const { default: OpenAI } = await import('openai');
-    openai = new OpenAI({
-      apiKey: openAiKey,
-    });
-    isAIAvailable = true;
-    aiProvider = 'openai';
-    console.log('✅ OpenAI initialized for personalization');
-  } catch (error) {
-    console.warn('⚠️ Failed to initialize OpenAI for personalization:', error.message);
-  }
-}
-
-if (!isAIAvailable) {
-  console.log('ℹ️ Personalization AI disabled - running in mock mode');
-}
+import { getAI, isAIAvailableCheck, generateMockResponse } from '../utils/aiUtils.js';
 
 // Helper: get user data for context
 const getUserProfile = async (userId) => {
@@ -69,28 +30,33 @@ const getRecentActivity = async (userId) => {
   return { tasks: tasks.rows, challenges: challenges.rows };
 };
 
-// Mock recommendations generator
+// Mock recommendations generator (fallback)
 const generateMockRecommendations = (profile) => {
   return {
     goal: {
       title: `Set a goal to master ${profile?.course || 'your studies'}`,
-      description: `Focus on completing 2-3 key assignments this week to build momentum.`
+      description: `Focus on completing 2-3 key assignments this week to build momentum.`,
+      action: 'Set a goal'
     },
     challenge: {
       title: `Take on a 7-day learning challenge`,
-      description: `Study ${profile?.course || 'your subject'} for 30 minutes each day for the next week.`
+      description: `Study ${profile?.course || 'your subject'} for 30 minutes each day for the next week.`,
+      action: 'Start challenge'
     },
     study: {
       title: `Create a study schedule`,
-      description: `Block out 2 hours of focused study time each morning when your energy is highest.`
+      description: `Block out 2 hours of focused study time each morning when your energy is highest.`,
+      action: 'Create schedule'
     },
     career: {
       title: `Explore career connections`,
-      description: `Research how ${profile?.course || 'your studies'} applies to real-world careers.`
+      description: `Research how ${profile?.course || 'your studies'} applies to real-world careers.`,
+      action: 'Explore careers'
     },
     extra: {
       title: `Join a study group`,
-      description: `Connect with peers who are studying similar topics to share insights and stay motivated.`
+      description: `Connect with peers who are studying similar topics to share insights and stay motivated.`,
+      action: 'Find study group'
     }
   };
 };
@@ -101,7 +67,7 @@ const generateRecommendations = async (userId) => {
   const activity = await getRecentActivity(userId);
 
   // If AI is not available, return mock data
-  if (!isAIAvailable || !openai) {
+  if (!isAIAvailableCheck()) {
     console.log('ℹ️ Using mock recommendations for personalization');
     return generateMockRecommendations(profile);
   }
@@ -144,8 +110,9 @@ Format:
   console.log('📝 Generating personalization for user:', userId);
 
   try {
+    const { openai, aiProvider } = getAI();
     const completion = await openai.chat.completions.create({
-      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-3.5-turbo",
+      model: aiProvider === 'groq' ? "llama-3.3-70b-versatile" : "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.8,
       max_tokens: 800,
@@ -163,16 +130,10 @@ Format:
 };
 
 // ---------- API Endpoints ----------
-
 export const generatePersonalization = async (req, res) => {
   try {
     const userId = req.user.id;
-
-    // Delete all old recommendations for this user
-    await db.query(
-      `DELETE FROM personalized_recommendations WHERE user_id = $1`,
-      [userId]
-    );
+    await db.query(`DELETE FROM personalized_recommendations WHERE user_id = $1`, [userId]);
 
     const recommendations = await generateRecommendations(userId);
 
@@ -183,21 +144,15 @@ export const generatePersonalization = async (req, res) => {
       await db.query(
         `INSERT INTO personalized_recommendations (user_id, type, title, description, data)
          VALUES ($1, $2, $3, $4, $5)`,
-        [
-          userId,
-          type,
-          data.title || data.topic || data.action || type,
-          data.description || data.reason || '',
-          JSON.stringify(data)
-        ]
+        [userId, type, data.title || data.topic || data.action || type, data.description || data.reason || '', JSON.stringify(data)]
       );
     }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       recommendations,
-      aiProvider: aiProvider,
-      mockResponse: !isAIAvailable
+      aiProvider: getAIProvider?.() || 'none',
+      mockResponse: !isAIAvailableCheck()
     });
   } catch (err) {
     console.error('❌ Error in generatePersonalization:', err);
@@ -223,21 +178,18 @@ export const getRecommendations = async (req, res) => {
 export const actOnRecommendation = async (req, res) => {
   const { id } = req.params;
   try {
-    await db.query(
-      `UPDATE personalized_recommendations SET is_acted_upon = TRUE WHERE id = $1`,
-      [id]
-    );
+    await db.query(`UPDATE personalized_recommendations SET is_acted_upon = TRUE WHERE id = $1`, [id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Health check for AI status
+// Health check
 export const checkPersonalizationStatus = async (req, res) => {
   res.json({
-    aiAvailable: isAIAvailable,
-    aiProvider: aiProvider,
-    mockMode: !isAIAvailable
+    aiAvailable: isAIAvailableCheck(),
+    aiProvider: getAIProvider?.() || 'none',
+    mockMode: !isAIAvailableCheck()
   });
 };
