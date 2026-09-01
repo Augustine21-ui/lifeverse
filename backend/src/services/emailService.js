@@ -1,15 +1,27 @@
 // backend/src/services/emailService.js
+// backend/src/services/emailService.js
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT || '587'),
-  secure: process.env.EMAIL_PORT === '465',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+let transporter;
+try {
+  transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: parseInt(process.env.EMAIL_PORT || '587'),
+    secure: process.env.EMAIL_PORT === '465',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+    // ✅ Force IPv4 and timeout
+    family: 4,
+    connectionTimeout: 5000,
+  });
+  console.log('✅ Email transporter configured (IPv4 forced)');
+} catch (err) {
+  console.error('❌ Failed to configure email transporter:', err.message);
+}
+
+// ... rest of your file (sendResetEmail, sendVerificationEmail)
 
 // ─── Send password reset email ──────────────────────────────
 export const sendResetEmail = async (email, resetToken) => {
@@ -18,9 +30,27 @@ export const sendResetEmail = async (email, resetToken) => {
     from: process.env.EMAIL_FROM,
     to: email,
     subject: '🔐 Reset Your KUA Password',
-    html: `...`, // (your existing HTML)
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f4f4; border-radius: 10px;">
+        <h2 style="color: #3b82f6;">🔐 Reset Your Password</h2>
+        <p>You requested a password reset for your KUA account.</p>
+        <p>Click the button below to reset your password. This link expires in <strong>1 hour</strong>.</p>
+        <a href="${resetLink}" style="display: inline-block; background: #3b82f6; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 16px 0;">Reset Password</a>
+        <p>If you didn't request this, please ignore this email.</p>
+        <hr style="border: 1px solid #ddd;" />
+        <p style="font-size: 12px; color: #888;">KUA – Learn. Grow. Discover.</p>
+      </div>
+    `,
   };
-  await transporter.sendMail(mailOptions);
+
+  try {
+    if (!transporter) throw new Error('Email transporter not initialized');
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Reset email sent to ${email}`);
+  } catch (err) {
+    console.error(`❌ Failed to send reset email to ${email}:`, err.message);
+    throw err; // rethrow so caller can handle
+  }
 };
 
 // ─── Send verification email ─────────────────────────────────
@@ -43,8 +73,16 @@ export const sendVerificationEmail = async (email, code) => {
       </div>
     `,
   };
-  await transporter.sendMail(mailOptions);
+
+  try {
+    if (!transporter) throw new Error('Email transporter not initialized');
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Verification email sent to ${email} with code ${code}`);
+  } catch (err) {
+    console.error(`❌ Failed to send verification email to ${email}:`, err.message);
+    throw err;
+  }
 };
 
-// Alias for backward compatibility (optional)
+// Alias for backward compatibility
 export const sendPasswordResetEmail = sendResetEmail;
