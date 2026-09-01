@@ -147,9 +147,8 @@ export const login = async (req, res) => {
 };
 
 // ─── REGISTER ─────────────────────────────────────────────────────
+// ─── REGISTER ─────────────────────────────────────────────────────
 export const register = async (req, res) => {
-  const verificationCode = generateVerificationCode();
-  console.log(`📧 Verification code for ${email}: ${verificationCode}`); // ← add this
   try {
     const { full_name, username, email, password, education_level, institution, course, role, date_of_birth } = req.body;
 
@@ -165,7 +164,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
 
-    // Institution logic (unchanged) ...
+    // Institution logic (unchanged)
     let institutionId = null;
     if (institution) {
       const instRes = await db.query(
@@ -202,7 +201,7 @@ export const register = async (req, res) => {
       }
     }
 
-    // Subscription logic (unchanged) ...
+    // Subscription logic (unchanged)
     let institutionSubscribed = false;
     let subscriptionPlan = 'free';
     let subscriptionStatus = 'active';
@@ -249,8 +248,9 @@ export const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ─── Generate verification code ──────────────────────────────
+    // ✅ Generate verification code AFTER email is available
     const verificationCode = generateVerificationCode();
+    console.log(`📧 Verification code for ${email}: ${verificationCode}`);
     const codeExpiry = new Date(Date.now() + 15 * 60000);
 
     const result = await db.query(
