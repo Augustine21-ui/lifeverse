@@ -1,6 +1,19 @@
 // backend/src/routes/index.js
 import express from 'express';
-import { register, login, getMe, authenticate } from '../auth.js';
+import { authenticate } from '../auth.js'; // only authenticate middleware
+
+// ─── ALL AUTH FUNCTIONS from authController.js ────────────────
+import { 
+  register, 
+  login, 
+  getMe, 
+  forgotPassword, 
+  resetPassword,
+  googleAuth,
+  verifyEmail,
+  resendVerificationCode
+} from '../controllers/authController.js';
+
 import { getChallenges, submitChallenge, getUserChallenges } from '../challengeController.js';
 import { getChildren, getChildProgress } from '../parentController.js';
 import { getStudents, getStudentProgressForTeacher, getClassSummary } from '../teacherController.js';
@@ -20,13 +33,8 @@ import * as taskController from '../controllers/taskController.js';
 import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
-import { googleAuth } from '../controllers/authController.js';
-import { 
-  register, login, getMe, forgotPassword, resetPassword,
-  verifyEmail, resendVerificationCode  // new
-} from '../controllers/authController.js';
 
-// ─── AI CONTROLLER (all AI functions) ──────────────────────────
+// ─── AI CONTROLLER ──────────────────────────────────────────────
 import { 
   explain,
   tutorChat, 
@@ -35,7 +43,7 @@ import {
   getPersonalizedRecommendations 
 } from '../controllers/aiController.js';
 
-// ─── MOMENTUM CONTROLLER (communities, events, etc.) ──────────
+// ─── MOMENTUM CONTROLLER ──────────────────────────────────────
 import { 
   getCommunities, 
   getCommunity, 
@@ -49,7 +57,7 @@ import {
   addComment as addPostComment, 
   getCommunityEvents, 
   rsvpEvent,
-  getNotifications   // ✅ added export
+  getNotifications
 } from '../controllers/momentumController.js';
 
 const router = express.Router();
@@ -61,6 +69,10 @@ router.post('/auth/register', register);
 router.post('/auth/login', login);
 router.get('/auth/me', authenticate, getMe);
 router.post('/auth/google', googleAuth);
+router.post('/auth/forgot-password', forgotPassword);
+router.post('/auth/reset-password', resetPassword);
+router.post('/auth/verify-email', verifyEmail);
+router.post('/auth/resend-verification', resendVerificationCode);
 
 // =============================================================
 //  DASHBOARD & TASKS
@@ -102,13 +114,9 @@ router.post('/feed/posts/:id/like', authenticate, likePost);
 router.get('/feed/posts/:id/comments', authenticate, getComments);
 router.post('/feed/posts/:id/comments', authenticate, addComment);
 router.delete('/feed/posts/:id', authenticate, deletePost);
- 
 
-// Add routes
-router.post('/auth/verify-email', verifyEmail);
-router.post('/auth/resend-verification', resendVerificationCode);
 // =============================================================
-//  AI ROUTES  🧠
+//  AI ROUTES
 // =============================================================
 router.post('/ai/explain', authenticate, explain);
 router.post('/ai/tutor', authenticate, tutorChat);
@@ -182,7 +190,6 @@ router.get('/timetable/my/day/:date', authenticate, timetableController.getMyDay
 router.get('/timetable/my/week/:startDate', authenticate, timetableController.getMyWeek);
 router.get('/timetable/my/month/:year/:month', authenticate, timetableController.getMyMonth);
 
-// Institution timetable
 router.get('/institution/timetable', authenticate, timetableController.getInstitutionTimetable);
 router.post('/institution/timetable', authenticate, timetableController.createTimetableEntry);
 router.put('/institution/timetable/:id', authenticate, timetableController.updateTimetableEntry);
