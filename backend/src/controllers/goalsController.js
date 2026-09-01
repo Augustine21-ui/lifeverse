@@ -73,19 +73,19 @@ export const createGoal = async (req, res) => {
     // 2. Generate actions based on category
     const actions = [];
 
-      if (category === 'academic') {
-          let quiz;
-          try {
-            const quizData = await generateCortexQuiz({
-              subject: 'General',
-              topic: title,
-              grade: 1,
-              count: 5
-            });
-            quiz = { questions: quizData };
-          } catch (e) {
-            quiz = generateQuizFallback(title);
-          }
+    if (category === 'academic') {
+      let quiz;
+      try {
+        const quizData = await generateCortexQuiz({
+          subject: 'General',
+          topic: title,
+          grade: 1,
+          count: 5
+        });
+        quiz = { questions: quizData };
+      } catch (e) {
+        quiz = generateQuizFallback(title);
+      }
       await query(
         `INSERT INTO goal_actions (goal_id, action_type, data)
          VALUES ($1, 'quiz', $2)`,
@@ -93,7 +93,6 @@ export const createGoal = async (req, res) => {
       );
       actions.push('quiz');
 
-      // Orbit resources
       await query(
         `INSERT INTO goal_actions (goal_id, action_type, data)
          VALUES ($1, 'orbit_resources', $2)`,
@@ -102,17 +101,24 @@ export const createGoal = async (req, res) => {
       actions.push('orbit_resources');
 
     } else if (category === 'skill') {
-      // Create or find skill
+      // 🔧 Fix: safely handle skill creation without ON CONFLICT
       const skillName = metadata.skill_name || title;
-      const skillResult = await query(
-        `INSERT INTO skills (name, category, description) 
-         VALUES ($1, 'custom', $2) 
-         ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
-         RETURNING id`,
-        [skillName, description]
-      );
-      const skillId = skillResult.rows[0].id;
       
+      // Check if skill already exists
+      let skillResult = await query('SELECT id FROM skills WHERE name = $1', [skillName]);
+      let skillId;
+      if (skillResult.rows.length > 0) {
+        skillId = skillResult.rows[0].id;
+      } else {
+        const insertResult = await query(
+          `INSERT INTO skills (name, category, description) 
+           VALUES ($1, 'custom', $2)
+           RETURNING id`,
+          [skillName, description || '']
+        );
+        skillId = insertResult.rows[0].id;
+      }
+
       // Link goal to skill
       await query(
         `UPDATE goals SET metadata = jsonb_set(metadata, '{skill_id}', $1::jsonb)
@@ -243,7 +249,7 @@ export const completeGoal = async (req, res) => {
 };
 
 // ──────────────────────────────────────────────
-// UPDATE GOAL (existing)
+// UPDATE GOAL
 // ──────────────────────────────────────────────
 export const updateGoal = async (req, res) => {
   const userId = req.user.id;
@@ -278,7 +284,7 @@ export const updateGoal = async (req, res) => {
 };
 
 // ──────────────────────────────────────────────
-// DELETE GOAL (existing)
+// DELETE GOAL
 // ──────────────────────────────────────────────
 export const deleteGoal = async (req, res) => {
   const userId = req.user.id;
@@ -296,7 +302,7 @@ export const deleteGoal = async (req, res) => {
 };
 
 // ──────────────────────────────────────────────
-// TOGGLE MILESTONE (existing)
+// TOGGLE MILESTONE
 // ──────────────────────────────────────────────
 export const toggleMilestone = async (req, res) => {
   const userId = req.user.id;
