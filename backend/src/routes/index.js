@@ -21,6 +21,10 @@ import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
 import { googleAuth } from '../controllers/authController.js';
+import { 
+  register, login, getMe, forgotPassword, resetPassword,
+  verifyEmail, resendVerificationCode  // new
+} from '../controllers/authController.js';
 
 // ─── AI CONTROLLER (all AI functions) ──────────────────────────
 import { 
@@ -98,7 +102,11 @@ router.post('/feed/posts/:id/like', authenticate, likePost);
 router.get('/feed/posts/:id/comments', authenticate, getComments);
 router.post('/feed/posts/:id/comments', authenticate, addComment);
 router.delete('/feed/posts/:id', authenticate, deletePost);
+ 
 
+// Add routes
+router.post('/auth/verify-email', verifyEmail);
+router.post('/auth/resend-verification', resendVerificationCode);
 // =============================================================
 //  AI ROUTES  🧠
 // =============================================================

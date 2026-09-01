@@ -889,4 +889,16 @@ aiGetRecommendations: () => fetch(`${API_BASE}/ai/recommendations`, {
   headers: authHeaders()
 }).then(handleResponse),
 
+verifyEmail: (email, code) => fetch(`${API_BASE}/auth/verify-email`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, code }),
+}).then(handleResponse),
+
+resendVerification: (email) => fetch(`${API_BASE}/auth/resend-verification`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email }),
+}).then(handleResponse),
+
 };

@@ -3,11 +3,12 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import db from '../config/db.js';
 import crypto from 'crypto';
-import { sendResetEmail } from '../services/emailService.js';
-import { isInstitutionSubscribed, getUserAccess } from '../services/subscriptionService.js';
+import { sendResetEmail, sendVerificationEmail } from '../services/emailService.js';
+import { getUserAccess } from '../services/subscriptionService.js';
 import { OAuth2Client } from 'google-auth-library';
 
 const generateResetToken = () => crypto.randomBytes(32).toString('hex');
+const generateVerificationCode = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
@@ -15,6 +16,7 @@ const googleClient = new OAuth2Client(
   process.env.GOOGLE_REDIRECT_URI || 'postmessage'
 );
 
+// ─── GOOGLE OAUTH ──────────────────────────────────────────────────
 export const googleAuth = async (req, res) => {
   try {
     const { code, mode } = req.body;
@@ -24,11 +26,9 @@ export const googleAuth = async (req, res) => {
       return res.status(400).json({ error: 'Authorization code is required' });
     }
 
-    // Exchange code for tokens
     const { tokens } = await googleClient.getToken(code);
     console.log('✅ Tokens obtained from Google');
 
-    // Verify ID token
     const ticket = await googleClient.verifyIdToken({
       idToken: tokens.id_token,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -38,28 +38,24 @@ export const googleAuth = async (req, res) => {
 
     const { email, name, picture, sub: googleId } = payload;
 
-    // Check if user exists by email
     let userRes = await db.query('SELECT * FROM users WHERE email = $1', [email]);
     let user;
 
     if (userRes.rows.length === 0) {
-      // Create new user (password_hash is null for Google users)
       const insertRes = await db.query(
-        `INSERT INTO users (email, full_name, password_hash, role, profile_picture, google_id)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO users (email, full_name, password_hash, role, profile_picture, google_id, email_verified)
+         VALUES ($1, $2, $3, $4, $5, $6, true)
          RETURNING id, email, full_name, role`,
         [email, name, null, 'student', picture, googleId]
       );
       user = insertRes.rows[0];
     } else {
       user = userRes.rows[0];
-      // If user exists but google_id is not set, update it
       if (!user.google_id) {
         await db.query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, user.id]);
       }
     }
 
-    // Generate your own JWT
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
@@ -73,7 +69,7 @@ export const googleAuth = async (req, res) => {
   }
 };
 
-// ---------- LOGIN ----------
+// ─── LOGIN ────────────────────────────────────────────────────────
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -85,7 +81,7 @@ export const login = async (req, res) => {
       `SELECT id, email, password_hash, full_name, role, institution, xp, level, streak_days,
               subscription_tier, subscription_status, trial_end_date, trial_used,
               subscription_end_date, institution_subscription_valid,
-              institution_id
+              institution_id, email_verified
        FROM users WHERE email = $1`,
       [email]
     );
@@ -94,13 +90,31 @@ export const login = async (req, res) => {
     }
     const user = userRes.rows[0];
 
+    // ─── Check email verification ────────────────────────────────
+    if (!user.email_verified) {
+      // Resend a new verification code
+      const newCode = generateVerificationCode();
+      const codeExpiry = new Date(Date.now() + 15 * 60000);
+      await db.query(
+        `UPDATE users SET verification_code = $1, verification_code_expires = $2 WHERE id = $3`,
+        [newCode, codeExpiry, user.id]
+      );
+      try {
+        await sendVerificationEmail(email, newCode);
+      } catch (e) { /* ignore email errors, but log */ }
+      return res.status(403).json({
+        error: 'Please verify your email address. A new verification code has been sent.',
+        requiresVerification: true,
+        email: user.email,
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const access = await getUserAccess(user.id);
-
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, institution_id: user.institution_id },
       process.env.JWT_SECRET,
@@ -122,8 +136,9 @@ export const login = async (req, res) => {
         subscription_tier: user.subscription_tier,
         subscription_status: user.subscription_status,
         institution_subscription_valid: user.institution_subscription_valid,
-        institution_id: user.institution_id
-      }
+        institution_id: user.institution_id,
+        email_verified: user.email_verified,
+      },
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -131,19 +146,15 @@ export const login = async (req, res) => {
   }
 };
 
-// ---------- REGISTER ----------
+// ─── REGISTER ─────────────────────────────────────────────────────
 export const register = async (req, res) => {
   try {
-    // ═══════════════════════════════════════════════════════
-    //  NEW: destructure date_of_birth from request body
-    // ═══════════════════════════════════════════════════════
     const { full_name, username, email, password, education_level, institution, course, role, date_of_birth } = req.body;
 
     if (!username || !email || !password || !full_name || !date_of_birth) {
       return res.status(400).json({ error: 'Please provide all required fields (including date of birth)' });
     }
 
-    // Check if user already exists
     const existingUser = await db.query(
       'SELECT id FROM users WHERE email = $1 OR username = $2',
       [email, username]
@@ -152,22 +163,18 @@ export const register = async (req, res) => {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
 
-    // Find institution ID if institution name is provided
+    // Institution logic (unchanged) ...
     let institutionId = null;
     if (institution) {
       const instRes = await db.query(
         'SELECT id FROM institutions WHERE LOWER(name) = LOWER($1)',
         [institution.trim()]
       );
-      if (instRes.rows.length > 0) {
-        institutionId = instRes.rows[0].id;
-      }
+      if (instRes.rows.length > 0) institutionId = instRes.rows[0].id;
     }
 
-    // Find or create a stream for the student's course
     let academicGroupId = null;
     if (institutionId && course) {
-      // 1. Find the course group
       const courseRes = await db.query(
         `SELECT id FROM academic_groups 
          WHERE institution_id = $1 AND name = $2 AND type = 'course'`,
@@ -175,7 +182,6 @@ export const register = async (req, res) => {
       );
       if (courseRes.rows.length > 0) {
         const courseId = courseRes.rows[0].id;
-        // 2. Find an existing stream under this course
         const streamRes = await db.query(
           `SELECT id FROM academic_groups 
            WHERE parent_group_id = $1 AND type = 'stream' LIMIT 1`,
@@ -184,7 +190,6 @@ export const register = async (req, res) => {
         if (streamRes.rows.length > 0) {
           academicGroupId = streamRes.rows[0].id;
         } else {
-          // 3. Create a default stream
           const newStream = await db.query(
             `INSERT INTO academic_groups (institution_id, name, type, education_level, parent_group_id)
              VALUES ($1, $2, 'stream', $3, $4) RETURNING id`,
@@ -195,7 +200,7 @@ export const register = async (req, res) => {
       }
     }
 
-    // Check institution subscription
+    // Subscription logic (unchanged) ...
     let institutionSubscribed = false;
     let subscriptionPlan = 'free';
     let subscriptionStatus = 'active';
@@ -208,12 +213,10 @@ export const register = async (req, res) => {
         'SELECT subscription_end_date FROM institutions WHERE id = $1',
         [institutionId]
       );
-      
       if (instRes.rows.length > 0) {
         const endDate = new Date(instRes.rows[0].subscription_end_date);
         const now = new Date();
         institutionSubscribed = endDate > now;
-        
         if (institutionSubscribed) {
           subscriptionPlan = 'premium';
           subscriptionStatus = 'active';
@@ -244,9 +247,10 @@ export const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ═══════════════════════════════════════════════════════
-    //  INSERT includes date_of_birth
-    // ═══════════════════════════════════════════════════════
+    // ─── Generate verification code ──────────────────────────────
+    const verificationCode = generateVerificationCode();
+    const codeExpiry = new Date(Date.now() + 15 * 60000);
+
     const result = await db.query(
       `INSERT INTO users (
         full_name, username, email, password_hash, education_level, 
@@ -254,45 +258,35 @@ export const register = async (req, res) => {
         subscription_tier, subscription_status, trial_start_date, 
         trial_end_date, trial_used, institution_subscription_valid,
         institution_id, academic_group_id,
-        date_of_birth                    -- <-- NEW COLUMN
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-      RETURNING id, username, email, full_name, role, subscription_tier, 
-                subscription_status, trial_end_date, institution_subscription_valid,
-                institution_id, academic_group_id, date_of_birth`,
+        date_of_birth,
+        email_verified, verification_code, verification_code_expires
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, false, $18, $19)
+      RETURNING id, email, full_name, role`,
       [
         full_name, username, email, hashedPassword, education_level || null,
         institution || null, course || null, role || 'student',
         subscriptionPlan, subscriptionStatus, trialStartDate,
         trialEndDate, trialUsed, institutionSubscribed,
         institutionId, academicGroupId,
-        date_of_birth || null           // <-- NEW PARAMETER
+        date_of_birth || null,
+        verificationCode, codeExpiry
       ]
     );
 
     const user = result.rows[0];
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, institution_id: user.institution_id },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
 
-    const access = await getUserAccess(user.id);
+    // Send verification email
+    try {
+      await sendVerificationEmail(email, verificationCode);
+    } catch (emailErr) {
+      console.error('Failed to send verification email:', emailErr);
+      // Continue – user can resend code
+    }
 
     res.status(201).json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        role: user.role,
-        subscription: access,
-        subscription_tier: user.subscription_tier,
-        subscription_status: user.subscription_status,
-        institution_subscription_valid: user.institution_subscription_valid,
-        institution_id: user.institution_id,
-        academic_group_id: user.academic_group_id,
-        date_of_birth: user.date_of_birth   // <-- returned to frontend
-      }
+      message: 'Verification code sent to your email. Please verify your account.',
+      email: user.email,
+      requiresVerification: true,
     });
   } catch (err) {
     console.error('Registration error:', err);
@@ -303,7 +297,106 @@ export const register = async (req, res) => {
   }
 };
 
-// ---------- FORGOT PASSWORD ----------
+// ─── VERIFY EMAIL ────────────────────────────────────────────────
+export const verifyEmail = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email and verification code are required' });
+    }
+
+    const userRes = await db.query(
+      `SELECT id, email, full_name, role, verification_code, verification_code_expires 
+       FROM users WHERE email = $1`,
+      [email]
+    );
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const user = userRes.rows[0];
+
+    if (user.email_verified) {
+      return res.status(400).json({ error: 'Email already verified' });
+    }
+
+    if (user.verification_code !== code) {
+      return res.status(400).json({ error: 'Invalid verification code' });
+    }
+    if (new Date() > new Date(user.verification_code_expires)) {
+      return res.status(400).json({ error: 'Verification code expired. Request a new one.' });
+    }
+
+    await db.query(
+      `UPDATE users SET email_verified = true, verification_code = NULL, verification_code_expires = NULL WHERE id = $1`,
+      [user.id]
+    );
+
+    // Generate JWT to log the user in automatically
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const access = await getUserAccess(user.id);
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        subscription: access,
+        email_verified: true,
+      },
+      message: 'Email verified successfully. Welcome to KUA! 🎉',
+    });
+  } catch (err) {
+    console.error('Verify email error:', err);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+};
+
+// ─── RESEND VERIFICATION CODE ──────────────────────────────────
+export const resendVerificationCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const userRes = await db.query(
+      `SELECT id, email, email_verified FROM users WHERE email = $1`,
+      [email]
+    );
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const user = userRes.rows[0];
+
+    if (user.email_verified) {
+      return res.status(400).json({ error: 'Email already verified' });
+    }
+
+    const newCode = generateVerificationCode();
+    const codeExpiry = new Date(Date.now() + 15 * 60000);
+
+    await db.query(
+      `UPDATE users SET verification_code = $1, verification_code_expires = $2 WHERE id = $3`,
+      [newCode, codeExpiry, user.id]
+    );
+
+    await sendVerificationEmail(email, newCode);
+
+    res.json({ message: 'New verification code sent to your email.' });
+  } catch (err) {
+    console.error('Resend verification error:', err);
+    res.status(500).json({ error: 'Failed to resend code' });
+  }
+};
+
+// ─── FORGOT PASSWORD ────────────────────────────────────────────
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -328,7 +421,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// ---------- RESET PASSWORD ----------
+// ─── RESET PASSWORD ─────────────────────────────────────────────
 export const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -354,7 +447,7 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// ---------- GET ME ----------
+// ─── GET ME ──────────────────────────────────────────────────────
 export const getMe = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -363,7 +456,7 @@ export const getMe = async (req, res) => {
               institution, subscription_tier, subscription_status, trial_end_date,
               subscription_end_date, institution_subscription_valid,
               institution_id, academic_group_id,
-              date_of_birth                -- <-- include DOB for profile
+              date_of_birth, email_verified
        FROM users WHERE id = $1`,
       [userId]
     );
@@ -374,7 +467,7 @@ export const getMe = async (req, res) => {
     
     res.json({
       ...user,
-      subscription: access
+      subscription: access,
     });
   } catch (err) {
     console.error(err);
@@ -382,7 +475,7 @@ export const getMe = async (req, res) => {
   }
 };
 
-// ---------- GET SUBSCRIPTION STATUS ----------
+// ─── GET SUBSCRIPTION STATUS ────────────────────────────────────
 export const getSubscriptionStatus = async (req, res) => {
   try {
     const userId = req.user.id;

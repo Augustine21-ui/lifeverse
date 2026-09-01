@@ -4,6 +4,7 @@ import { Zap, Mail, Lock, User, AlertCircle, Building, GraduationCap, Users, Eye
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import { api } from '../services/api'; // ← needed for verify/resend
 
 // Kenyan curriculum education levels
 const educationLevels = [
@@ -52,7 +53,7 @@ export default function RegisterPage() {
     email: '',
     password: '',
     fullName: '',
-    dateOfBirth: '', // <-- NEW
+    dateOfBirth: '',
     educationLevel: educationLevels[0],
     institution: '',
     course: '',
@@ -64,6 +65,13 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // ─── Verification states ──────────────────────────────────────
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [registeredEmail, setRegisteredEmail] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const [newCourse, setNewCourse] = useState('');
   const [newSchool, setNewSchool] = useState('');
@@ -127,6 +135,7 @@ export default function RegisterPage() {
     courseOptions = tvetCourses;
   }
 
+  // ─── Registration submission ──────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -158,13 +167,21 @@ export default function RegisterPage() {
       institution: form.institution,
       course: form.course,
       role: form.role,
-      date_of_birth: form.dateOfBirth, // <-- NEW
+      date_of_birth: form.dateOfBirth,
     };
 
     try {
       const data = await register(payload);
-      showToast('Account created! Please complete your academic setup.', 'success');
-      navigate('/academic-onboarding');
+      // If the backend indicates verification is required
+      if (data.requiresVerification) {
+        setRegisteredEmail(data.email);
+        setShowVerification(true);
+        showToast('Verification code sent to your email.', 'success');
+      } else {
+        // Fallback (should not happen with new flow)
+        showToast('Account created! Welcome to KUA 🎉', 'success');
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.message);
       showToast(err.message, 'error');
@@ -173,6 +190,112 @@ export default function RegisterPage() {
     }
   };
 
+  // ─── Verify code ──────────────────────────────────────────────
+  const handleVerify = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      showToast('Please enter the 6-digit code.', 'error');
+      return;
+    }
+    setVerifying(true);
+    setError('');
+    try {
+      const data = await api.verifyEmail(registeredEmail, verificationCode);
+      // data contains token and user
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      showToast('Email verified! Welcome to KUA 🎉', 'success');
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message);
+      showToast(err.message, 'error');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // ─── Resend code ──────────────────────────────────────────────
+  const handleResendCode = async () => {
+    setResending(true);
+    setError('');
+    try {
+      await api.resendVerification(registeredEmail);
+      showToast('New verification code sent to your email.', 'success');
+    } catch (err) {
+      setError(err.message);
+      showToast(err.message, 'error');
+    } finally {
+      setResending(false);
+    }
+  };
+
+  // ─── If verification step is active, show code input ──────────
+  if (showVerification) {
+    return (
+      <div
+        className="relative min-h-screen bg-cover bg-center bg-fixed flex items-center justify-center py-12"
+        style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-black/60 z-0"></div>
+        <div className="relative z-10 w-full max-w-md p-4">
+          <div className="card glass-strong p-8">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginBottom: 16 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#3b82f6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Zap size={17} color="white" />
+              </div>
+              <span style={{ fontWeight: 700, fontSize: 22, color: 'var(--text-primary)' }}>KUA</span>
+            </div>
+
+            <h2 className="text-2xl font-bold text-white">Verify Your Email</h2>
+            <p className="text-white/60 text-sm mt-1">
+              We sent a 6-digit code to <strong className="text-white/80">{registeredEmail}</strong>. Please enter it below.
+            </p>
+
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm mt-4">
+                <AlertCircle size={16} /> {error}
+              </div>
+            )}
+
+            <div className="mt-4">
+              <input
+                type="text"
+                maxLength={6}
+                className="w-full input text-center text-2xl tracking-widest"
+                placeholder="______"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                autoFocus
+              />
+            </div>
+
+            <button
+              onClick={handleVerify}
+              disabled={verifying}
+              className="w-full btn-primary mt-4"
+            >
+              {verifying ? 'Verifying...' : 'Verify Email'}
+            </button>
+
+            <div className="mt-3 text-center">
+              <button
+                onClick={handleResendCode}
+                disabled={resending}
+                className="text-sm text-brand-400 hover:underline"
+              >
+                {resending ? 'Sending...' : 'Resend code'}
+              </button>
+            </div>
+
+            <p className="text-center text-white/40 text-xs mt-4">
+              The code expires in 15 minutes.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Otherwise, show the registration form ────────────────────
   return (
     <div
       className="relative min-h-screen bg-cover bg-center bg-fixed flex items-center justify-center py-12"
@@ -231,7 +354,7 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* ===== NEW: Date of Birth ===== */}
+            {/* Date of Birth */}
             <div>
               <label className="label" style={{ color: 'var(--text-secondary)' }}>Date of Birth</label>
               <input
@@ -245,7 +368,7 @@ export default function RegisterPage() {
                 value={form.dateOfBirth}
                 onChange={set('dateOfBirth')}
                 required
-                max={new Date().toISOString().split('T')[0]} // no future dates
+                max={new Date().toISOString().split('T')[0]}
               />
             </div>
 
