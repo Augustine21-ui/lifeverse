@@ -90,24 +90,8 @@ export const login = async (req, res) => {
     }
     const user = userRes.rows[0];
 
-    // ─── Check email verification ────────────────────────────────
-    if (!user.email_verified) {
-      // Resend a new verification code
-      const newCode = generateVerificationCode();
-      const codeExpiry = new Date(Date.now() + 15 * 60000);
-      await db.query(
-        `UPDATE users SET verification_code = $1, verification_code_expires = $2 WHERE id = $3`,
-        [newCode, codeExpiry, user.id]
-      );
-      try {
-        await sendVerificationEmail(email, newCode);
-      } catch (e) { /* ignore email errors, but log */ }
-      return res.status(403).json({
-        error: 'Please verify your email address. A new verification code has been sent.',
-        requiresVerification: true,
-        email: user.email,
-      });
-    }
+    // ─── ✅ BYPASS EMAIL VERIFICATION CHECK ────────────────────
+    // (Removed the check that would block login for unverified users)
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
@@ -146,7 +130,6 @@ export const login = async (req, res) => {
   }
 };
 
-// ─── REGISTER ─────────────────────────────────────────────────────
 // ─── REGISTER ─────────────────────────────────────────────────────
 export const register = async (req, res) => {
   try {
@@ -248,8 +231,8 @@ export const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Generate verification code AFTER email is available
-    const verificationCode = generateVerificationCode();
+    // ✅ Bypass verification: set email_verified = true
+    const verificationCode = generateVerificationCode(); // still generate (for logging)
     console.log(`📧 Verification code for ${email}: ${verificationCode}`);
     const codeExpiry = new Date(Date.now() + 15 * 60000);
 
@@ -262,7 +245,7 @@ export const register = async (req, res) => {
         institution_id, academic_group_id,
         date_of_birth,
         email_verified, verification_code, verification_code_expires
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, false, $18, $19)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, true, $18, $19)
       RETURNING id, email, full_name, role`,
       [
         full_name, username, email, hashedPassword, education_level || null,
@@ -277,18 +260,36 @@ export const register = async (req, res) => {
 
     const user = result.rows[0];
 
-    // Send verification email
-    try {
-      await sendVerificationEmail(email, verificationCode);
-    } catch (emailErr) {
-      console.error('Failed to send verification email:', emailErr);
-      // Continue – user can resend code
-    }
+    // Still try to send email, but don't block (email will probably fail)
+    sendVerificationEmail(email, verificationCode)
+      .catch(err => console.error('Failed to send verification email (but user is already verified):', err.message));
+
+    // ─── Return JWT token immediately (bypass verification) ────
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role, institution_id: user.institution_id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const access = await getUserAccess(user.id);
 
     res.status(201).json({
-      message: 'Verification code sent to your email. Please verify your account.',
-      email: user.email,
-      requiresVerification: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        subscription: access,
+        subscription_tier: subscriptionPlan,
+        subscription_status: subscriptionStatus,
+        institution_subscription_valid: institutionSubscribed,
+        institution_id: institutionId,
+        academic_group_id: academicGroupId,
+        date_of_birth: date_of_birth || null,
+        email_verified: true,
+      },
+      message: 'Account created successfully! 🎉',
     });
   } catch (err) {
     console.error('Registration error:', err);
@@ -299,12 +300,11 @@ export const register = async (req, res) => {
   }
 };
 
-// ─── VERIFY EMAIL ────────────────────────────────────────────────
-// ─── VERIFY EMAIL ────────────────────────────────────────────────
+// ─── VERIFY EMAIL (kept for future, but bypassed) ──────────────
 export const verifyEmail = async (req, res) => {
   try {
     const { email, code } = req.body;
-    console.log('🔍 verifyEmail called with:', { email, code }); // debug
+    console.log('🔍 verifyEmail called with:', { email, code });
 
     if (!email || !code) {
       return res.status(400).json({ error: 'Email and verification code are required' });
@@ -362,11 +362,11 @@ export const verifyEmail = async (req, res) => {
   }
 };
 
-// ─── RESEND VERIFICATION CODE ──────────────────────────────────
+// ─── RESEND VERIFICATION CODE (kept for future use) ──────────
 export const resendVerificationCode = async (req, res) => {
   try {
     const { email } = req.body;
-    console.log('🔍 resendVerificationCode called with email:', email); // debug
+    console.log('🔍 resendVerificationCode called with email:', email);
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
@@ -401,6 +401,7 @@ export const resendVerificationCode = async (req, res) => {
     res.status(500).json({ error: 'Failed to resend code', details: err.message });
   }
 };
+
 // ─── FORGOT PASSWORD ────────────────────────────────────────────
 export const forgotPassword = async (req, res) => {
   try {
@@ -418,7 +419,9 @@ export const forgotPassword = async (req, res) => {
       [resetToken, userRes.rows[0].id]
     );
 
-    await sendResetEmail(email, resetToken);
+    sendResetEmail(email, resetToken)
+      .catch(err => console.error('Failed to send reset email:', err.message));
+
     res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
   } catch (err) {
     console.error(err);
