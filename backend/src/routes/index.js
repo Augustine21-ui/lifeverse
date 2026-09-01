@@ -1,6 +1,6 @@
 // backend/src/routes/index.js
 import express from 'express';
-import { authenticate } from '../auth.js'; // only authenticate middleware
+import { authenticate } from '../auth.js'; // ONLY middleware
 
 // ─── ALL AUTH FUNCTIONS from authController.js ────────────────
 import { 
@@ -14,6 +14,7 @@ import {
   resendVerificationCode
 } from '../controllers/authController.js';
 
+// ─── OTHER CONTROLLERS ──────────────────────────────────────
 import { getChallenges, submitChallenge, getUserChallenges } from '../challengeController.js';
 import { getChildren, getChildProgress } from '../parentController.js';
 import { getStudents, getStudentProgressForTeacher, getClassSummary } from '../teacherController.js';
@@ -33,7 +34,6 @@ import * as taskController from '../controllers/taskController.js';
 import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
-import { createGoal } from '../controllers/goalsController.js';
 
 // ─── AI CONTROLLER ──────────────────────────────────────────────
 import { 
