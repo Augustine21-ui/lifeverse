@@ -889,15 +889,18 @@ aiGetRecommendations: () => fetch(`${API_BASE}/ai/recommendations`, {
   headers: authHeaders()
 }).then(handleResponse),
 
+// frontend/src/services/api.js
+
+// ─── Replace these two methods ──────────────────────────────
 verifyEmail: (email, code) => fetch(`${API_BASE}/auth/verify-email`, {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json' },   // ✅ no Authorization
   body: JSON.stringify({ email, code }),
 }).then(handleResponse),
 
 resendVerification: (email) => fetch(`${API_BASE}/auth/resend-verification`, {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json' },   // ✅ no Authorization
   body: JSON.stringify({ email }),
 }).then(handleResponse),
 

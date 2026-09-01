@@ -148,6 +148,8 @@ export const login = async (req, res) => {
 
 // ─── REGISTER ─────────────────────────────────────────────────────
 export const register = async (req, res) => {
+  const verificationCode = generateVerificationCode();
+  console.log(`📧 Verification code for ${email}: ${verificationCode}`); // ← add this
   try {
     const { full_name, username, email, password, education_level, institution, course, role, date_of_birth } = req.body;
 
