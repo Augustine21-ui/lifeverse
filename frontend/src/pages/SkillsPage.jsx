@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp, Target, Award, BarChart3,
-  Loader2, Plus, X, ChevronRight
+  Loader2, Plus, X, ChevronRight, Sparkles
 } from 'lucide-react';
 
 // Predefined badge definitions (fallback if backend doesn't return all)
@@ -29,7 +29,7 @@ export default function SkillsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedSkill, setSelectedSkill] = useState(null);
 
-  // Goal Modal state
+  // ─── Goal Modal state ──────────────────────────────────────────
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [goalForm, setGoalForm] = useState({
     title: '',
@@ -39,6 +39,12 @@ export default function SkillsPage() {
     metadata: {}
   });
   const [submittingGoal, setSubmittingGoal] = useState(false);
+
+  // ─── Skill Modal state ──────────────────────────────────────────
+  const [showSkillModal, setShowSkillModal] = useState(false);
+  const [skillName, setSkillName] = useState('');
+  const [skillCategory, setSkillCategory] = useState('');
+  const [submittingSkill, setSubmittingSkill] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -55,6 +61,17 @@ export default function SkillsPage() {
         api.getLeaderboard ? api.getLeaderboard() : Promise.resolve({ weekly: { rank: 0 } })
       ]);
 
+      // ─── Deduplicate user skills by name ──────────────────────
+      const rawSkills = Array.isArray(userSkillsRes) ? userSkillsRes : (userSkillsRes?.userSkills || userSkillsRes?.data || []);
+      const uniqueSkills = rawSkills.reduce((acc, skill) => {
+        // Use skill.name or skill.skill_name
+        const name = skill.name || skill.skill_name;
+        if (!acc.some(s => (s.name || s.skill_name) === name)) {
+          acc.push(skill);
+        }
+        return acc;
+      }, []);
+
       // Build achievements list with earned status
       const earnedIds = (earnedBadgesRes || []).map(b => b.id);
       const achievementsData = BADGE_DEFINITIONS.map(b => ({
@@ -64,7 +81,7 @@ export default function SkillsPage() {
 
       setSummary(summaryRes?.summary || summaryRes || { level: 1, xp: 0, goalsCount: 0, skillsCount: 0, achievementsCount: 0 });
       setGoals(Array.isArray(goalsRes) ? goalsRes : (goalsRes?.goals || goalsRes?.data || []));
-      setUserSkills(Array.isArray(userSkillsRes) ? userSkillsRes : (userSkillsRes?.userSkills || userSkillsRes?.data || []));
+      setUserSkills(uniqueSkills);
       setAchievements(achievementsData);
       setRankings(rankingsRes || { weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
     } catch (err) {
@@ -93,6 +110,25 @@ export default function SkillsPage() {
       alert('Failed to create goal: ' + (err.error || err.message));
     } finally {
       setSubmittingGoal(false);
+    }
+  };
+
+  // ─── Skill creation ──────────────────────────────────────────
+  const handleCreateSkill = async (e) => {
+    e.preventDefault();
+    if (!skillName.trim()) return;
+    setSubmittingSkill(true);
+    try {
+      // Use the API to create a skill (adjust endpoint if needed)
+      await api.createSkill({ name: skillName.trim(), category: skillCategory.trim() || undefined });
+      setShowSkillModal(false);
+      setSkillName('');
+      setSkillCategory('');
+      await loadData(); // refresh skills
+    } catch (err) {
+      alert('Failed to create skill: ' + (err.error || err.message));
+    } finally {
+      setSubmittingSkill(false);
     }
   };
 
@@ -133,13 +169,40 @@ export default function SkillsPage() {
 
       {userSkills.length === 0 ? (
         <div className="card p-8 text-center">
-          <p className="text-white/60 mb-4">You haven't added any skills yet. Start your learning journey!</p>
-          <button
-            onClick={() => {/* open skill creation modal later */}}
-            className="btn-primary flex items-center gap-2 mx-auto"
-          >
-            <Plus size={18} /> Create Your First Skill
-          </button>
+          <div className="text-6xl mb-4">🚀</div>
+          <h3 className="text-2xl font-semibold text-white">Start building your skills</h3>
+          <p className="text-white/60 max-w-md mx-auto mt-2">
+            Skills are the building blocks of your career. Add your first skill and start tracking your progress.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3 mt-6">
+            <button
+              onClick={() => setShowSkillModal(true)}
+              className="btn-primary px-6 py-2.5 flex items-center gap-2"
+            >
+              <Plus size={18} /> Create Your First Skill
+            </button>
+            <button
+              onClick={() => setShowGoalModal(true)}
+              className="btn-secondary px-6 py-2.5 flex items-center gap-2"
+            >
+              <Target size={18} /> Set a Goal
+            </button>
+          </div>
+          <div className="mt-6 text-sm text-white/40">
+            <span>Suggested skills for you: </span>
+            {['Mathematics', 'Programming', 'Communication'].map((skill, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setSkillName(skill);
+                  setShowSkillModal(true);
+                }}
+                className="text-brand-400 hover:underline mx-1"
+              >
+                {skill}
+              </button>
+            ))}
+          </div>
         </div>
       ) : (
         <>
@@ -151,28 +214,32 @@ export default function SkillsPage() {
             </h2>
             <p className="text-sm text-white/40 mb-3">Select a skill to view detailed progress.</p>
             <div className="flex flex-wrap gap-2">
-              {userSkills.map(skill => (
-                <button
-                  key={skill.id || skill.skill_id}
-                  onClick={() => setSelectedSkill(skill)}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-1 ${
-                    selectedSkill?.id === skill.id || selectedSkill?.skill_id === skill.skill_id
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-white/10 hover:bg-white/20 text-white/80'
-                  }`}
-                >
-                  {skill.name}
-                  <span className="text-xs opacity-60">
-                    ({Math.round(skill.progress_percent || 0)}%)
-                  </span>
-                </button>
-              ))}
+              {userSkills.map(skill => {
+                const skillId = skill.id || skill.skill_id;
+                const skillName = skill.name || skill.skill_name;
+                return (
+                  <button
+                    key={skillId}
+                    onClick={() => setSelectedSkill(skill)}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-1 ${
+                      selectedSkill?.id === skillId || selectedSkill?.skill_id === skillId
+                        ? 'bg-brand-500 text-white'
+                        : 'bg-white/10 hover:bg-white/20 text-white/80'
+                    }`}
+                  >
+                    {skillName}
+                    <span className="text-xs opacity-60">
+                      ({Math.round(skill.progress_percent || 0)}%)
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             {selectedSkill && (
               <div className="mt-3 p-3 bg-white/5 rounded-lg">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="font-medium">{selectedSkill.name}</h3>
+                    <h3 className="font-medium">{selectedSkill.name || selectedSkill.skill_name}</h3>
                     <p className="text-xs text-white/40">
                       Progress: {Math.round(selectedSkill.progress_percent || 0)}%
                     </p>
@@ -247,17 +314,21 @@ export default function SkillsPage() {
               <span className="text-sm text-white/40">{userSkills.length} skills</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {safeSlice(userSkills, 0, 4).map(skill => (
-                <div key={skill.id || skill.skill_id} className="p-3 bg-white/5 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">{skill.name}</span>
-                    <span className="text-xs text-white/40">{skill.level || 'Beginner'}</span>
+              {safeSlice(userSkills, 0, 4).map(skill => {
+                const skillId = skill.id || skill.skill_id;
+                const skillName = skill.name || skill.skill_name;
+                return (
+                  <div key={skillId} className="p-3 bg-white/5 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">{skillName}</span>
+                      <span className="text-xs text-white/40">{skill.level || 'Beginner'}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/10 rounded-full mt-1">
+                      <div className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style={{ width: `${skill.progress_percent || 0}%` }} />
+                    </div>
                   </div>
-                  <div className="w-full h-1.5 bg-white/10 rounded-full mt-1">
-                    <div className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style={{ width: `${skill.progress_percent || 0}%` }} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -330,7 +401,7 @@ export default function SkillsPage() {
         </>
       )}
 
-      {/* Goal Creation Modal */}
+      {/* ─── Goal Creation Modal ────────────────────────────────── */}
       {showGoalModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
@@ -419,6 +490,49 @@ export default function SkillsPage() {
               )}
               <button type="submit" disabled={submittingGoal} className="btn-primary w-full">
                 {submittingGoal ? 'Creating...' : 'Create Goal'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Skill Creation Modal ────────────────────────────────── */}
+      {showSkillModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && setShowSkillModal(false)}
+        >
+          <div className="w-full max-w-md card p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Add New Skill</h2>
+              <button onClick={() => setShowSkillModal(false)} className="text-white/40 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleCreateSkill} className="space-y-3">
+              <div>
+                <label className="text-sm text-white/60">Skill Name *</label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  placeholder="e.g., Python, JavaScript, Data Analysis"
+                  value={skillName}
+                  onChange={(e) => setSkillName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-white/60">Category (optional)</label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  placeholder="e.g., Programming, Design, Business"
+                  value={skillCategory}
+                  onChange={(e) => setSkillCategory(e.target.value)}
+                />
+              </div>
+              <button type="submit" disabled={submittingSkill} className="btn-primary w-full">
+                {submittingSkill ? 'Adding...' : 'Add Skill'}
               </button>
             </form>
           </div>

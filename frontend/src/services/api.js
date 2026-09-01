@@ -904,4 +904,10 @@ resendVerification: (email) => fetch(`${API_BASE}/auth/resend-verification`, {
   body: JSON.stringify({ email }),
 }).then(handleResponse),
 
+createSkill: (data) => fetch(`${API_BASE}/skills/create`, {
+  method: 'POST',
+  headers: authHeaders(),
+  body: JSON.stringify(data),
+}).then(handleResponse),
+
 };
