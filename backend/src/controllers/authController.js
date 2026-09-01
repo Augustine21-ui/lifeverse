@@ -300,9 +300,12 @@ export const register = async (req, res) => {
 };
 
 // ─── VERIFY EMAIL ────────────────────────────────────────────────
+// ─── VERIFY EMAIL ────────────────────────────────────────────────
 export const verifyEmail = async (req, res) => {
   try {
     const { email, code } = req.body;
+    console.log('🔍 verifyEmail called with:', { email, code }); // debug
+
     if (!email || !code) {
       return res.status(400).json({ error: 'Email and verification code are required' });
     }
@@ -333,7 +336,6 @@ export const verifyEmail = async (req, res) => {
       [user.id]
     );
 
-    // Generate JWT to log the user in automatically
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
@@ -355,8 +357,8 @@ export const verifyEmail = async (req, res) => {
       message: 'Email verified successfully. Welcome to KUA! 🎉',
     });
   } catch (err) {
-    console.error('Verify email error:', err);
-    res.status(500).json({ error: 'Verification failed' });
+    console.error('❌ Verify email error:', err);
+    res.status(500).json({ error: 'Verification failed', details: err.message });
   }
 };
 
@@ -364,6 +366,8 @@ export const verifyEmail = async (req, res) => {
 export const resendVerificationCode = async (req, res) => {
   try {
     const { email } = req.body;
+    console.log('🔍 resendVerificationCode called with email:', email); // debug
+
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
@@ -393,11 +397,10 @@ export const resendVerificationCode = async (req, res) => {
 
     res.json({ message: 'New verification code sent to your email.' });
   } catch (err) {
-    console.error('Resend verification error:', err);
-    res.status(500).json({ error: 'Failed to resend code' });
+    console.error('❌ Resend verification error:', err);
+    res.status(500).json({ error: 'Failed to resend code', details: err.message });
   }
 };
-
 // ─── FORGOT PASSWORD ────────────────────────────────────────────
 export const forgotPassword = async (req, res) => {
   try {
