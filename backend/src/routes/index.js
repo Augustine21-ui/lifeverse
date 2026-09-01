@@ -33,6 +33,7 @@ import * as taskController from '../controllers/taskController.js';
 import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
+import { createGoal } from '../controllers/goalsController.js';
 
 // ─── AI CONTROLLER ──────────────────────────────────────────────
 import { 
