@@ -23,14 +23,14 @@ export const getDashboard = async (req, res, next) => {
         FROM xp_history WHERE user_id=$1 AND created_at > NOW() - INTERVAL '7 days'
         GROUP BY DATE(created_at) ORDER BY date
       `, [userId]),
-      // ─── Aggregate today's activities ────────────────────────
+      // ─── Count ALL completed activities (no date filter) ─────
       pool.query(`
         SELECT
-          COALESCE((SELECT COUNT(*) FROM tasks WHERE user_id=$1 AND is_completed=true AND DATE(completed_at)=CURRENT_DATE), 0) AS tasks_done,
-          COALESCE((SELECT COUNT(*) FROM orbit_sessions WHERE user_id=$1 AND status='completed' AND DATE(completed_at)=CURRENT_DATE), 0) AS orbit_sessions,
-          COALESCE((SELECT COUNT(*) FROM posts WHERE user_id=$1 AND DATE(created_at)=CURRENT_DATE), 0) AS posts,
-          COALESCE((SELECT COUNT(*) FROM user_skills WHERE user_id=$1 AND DATE(updated_at)=CURRENT_DATE), 0) AS skill_updates,
-          COALESCE((SELECT COALESCE(SUM(duration),0) FROM focus_sessions WHERE user_id=$1 AND DATE(start_time)=CURRENT_DATE AND completed=true), 0) AS study_minutes,
+          COALESCE((SELECT COUNT(*) FROM tasks WHERE user_id=$1 AND is_completed=true), 0) AS tasks_done,
+          COALESCE((SELECT COUNT(*) FROM orbit_sessions WHERE user_id=$1 AND status='completed'), 0) AS orbit_sessions,
+          COALESCE((SELECT COUNT(*) FROM posts WHERE user_id=$1), 0) AS posts,
+          COALESCE((SELECT COUNT(*) FROM user_skills WHERE user_id=$1), 0) AS skill_updates,
+          COALESCE((SELECT COALESCE(SUM(duration),0) FROM focus_sessions WHERE user_id=$1 AND completed=true), 0) AS study_minutes,
           COALESCE((SELECT COUNT(*) FROM tasks WHERE user_id=$1 AND is_completed=false AND due_date < NOW()), 0) AS overdue_tasks
       `, [userId])
     ]);
@@ -101,16 +101,14 @@ export const getLeaderboard = async (req, res, next) => {
 export const completeFocusSession = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { durationMinutes, topic } = req.body; // topic is optional
+    const { durationMinutes, topic } = req.body;
 
     if (!durationMinutes || durationMinutes < 1) {
       return res.status(400).json({ error: 'Duration is required' });
     }
 
-    // Calculate XP (e.g., 10 XP per minute)
     const xpAwarded = Math.round(durationMinutes * 10);
 
-    // Insert focus session
     await pool.query(
       `INSERT INTO focus_sessions 
        (user_id, topic, duration, start_time, end_time, completed, completed_at, xp_awarded)
@@ -118,14 +116,11 @@ export const completeFocusSession = async (req, res) => {
       [userId, topic || 'Focus Session', durationMinutes, xpAwarded]
     );
 
-    // Award XP to user
     await pool.query(`UPDATE users SET xp = xp + $1 WHERE id = $2`, [xpAwarded, userId]);
     await pool.query(`UPDATE users SET level = FLOOR(xp / 500) + 1 WHERE id = $1`, [userId]);
 
-    // Update streak
     await updateUserStreak(userId);
 
-    // Get remaining focus sessions today (max 4)
     const remainingRes = await pool.query(
       `SELECT 4 - COUNT(*) AS remaining
        FROM focus_sessions
