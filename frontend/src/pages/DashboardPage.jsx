@@ -250,13 +250,21 @@ export default function DashboardPage() {
         api.getSubscriptionStatus().catch(() => null),
       ]);
 
-      // Use real data from statsData
+      // ─── FALLBACK: use auth user data if statsData.user is missing ──
+      const userData = statsData.user || { 
+        xp: user?.xp || 0, 
+        streakDays: user?.streakDays || 0,
+        rank: user?.rank || '#?',
+        todayXP: 0,
+        completed: 0,
+      };
+
       setStats({
-        totalXP: statsData.user?.xp || 0,
-        todayXP: statsData.user?.todayXP || 0,
-        streakDays: statsData.user?.streakDays || 0,
-        rank: statsData.user?.rank || '#?',
-        completed: statsData.user?.completed || 0,
+        totalXP: userData.xp || 0,
+        todayXP: userData.todayXP || 0,
+        streakDays: userData.streakDays || 0,
+        rank: userData.rank || '#?',
+        completed: userData.completed || 0,
       });
       setTasks(tasksData);
       setStudyTime(statsData.studyTimeMinutes || 0);
