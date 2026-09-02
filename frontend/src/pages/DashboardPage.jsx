@@ -250,25 +250,39 @@ export default function DashboardPage() {
         api.getSubscriptionStatus().catch(() => null),
       ]);
 
-      // ─── FALLBACK: use auth user data if statsData.user is missing ──
-      const userData = statsData.user || { 
-        xp: user?.xp || 0, 
+      // ─── FIX: Correctly read from statsData.user ──────────────
+      const userData = statsData.user || {
+        xp: user?.xp || 0,
+        level: user?.level || 1,
         streakDays: user?.streakDays || 0,
         rank: user?.rank || '#?',
         todayXP: 0,
         completed: 0,
       };
 
-     setStats({
-        totalXP: statsData.xp || 0,
-        todayXP: statsData.todayXP || 0,
-        streakDays: statsData.streakDays || 0,   // <- top-level
-        rank: statsData.rank || '#?',
-        completed: statsData.completed || 0,
+      setStats({
+        totalXP: userData.xp || 0,
+        todayXP: userData.todayXP || 0,
+        streakDays: userData.streakDays || 0,
+        rank: userData.rank || '#?',
+        completed: userData.completed || 0,
       });
-      setTasks(tasksData);
+
+      setTasks(tasksData || []);
+      
+      // ─── Study Time ──────────────────────────────────────────
       setStudyTime(statsData.studyTimeMinutes || 0);
-      setProgressPercent(statsData.progressPercent || 0);
+
+      // ─── Progress Percent ────────────────────────────────────
+      // Use backend progressPercent if available, else compute from tasks
+      let progress = statsData.progressPercent || 0;
+      if (progress === 0 && tasksData && tasksData.length > 0) {
+        const done = tasksData.filter(t => t.is_completed).length;
+        const total = tasksData.length;
+        progress = total > 0 ? Math.round((done / total) * 100) : 0;
+      }
+      setProgressPercent(progress);
+
       setAutoMood(statsData.user?.mood || 'neutral');
       setAcademicTimetable(timetableData || []);
       setAcademicAssignments(assignmentsData || []);
@@ -459,8 +473,8 @@ export default function DashboardPage() {
   const totalTasks = tasks.length;
   const today = new Date().getDay();
   const todayEntries = academicTimetable.filter(entry => entry.day_of_week === today);
-  // Consistent level calculation
-  const currentLevel = Math.floor(stats.totalXP / 500) + 1;
+  // Consistent level calculation: use totalXP from stats, or fallback to user.level
+  const currentLevel = stats.totalXP > 0 ? Math.floor(stats.totalXP / 500) + 1 : (user?.level || 1);
 
   // Format study time
   const formatStudyTime = (minutes) => {
@@ -828,8 +842,6 @@ export default function DashboardPage() {
             <button className="mt-2 text-sm text-brand-400 hover:underline">Refresh suggestions</button>
           </Card>
 
-          {/* 🗑️ NOTIFICATIONS CARD REMOVED */}
-
           {/* Today's Schedule */}
           <Card className="mb-4">
             <div className="flex justify-between items-center mb-3">
@@ -851,8 +863,6 @@ export default function DashboardPage() {
               </div>
             )}
           </Card>
-
-          {/* 🗑️ ORBIT PROGRESS CARD REMOVED */}
 
           {/* Brain Dump */}
           <Card className="mb-4">
@@ -1163,10 +1173,6 @@ export default function DashboardPage() {
                 </div>
                 <button className="mt-3 text-xs text-brand-400 hover:underline">Refresh</button>
               </Card>
-
-              {/* 🗑️ NOTIFICATIONS CARD REMOVED */}
-
-              {/* 🗑️ ORBIT PROGRESS CARD REMOVED */}
 
               {/* Today's Schedule */}
               <Card>
