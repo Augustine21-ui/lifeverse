@@ -14,13 +14,20 @@ const moodConfig = {
   neutral: { glow: 'rgba(100,150,255,0.8)', pulse: '2.5s', bg: 'from-brand-400/30 to-violet-500/30', label: '😐 Neutral' },
 };
 
-export default function HolographicAvatar() {
+export default function HolographicAvatar({ mood: propMood }) { // accept mood from parent
   const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
   const canvasRef = useRef(null);
-  const [mood, setMood] = useState(user?.mood || 'neutral');
+  const [mood, setMood] = useState(propMood || user?.mood || 'neutral');
   const [showMenu, setShowMenu] = useState(false);
   const avatarRef = useRef(null);
+
+  // Sync with propMood whenever it changes (auto‑mood from dashboard)
+  useEffect(() => {
+    if (propMood && propMood !== mood) {
+      setMood(propMood);
+    }
+  }, [propMood]);
 
   const currentMood = moodConfig[mood] || moodConfig.neutral;
 
@@ -105,7 +112,6 @@ export default function HolographicAvatar() {
           {user?.avatar ? (
             <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" />
           ) : (
-            // ✅ Always show the User icon – no letter, no "?"
             <User className="w-12 h-12 text-white/60" />
           )}
           {/* Scanning line */}

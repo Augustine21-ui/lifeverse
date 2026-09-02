@@ -16,7 +16,6 @@ import GlanceTicker from '../components/GlanceTicker';
 import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
-// 🗑️ REMOVED: import OrbitProgressCard from '../components/orbit/OrbitProgressCard';
 import { useTheme } from '../context/ThemeContext';
 
 // ---- Confetti ----
@@ -160,6 +159,10 @@ export default function DashboardPage() {
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
   const [quizResult, setQuizResult] = useState(null);
 
+  // ─── New states for real data ──────────────────────────────
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [autoMood, setAutoMood] = useState('neutral');
+
   // Focus timer
   const [focusRemaining, setFocusRemaining] = useState(4);
   const [selectedDuration, setSelectedDuration] = useState(25);
@@ -194,7 +197,6 @@ export default function DashboardPage() {
   const [studyTime, setStudyTime] = useState(0);
   const [brainDump, setBrainDump] = useState(() => localStorage.getItem('brainDump') || '');
   const [showBrainDump, setShowBrainDump] = useState(false);
-  // 🗑️ REMOVED: mock notifications state and usage
   const [quickAddType, setQuickAddType] = useState('task');
   const [quickAddText, setQuickAddText] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -247,9 +249,19 @@ export default function DashboardPage() {
         api.getAssignments().catch(() => []),
         api.getSubscriptionStatus().catch(() => null),
       ]);
-      setStats(statsData);
+
+      // Use real data from statsData
+      setStats({
+        totalXP: statsData.user?.xp || 0,
+        todayXP: statsData.user?.todayXP || 0,
+        streakDays: statsData.user?.streakDays || 0,
+        rank: statsData.user?.rank || '#?',
+        completed: statsData.user?.completed || 0,
+      });
       setTasks(tasksData);
-      setStudyTime(Math.floor(Math.random() * 120) + 30);
+      setStudyTime(statsData.studyTimeMinutes || 0);
+      setProgressPercent(statsData.progressPercent || 0);
+      setAutoMood(statsData.user?.mood || 'neutral');
       setAcademicTimetable(timetableData || []);
       setAcademicAssignments(assignmentsData || []);
       if (subscriptionData) {
@@ -268,7 +280,6 @@ export default function DashboardPage() {
     if (!silent) setFeedLoading(true);
     try {
       const data = await api.getFeedPosts(20, 0);
-      // 🛠️ FIX: deduplicate posts by id to avoid duplicates
       const uniquePosts = data.posts || data || [];
       const uniqueMap = new Map();
       uniquePosts.forEach(post => {
@@ -438,9 +449,18 @@ export default function DashboardPage() {
   const displayName = user?.full_name || user?.username || 'Learner';
   const tasksDoneToday = tasks.filter(t => t.is_completed).length;
   const totalTasks = tasks.length;
-  const progressPercent = totalTasks > 0 ? Math.round((tasksDoneToday / totalTasks) * 100) : 0;
   const today = new Date().getDay();
   const todayEntries = academicTimetable.filter(entry => entry.day_of_week === today);
+  // Consistent level calculation
+  const currentLevel = Math.floor(stats.totalXP / 500) + 1;
+
+  // Format study time
+  const formatStudyTime = (minutes) => {
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  };
 
   // ---- Focus mode ----
   if (focusMode) {
@@ -535,7 +555,6 @@ export default function DashboardPage() {
             <p className="text-xs lg:text-sm text-white/40 italic mt-1">"{dailyQuote}"</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 ml-1 sm:ml-2 z-20 relative">
-            {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
               className="p-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 hover:bg-white/20 transition"
@@ -544,14 +563,16 @@ export default function DashboardPage() {
               {theme === 'dark' ? <Sun size={18} className="text-yellow-400" /> : <Moon size={18} className="text-slate-400" />}
             </button>
 
-            {/* Mood badge */}
+            {/* Mood badge - show autoMood */}
             <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-2.5 py-1 border border-white/10">
               <Smile size={14} className="text-yellow-400" />
-              <span className="text-xs text-white/70 hidden xs:inline">{user?.mood || 'Neutral'}</span>
+              <span className="text-xs text-white/70 hidden xs:inline">
+                {autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
+              </span>
             </div>
-            {/* Avatar – with higher z-index */}
+            {/* Avatar – pass autoMood */}
             <div className="scale-90 sm:scale-100 transition-transform z-50 relative">
-              <HolographicAvatar />
+              <HolographicAvatar mood={autoMood} />
             </div>
           </div>
         </div>
@@ -568,7 +589,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-3xl font-bold text-white">{Math.floor(stats.totalXP / 100) || 1}</span>
+                  <span className="text-3xl font-bold text-white">{currentLevel}</span>
                   <span className="text-sm text-white/40">Level</span>
                 </div>
                 <div className="flex items-center gap-3 mt-1">
@@ -593,7 +614,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-cyan-400" />
-                <span className="text-sm text-white/60">{Math.floor(studyTime / 60)}h {studyTime % 60}m</span>
+                <span className="text-sm text-white/60">{formatStudyTime(studyTime)}</span>
                 <span className="text-xs text-white/30">today</span>
               </div>
               <div className="flex items-center gap-2">
@@ -745,7 +766,7 @@ export default function DashboardPage() {
             </Link>
           </Card>
 
-          {/* Mood Card */}
+          {/* Mood Card - use autoMood */}
           <Card className="mb-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
@@ -754,9 +775,16 @@ export default function DashboardPage() {
               <span className="text-xs text-white/30">Today</span>
             </div>
             <div className="flex items-center gap-4 mt-2">
-              <span className="text-4xl">{user?.mood === 'happy' ? '😊' : user?.mood === 'calm' ? '😌' : user?.mood === 'tired' ? '😴' : user?.mood === 'stressed' ? '😤' : '😐'}</span>
+              <span className="text-4xl">
+                {autoMood === 'happy' ? '😊' : 
+                 autoMood === 'calm' ? '😌' : 
+                 autoMood === 'tired' ? '😴' : 
+                 autoMood === 'stressed' ? '😤' : '😐'}
+              </span>
               <div className="flex-1">
-                <p className="text-sm text-white font-medium">{user?.mood || 'Neutral'}</p>
+                <p className="text-sm text-white font-medium">
+                  {autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
+                </p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-white/40">Energy</span>
                   <div className="flex-1 h-1.5 bg-white/10 rounded-full">
@@ -904,7 +932,7 @@ export default function DashboardPage() {
                 <p className="text-white/40 text-sm">Level</p>
                 <Zap size={20} className="text-brand-400" />
               </div>
-              <p className="text-2xl font-bold text-white">{Math.floor(stats.totalXP / 100) || 1}</p>
+              <p className="text-2xl font-bold text-white">{currentLevel}</p>
               <p className="text-xs text-white/40">{stats.totalXP} XP</p>
             </Card>
             <Card>
@@ -912,7 +940,7 @@ export default function DashboardPage() {
                 <p className="text-white/40 text-sm">Study Time</p>
                 <Clock size={20} className="text-cyan-400" />
               </div>
-              <p className="text-2xl font-bold text-white">{Math.floor(studyTime / 60)}h {studyTime % 60}m</p>
+              <p className="text-2xl font-bold text-white">{formatStudyTime(studyTime)}</p>
               <p className="text-xs text-white/40">Today</p>
             </Card>
             <Card>
@@ -928,7 +956,7 @@ export default function DashboardPage() {
                 <p className="text-white/40 text-sm">Today's Progress</p>
                 <CheckCircle size={20} className="text-green-400" />
               </div>
-              <p className="text-2xl font-bold text-white">{tasksDoneToday}/{totalTasks}</p>
+              <p className="text-2xl font-bold text-white">{Math.round(progressPercent)}%</p>
               <div className="w-full h-1.5 bg-white/10 rounded-full mt-1 overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style={{ width: `${progressPercent}%` }} />
               </div>
@@ -1092,9 +1120,16 @@ export default function DashboardPage() {
                   <span className="text-sm text-white/40">Today</span>
                 </div>
                 <div className="flex items-center gap-4 mt-3">
-                  <span className="text-4xl">{user?.mood === 'happy' ? '😊' : user?.mood === 'calm' ? '😌' : user?.mood === 'tired' ? '😴' : user?.mood === 'stressed' ? '😤' : '😐'}</span>
+                  <span className="text-4xl">
+                    {autoMood === 'happy' ? '😊' : 
+                     autoMood === 'calm' ? '😌' : 
+                     autoMood === 'tired' ? '😴' : 
+                     autoMood === 'stressed' ? '😤' : '😐'}
+                  </span>
                   <div>
-                    <p className="text-white font-medium">{user?.mood || 'Neutral'}</p>
+                    <p className="text-white font-medium">
+                      {autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
+                    </p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-white/40">Energy</span>
                       <div className="w-24 h-2 bg-white/10 rounded-full">
