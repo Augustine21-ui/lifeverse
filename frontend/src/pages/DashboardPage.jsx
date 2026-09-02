@@ -250,40 +250,33 @@ export default function DashboardPage() {
         api.getSubscriptionStatus().catch(() => null),
       ]);
 
-      // ─── FIX: Correctly read from statsData.user ──────────────
-      const userData = statsData.user || {
-        xp: user?.xp || 0,
-        level: user?.level || 1,
-        streakDays: user?.streakDays || 0,
-        rank: user?.rank || '#?',
-        todayXP: 0,
-        completed: 0,
-      };
+      // ─── Robust data extraction ──────────────────────────────
+      const userData = statsData.user || {};
+      const xp = userData.xp ?? statsData.totalXP ?? user?.xp ?? 0;
+      const level = userData.level ?? statsData.level ?? user?.level ?? 1;
+      const streakDays = userData.streakDays ?? statsData.streakDays ?? user?.streakDays ?? 0;
+      const rank = userData.rank ?? statsData.rank ?? '#?';
+      const todayXP = userData.todayXP ?? statsData.todayXP ?? 0;
+      const completed = userData.completed ?? statsData.completed ?? 0;
 
       setStats({
-        totalXP: userData.xp || 0,
-        todayXP: userData.todayXP || 0,
-        streakDays: userData.streakDays || 0,
-        rank: userData.rank || '#?',
-        completed: userData.completed || 0,
+        totalXP: xp,
+        todayXP: todayXP,
+        streakDays: streakDays,
+        rank: rank,
+        completed: completed,
       });
 
       setTasks(tasksData || []);
-      
+
       // ─── Study Time ──────────────────────────────────────────
-      setStudyTime(statsData.studyTimeMinutes || 0);
+      setStudyTime(statsData.studyTimeMinutes ?? 0);
 
       // ─── Progress Percent ────────────────────────────────────
-      // Use backend progressPercent if available, else compute from tasks
-      let progress = statsData.progressPercent || 0;
-      if (progress === 0 && tasksData && tasksData.length > 0) {
-        const done = tasksData.filter(t => t.is_completed).length;
-        const total = tasksData.length;
-        progress = total > 0 ? Math.round((done / total) * 100) : 0;
-      }
-      setProgressPercent(progress);
+      // Use the backend value directly – no fallback that can cause 100%
+      setProgressPercent(statsData.progressPercent ?? 0);
 
-      setAutoMood(statsData.user?.mood || 'neutral');
+      setAutoMood(userData.mood ?? 'neutral');
       setAcademicTimetable(timetableData || []);
       setAcademicAssignments(assignmentsData || []);
       if (subscriptionData) {
