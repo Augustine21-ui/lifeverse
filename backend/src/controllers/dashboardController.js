@@ -1,12 +1,12 @@
 // backend/src/controllers/dashboardController.js
 import pool from '../config/db.js';
+import { updateUserStreak } from '../utils/streakUtils.js';
 
 export const getDashboard = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
     const [userRes, goalsRes, badgesRes, xpHistRes, activityRes] = await Promise.all([
-      // ✅ Added last_activity_date for debugging / future use
       pool.query('SELECT xp, level, streak_days, last_activity_date FROM users WHERE id=$1', [userId]),
       pool.query(`
         SELECT category, COUNT(*) FILTER (WHERE status='active') as active,
@@ -23,14 +23,14 @@ export const getDashboard = async (req, res, next) => {
         FROM xp_history WHERE user_id=$1 AND created_at > NOW() - INTERVAL '7 days'
         GROUP BY DATE(created_at) ORDER BY date
       `, [userId]),
-      // ─── New: aggregate today's activities ─────────────────
+      // ─── Aggregate today's activities ────────────────────────
       pool.query(`
         SELECT
           COALESCE((SELECT COUNT(*) FROM tasks WHERE user_id=$1 AND is_completed=true AND DATE(completed_at)=CURRENT_DATE), 0) AS tasks_done,
           COALESCE((SELECT COUNT(*) FROM orbit_sessions WHERE user_id=$1 AND status='completed' AND DATE(completed_at)=CURRENT_DATE), 0) AS orbit_sessions,
           COALESCE((SELECT COUNT(*) FROM posts WHERE user_id=$1 AND DATE(created_at)=CURRENT_DATE), 0) AS posts,
           COALESCE((SELECT COUNT(*) FROM user_skills WHERE user_id=$1 AND DATE(updated_at)=CURRENT_DATE), 0) AS skill_updates,
-          COALESCE((SELECT COALESCE(SUM(duration_minutes),0) FROM focus_sessions WHERE user_id=$1 AND DATE(started_at)=CURRENT_DATE), 0) AS study_minutes,
+          COALESCE((SELECT COALESCE(SUM(duration),0) FROM focus_sessions WHERE user_id=$1 AND DATE(start_time)=CURRENT_DATE AND completed=true), 0) AS study_minutes,
           COALESCE((SELECT COUNT(*) FROM tasks WHERE user_id=$1 AND is_completed=false AND due_date < NOW()), 0) AS overdue_tasks
       `, [userId])
     ]);
@@ -39,14 +39,12 @@ export const getDashboard = async (req, res, next) => {
     const xpProgress = user.xp % 500;
     const level = Math.floor(user.xp / 500) + 1;
 
-    // ─── Composite progress score ───────────────────────────
     const activity = activityRes.rows[0];
     const totalPoints = (activity.tasks_done * 1) + (activity.orbit_sessions * 1) +
                         (activity.posts * 0.5) + (activity.skill_updates * 0.5);
     const maxPoints = 10;
     const progressPercent = Math.min(100, Math.round((totalPoints / maxPoints) * 100));
 
-    // ─── Auto‑mood based on activity ──────────────────────
     let mood = 'neutral';
     if (activity.tasks_done > 2 || activity.orbit_sessions > 1) mood = 'happy';
     else if (activity.orbit_sessions > 0 || activity.posts > 0) mood = 'calm';
@@ -62,7 +60,7 @@ export const getDashboard = async (req, res, next) => {
         xpProgress,
         xpPercent: Math.round((xpProgress / 500) * 100),
         mood: mood,
-        lastActivityDate: user.last_activity_date || null, // optional
+        lastActivityDate: user.last_activity_date || null,
       },
       studyTimeMinutes: activity.study_minutes,
       progressPercent: progressPercent,
@@ -97,4 +95,71 @@ export const getLeaderboard = async (req, res, next) => {
     `);
     res.json({ leaderboard: result.rows });
   } catch (err) { next(err); }
+};
+
+// ─── COMPLETE FOCUS SESSION ──────────────────────────────────────
+export const completeFocusSession = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { durationMinutes, topic } = req.body; // topic is optional
+
+    if (!durationMinutes || durationMinutes < 1) {
+      return res.status(400).json({ error: 'Duration is required' });
+    }
+
+    // Calculate XP (e.g., 10 XP per minute)
+    const xpAwarded = Math.round(durationMinutes * 10);
+
+    // Insert focus session
+    await pool.query(
+      `INSERT INTO focus_sessions 
+       (user_id, topic, duration, start_time, end_time, completed, completed_at, xp_awarded)
+       VALUES ($1, $2, $3, NOW(), NOW(), true, NOW(), $4)`,
+      [userId, topic || 'Focus Session', durationMinutes, xpAwarded]
+    );
+
+    // Award XP to user
+    await pool.query(`UPDATE users SET xp = xp + $1 WHERE id = $2`, [xpAwarded, userId]);
+    await pool.query(`UPDATE users SET level = FLOOR(xp / 500) + 1 WHERE id = $1`, [userId]);
+
+    // Update streak
+    await updateUserStreak(userId);
+
+    // Get remaining focus sessions today (max 4)
+    const remainingRes = await pool.query(
+      `SELECT 4 - COUNT(*) AS remaining
+       FROM focus_sessions
+       WHERE user_id = $1 AND DATE(start_time) = CURRENT_DATE AND completed = true`,
+      [userId]
+    );
+    const remaining = parseInt(remainingRes.rows[0].remaining, 10) || 0;
+
+    res.json({
+      success: true,
+      xpAwarded,
+      remaining: Math.max(0, remaining),
+      message: `Focus session completed! +${xpAwarded} XP`,
+    });
+  } catch (err) {
+    console.error('Complete focus session error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ─── GET FOCUS REMAINING ─────────────────────────────────────────
+export const getFocusRemaining = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await pool.query(
+      `SELECT 4 - COUNT(*) AS remaining
+       FROM focus_sessions
+       WHERE user_id = $1 AND DATE(start_time) = CURRENT_DATE AND completed = true`,
+      [userId]
+    );
+    const remaining = parseInt(result.rows[0].remaining, 10) || 0;
+    res.json({ remaining: Math.max(0, remaining) });
+  } catch (err) {
+    console.error('Get focus remaining error:', err);
+    res.status(500).json({ error: err.message });
+  }
 };
