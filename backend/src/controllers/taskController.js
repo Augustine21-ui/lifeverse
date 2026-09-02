@@ -10,6 +10,7 @@ import {
   getModelForProvider,
   getAIProvider 
 } from '../utils/aiUtils.js';
+import { updateUserStreak } from '../utils/streakUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -253,6 +254,7 @@ export const completeTask = async (req, res) => {
     const task = result.rows[0];
     await db.query(`UPDATE users SET xp = xp + $1 WHERE id = $2`, [task.xp_reward || 30, userId]);
     await db.query(`UPDATE users SET level = FLOOR(xp / 500) + 1 WHERE id = $1`, [userId]);
+    await updateUserStreak(userId);
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);

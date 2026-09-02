@@ -6,6 +6,8 @@
 // ============================================
 import db from '../config/db.js';
 import * as orbitService from '../services/orbitService.js';
+// ✅ Import streak utility
+import { updateUserStreak } from '../utils/streakUtils.js';
 
 // ============================================================
 // SESSION ENDPOINTS
@@ -179,6 +181,10 @@ export const endSession = async (req, res) => {
         [xpEarned, userId]
       );
       console.log('📊 XP updated for user:', userId);
+
+      // ─── ✅ Update streak after awarding XP ──────────────────
+      await updateUserStreak(userId);
+
     } catch (xpError) {
       console.error('❌ XP update failed:', xpError.message);
     }
@@ -219,9 +225,6 @@ export const generateActivity = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-// backend/src/controllers/orbitController.js
-// ✅ FIX: Proper JSON handling for submitAnswer
 
 export const submitAnswer = async (req, res) => {
   try {

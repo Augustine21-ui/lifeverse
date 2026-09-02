@@ -6,7 +6,8 @@ export const getDashboard = async (req, res, next) => {
     const userId = req.user.id;
 
     const [userRes, goalsRes, badgesRes, xpHistRes, activityRes] = await Promise.all([
-      pool.query('SELECT xp, level, streak_days FROM users WHERE id=$1', [userId]),
+      // ✅ Added last_activity_date for debugging / future use
+      pool.query('SELECT xp, level, streak_days, last_activity_date FROM users WHERE id=$1', [userId]),
       pool.query(`
         SELECT category, COUNT(*) FILTER (WHERE status='active') as active,
           COUNT(*) FILTER (WHERE status='completed') as completed
@@ -36,7 +37,7 @@ export const getDashboard = async (req, res, next) => {
 
     const user = userRes.rows[0];
     const xpProgress = user.xp % 500;
-    const level = Math.floor(user.xp / 500) + 1; // consistent with auth
+    const level = Math.floor(user.xp / 500) + 1;
 
     // ─── Composite progress score ───────────────────────────
     const activity = activityRes.rows[0];
@@ -60,7 +61,8 @@ export const getDashboard = async (req, res, next) => {
         streakDays: user.streak_days,
         xpProgress,
         xpPercent: Math.round((xpProgress / 500) * 100),
-        mood: mood,                      // send auto‑mood
+        mood: mood,
+        lastActivityDate: user.last_activity_date || null, // optional
       },
       studyTimeMinutes: activity.study_minutes,
       progressPercent: progressPercent,
