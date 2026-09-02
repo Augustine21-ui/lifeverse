@@ -62,8 +62,8 @@ export const getDashboard = async (req, res, next) => {
         mood: mood,
         lastActivityDate: user.last_activity_date || null,
       },
-      studyTimeMinutes: activity.study_minutes,
-      progressPercent: progressPercent,
+      studyTimeMinutes: activity.study_minutes,   // ✅ key for frontend
+      progressPercent: progressPercent,           // ✅ key for frontend
       goalsByCategory: goalsRes.rows,
       recentBadges: badgesRes.rows,
       xpHistory: xpHistRes.rows,
