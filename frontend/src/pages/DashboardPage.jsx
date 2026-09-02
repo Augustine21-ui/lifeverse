@@ -259,12 +259,12 @@ export default function DashboardPage() {
         completed: 0,
       };
 
-      setStats({
-        totalXP: userData.xp || 0,
-        todayXP: userData.todayXP || 0,
-        streakDays: userData.streakDays || 0,
-        rank: userData.rank || '#?',
-        completed: userData.completed || 0,
+     setStats({
+        totalXP: statsData.xp || 0,
+        todayXP: statsData.todayXP || 0,
+        streakDays: statsData.streakDays || 0,   // <- top-level
+        rank: statsData.rank || '#?',
+        completed: statsData.completed || 0,
       });
       setTasks(tasksData);
       setStudyTime(statsData.studyTimeMinutes || 0);
