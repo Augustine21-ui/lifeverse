@@ -8,7 +8,8 @@ import {
   Home, User, Rocket, Sparkles, Star, BookOpen, PenTool, Bell, Lightbulb,
   X, Edit2, Calendar as CalendarIcon, Clock as ClockIcon, Bell as BellIcon,
   Crown, Gift, MessageSquare, Heart, Award, Coffee, Brain, Smile,
-  TrendingUp, Repeat, Target, BarChart2, Menu, Sun, Moon
+  TrendingUp, Repeat, Target, BarChart2, Menu, Sun, Moon,
+  ArrowRight, Sparkles as SparklesIcon
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import QuizModal from '../components/QuizModal';
@@ -18,7 +19,7 @@ import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
 import { useTheme } from '../context/ThemeContext';
 
-// ---- Confetti ----
+// ---- Confetti (unchanged) ----
 function Confetti({ active, onComplete }) {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -83,7 +84,7 @@ function Confetti({ active, onComplete }) {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />;
 }
 
-// ---- Daily quotes ----
+// ---- Daily quotes (unchanged) ----
 const QUOTES = [
   "Small progress every day leads to big success.",
   "Success is the sum of small efforts repeated every day.",
@@ -95,7 +96,7 @@ const QUOTES = [
 ];
 const getDailyQuote = () => QUOTES[new Date().getDate() % QUOTES.length];
 
-// ---- Mobile Navigation ----
+// ---- Mobile Navigation (unchanged) ----
 const MobileNav = ({ active, navigate }) => {
   const navItems = [
     { id: 'home', icon: Home, label: 'Home', path: '/dashboard' },
@@ -129,11 +130,9 @@ const MobileNav = ({ active, navigate }) => {
   );
 };
 
-// ---- Reusable Card ----
-const Card = ({ children, className = '', gradient = false }) => (
-  <div className={`bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 transition-all hover:border-white/20 ${
-    gradient ? 'bg-gradient-to-br from-purple-900/30 to-blue-900/30' : ''
-  } ${className}`}>
+// ---- Reusable Card (simplified) ----
+const Card = ({ children, className = '', noPadding = false }) => (
+  <div className={`bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:border-white/20 transition ${noPadding ? '' : 'p-4'} ${className}`}>
     {children}
   </div>
 );
@@ -144,13 +143,12 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
-  // ---- State ----
+  // ---- State (same as before) ----
   const [stats, setStats] = useState({ totalXP: 0, todayXP: 0, streakDays: 0, rank: '#?', completed: 0 });
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Quiz states
   const [showQuizModal, setShowQuizModal] = useState(false);
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [currentTaskId, setCurrentTaskId] = useState(null);
@@ -159,26 +157,21 @@ export default function DashboardPage() {
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
   const [quizResult, setQuizResult] = useState(null);
 
-  // ─── New states for real data ──────────────────────────────
   const [progressPercent, setProgressPercent] = useState(0);
   const [autoMood, setAutoMood] = useState('neutral');
 
-  // Focus timer
   const [focusRemaining, setFocusRemaining] = useState(4);
   const [selectedDuration, setSelectedDuration] = useState(25);
   const [focusTopic, setFocusTopic] = useState('');
   const [focusMode, setFocusMode] = useState(false);
   const [focusCompleted, setFocusCompleted] = useState(false);
 
-  // Feed
   const [feedPosts, setFeedPosts] = useState([]);
   const [feedLoading, setFeedLoading] = useState(true);
 
-  // Task creation
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskXp, setNewTaskXp] = useState(30);
 
-  // Task edit
   const [editingTask, setEditingTask] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -189,11 +182,9 @@ export default function DashboardPage() {
 
   const [showConfetti, setShowConfetti] = useState(false);
 
-  // Academic
   const [academicTimetable, setAcademicTimetable] = useState([]);
   const [academicAssignments, setAcademicAssignments] = useState([]);
 
-  // Other
   const [studyTime, setStudyTime] = useState(0);
   const [brainDump, setBrainDump] = useState(() => localStorage.getItem('brainDump') || '');
   const [showBrainDump, setShowBrainDump] = useState(false);
@@ -203,10 +194,10 @@ export default function DashboardPage() {
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [hasPremiumAccess, setHasPremiumAccess] = useState(false);
 
-  // Date & time
   const [currentTime, setCurrentTime] = useState(new Date());
   const dailyQuote = getDailyQuote();
 
+  // ---- Effects (unchanged) ----
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
@@ -225,7 +216,7 @@ export default function DashboardPage() {
     minute: '2-digit',
   });
 
-  // ---- Data loading ----
+  // ---- Data loading (unchanged) ----
   useEffect(() => {
     const interval = setInterval(() => loadFeed(true), 5000);
     return () => clearInterval(interval);
@@ -250,7 +241,6 @@ export default function DashboardPage() {
         api.getSubscriptionStatus().catch(() => null),
       ]);
 
-      // ─── Robust data extraction ──────────────────────────────
       const userData = statsData.user || {};
       const xp = userData.xp ?? statsData.totalXP ?? user?.xp ?? 0;
       const level = userData.level ?? statsData.level ?? user?.level ?? 1;
@@ -268,14 +258,8 @@ export default function DashboardPage() {
       });
 
       setTasks(tasksData || []);
-
-      // ─── Study Time ──────────────────────────────────────────
       setStudyTime(statsData.studyTimeMinutes ?? 0);
-
-      // ─── Progress Percent ────────────────────────────────────
-      // Use the backend value directly – no fallback that can cause 100%
       setProgressPercent(statsData.progressPercent ?? 0);
-
       setAutoMood(userData.mood ?? 'neutral');
       setAcademicTimetable(timetableData || []);
       setAcademicAssignments(assignmentsData || []);
@@ -326,7 +310,7 @@ export default function DashboardPage() {
     loadFocusRemaining();
   }, []);
 
-  // ---- Focus Session ----
+  // ---- Focus Session (unchanged) ----
   const startFocusSession = () => {
     if (!focusTopic.trim() || focusRemaining <= 0) return;
     setFocusMode(true);
@@ -360,7 +344,7 @@ export default function DashboardPage() {
 
   const selectDuration = (mins) => setSelectedDuration(mins);
 
-  // ---- Task functions ----
+  // ---- Task functions (unchanged) ----
   const handleAddTask = async (e) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
@@ -466,10 +450,8 @@ export default function DashboardPage() {
   const totalTasks = tasks.length;
   const today = new Date().getDay();
   const todayEntries = academicTimetable.filter(entry => entry.day_of_week === today);
-  // Consistent level calculation: use totalXP from stats, or fallback to user.level
   const currentLevel = stats.totalXP > 0 ? Math.floor(stats.totalXP / 500) + 1 : (user?.level || 1);
 
-  // Format study time
   const formatStudyTime = (minutes) => {
     if (minutes < 60) return `${minutes}m`;
     const hours = Math.floor(minutes / 60);
@@ -477,7 +459,7 @@ export default function DashboardPage() {
     return `${hours}h ${mins}m`;
   };
 
-  // ---- Focus mode ----
+  // ---- Render ----
   if (focusMode) {
     return (
       <FocusSession
@@ -493,7 +475,7 @@ export default function DashboardPage() {
     return <div className="p-6 text-white text-center">Loading dashboard...</div>;
   }
 
-  // ---- Subscription Banner ----
+  // ---- Subscription Banner (simplified) ----
   const renderSubscriptionBanner = () => {
     let status = subscriptionStatus;
     if (!status && user) {
@@ -516,38 +498,36 @@ export default function DashboardPage() {
 
     if (isInstitutional) {
       return (
-        <div className="mb-4 px-4 py-3 bg-gradient-to-r from-green-900/40 to-emerald-900/40 border border-green-500/30 rounded-2xl flex items-center justify-between">
+        <div className="mb-4 px-4 py-2 bg-green-900/40 border border-green-500/30 rounded-xl flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
-            <Crown size={18} className="text-green-400" />
-            <span className="text-white text-sm font-medium">🏫 Institutional</span>
+            <Crown size={16} className="text-green-400" />
+            <span className="text-white font-medium">🏫 Institutional</span>
           </div>
-          <span className="text-green-400 text-xs font-medium">Active</span>
+          <span className="text-green-400 text-xs">Active</span>
         </div>
       );
     }
 
     if (isTrial && daysRemaining > 0 && daysRemaining <= 3) {
       return (
-        <div className="mb-4 px-4 py-3 bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-purple-500/30 rounded-2xl flex items-center justify-between">
+        <div className="mb-4 px-4 py-2 bg-purple-900/40 border border-purple-500/30 rounded-xl flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
-            <Gift size={18} className="text-purple-400" />
-            <span className="text-white text-sm font-medium">
-              Trial: {daysRemaining}d left
-            </span>
+            <Gift size={16} className="text-purple-400" />
+            <span className="text-white font-medium">Trial: {daysRemaining}d left</span>
           </div>
           <button
             onClick={() => navigate('/settings/subscription')}
-            className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-medium rounded-lg hover:opacity-90 transition"
+            className="px-3 py-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs rounded-lg hover:opacity-90"
           >
             Upgrade
           </button>
         </div>
       );
     }
-
     return null;
   };
 
+  // ---- Main render ----
   return (
     <div
       className="relative min-h-screen bg-cover bg-center bg-fixed pb-16 lg:pb-0"
@@ -558,16 +538,16 @@ export default function DashboardPage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-4 lg:px-6 lg:py-6">
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
-        {/* ===== HEADER – with theme toggle ===== */}
-        <div className="flex flex-wrap items-start justify-between mb-6 gap-2 pr-2 sm:pr-4 lg:pr-0">
+        {/* ===== HEADER – condensed ===== */}
+        <div className="flex flex-wrap items-start justify-between mb-4 gap-2">
           <div className="flex-1 min-w-0">
-            <h1 className="text-base sm:text-xl lg:text-3xl font-bold text-white break-normal">
+            <h1 className="text-base sm:text-xl lg:text-2xl font-bold text-white break-normal">
               {greeting}, {displayName} 👋
             </h1>
             <p className="text-xs lg:text-sm text-white/50 mt-0.5 flex items-center gap-2">
               <Calendar size={14} /> {formattedDate} · {formattedTime}
             </p>
-            <p className="text-xs lg:text-sm text-white/40 italic mt-1">"{dailyQuote}"</p>
+            <p className="text-xs lg:text-sm text-white/40 italic mt-0.5">"{dailyQuote}"</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 ml-1 sm:ml-2 z-20 relative">
             <button
@@ -577,703 +557,228 @@ export default function DashboardPage() {
             >
               {theme === 'dark' ? <Sun size={18} className="text-yellow-400" /> : <Moon size={18} className="text-slate-400" />}
             </button>
-
-            {/* Mood badge - show autoMood */}
             <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-2.5 py-1 border border-white/10">
               <Smile size={14} className="text-yellow-400" />
               <span className="text-xs text-white/70 hidden xs:inline">
                 {autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
               </span>
             </div>
-            {/* Avatar – pass autoMood */}
             <div className="scale-90 sm:scale-100 transition-transform z-50 relative">
               <HolographicAvatar mood={autoMood} />
             </div>
           </div>
         </div>
 
-        {/* ===== SUBSCRIPTION BANNER ===== */}
         {renderSubscriptionBanner()}
 
-        {/* ============================================================= */}
-        {/* MOBILE LAYOUT */}
-        {/* ============================================================= */}
-        <div className="lg:hidden">
-          {/* Progress Card */}
-          <Card className="mb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl font-bold text-white">{currentLevel}</span>
-                  <span className="text-sm text-white/40">Level</span>
-                </div>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-sm text-white/60">{stats.totalXP} XP</span>
-                  <span className="text-sm text-white/30">•</span>
-                  <span className="text-sm text-orange-400 flex items-center gap-1">
-                    <Flame size={14} /> {stats.streakDays}d
-                  </span>
-                </div>
-                <div className="w-48 h-2 bg-white/10 rounded-full mt-2 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full transition-all"
-                    style={{ width: `${Math.min((stats.totalXP % 500) / 5, 100)}%` }}
-                  />
-                </div>
+        {/* ===== PRIMARY ACTION BAR ===== */}
+        <div className="flex flex-wrap items-center gap-3 mb-4 p-3 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10">
+          <div className="flex items-center gap-3 flex-1 min-w-[150px]">
+            <div className="flex items-center gap-1">
+              <span className="text-lg font-bold text-white">{currentLevel}</span>
+              <span className="text-xs text-white/40">Lv</span>
+            </div>
+            <div className="flex-1 min-w-[80px]">
+              <div className="flex justify-between text-xs text-white/50">
+                <span>{stats.totalXP} XP</span>
+                <span>{Math.round((stats.totalXP % 500) / 5)}%</span>
               </div>
-              <div className="text-right">
-                <div className="text-sm text-white/40">Today's progress</div>
-                <div className="text-2xl font-semibold text-white">{tasksDoneToday}/{totalTasks}</div>
+              <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style={{ width: `${Math.min((stats.totalXP % 500) / 5, 100)}%` }} />
               </div>
             </div>
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
-              <div className="flex items-center gap-2">
-                <Clock size={16} className="text-cyan-400" />
-                <span className="text-sm text-white/60">{formatStudyTime(studyTime)}</span>
-                <span className="text-xs text-white/30">today</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Award size={16} className="text-yellow-400" />
-                <span className="text-sm text-white/60">#{stats.rank || 'N/A'}</span>
-              </div>
-            </div>
-          </Card>
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-5 gap-2 mb-4">
-            <button onClick={() => navigate('/orbit')} className="bg-purple-500/20 backdrop-blur-sm border border-purple-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-purple-500/30 transition active:scale-95">
-              <Rocket size={20} className="text-purple-400" />
-              <span className="text-[10px] text-white/70">Orbit</span>
-            </button>
-            <button onClick={() => navigate('/momentum')} className="bg-pink-500/20 backdrop-blur-sm border border-pink-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-pink-500/30 transition active:scale-95">
-              <Users size={20} className="text-pink-400" />
-              <span className="text-[10px] text-white/70">Social</span>
-            </button>
-            <button onClick={() => document.getElementById('task-input')?.focus()} className="bg-green-500/20 backdrop-blur-sm border border-green-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-green-500/30 transition active:scale-95">
-              <Plus size={20} className="text-green-400" />
-              <span className="text-[10px] text-white/70">Task</span>
-            </button>
-            <button onClick={() => navigate('/studysphere')} className="bg-blue-500/20 backdrop-blur-sm border border-blue-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-blue-500/30 transition active:scale-95">
-              <BookOpen size={20} className="text-blue-400" />
-              <span className="text-[10px] text-white/70">Study</span>
-            </button>
-            <button onClick={() => navigate('/bridge')} className="bg-amber-500/20 backdrop-blur-sm border border-amber-500/20 rounded-xl py-3 flex flex-col items-center gap-0.5 hover:bg-amber-500/30 transition active:scale-95">
-              <Users size={20} className="text-amber-400" />
-              <span className="text-[10px] text-white/70">Bridge</span>
-            </button>
           </div>
+          <div className="flex items-center gap-3 text-sm text-white/60">
+            <span className="flex items-center gap-1"><Flame size={16} className="text-orange-400" /> {stats.streakDays}d</span>
+            <span className="flex items-center gap-1"><Clock size={16} className="text-cyan-400" /> {formatStudyTime(studyTime)}</span>
+          </div>
+          <button
+            onClick={startFocusSession}
+            disabled={!focusTopic.trim() || focusRemaining <= 0}
+            className="px-4 py-2 bg-gradient-to-r from-brand-500 to-violet-600 text-white text-sm font-medium rounded-xl hover:opacity-90 transition flex items-center gap-2 disabled:opacity-50"
+          >
+            <Play size={16} /> Start Focus
+          </button>
+        </div>
 
-          {/* Focus Session */}
-          <Card className="mb-4">
-            <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-3">
-              <Clock size={18} className="text-cyan-400" /> Focus Session
-            </h3>
-            <div className="flex gap-2 mb-3">
-              {[10, 25, 45].map((mins) => (
-                <button
-                  key={mins}
-                  onClick={() => selectDuration(mins)}
-                  className={`flex-1 py-2 text-sm rounded-xl transition ${
-                    selectedDuration === mins
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-white/10 text-white/60 hover:bg-white/20'
-                  }`}
-                >
-                  {mins}m
-                </button>
-              ))}
-            </div>
-            <input
-              id="focus-input"
-              type="text"
-              className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-              placeholder="What do you want to focus on?"
-              value={focusTopic}
-              onChange={(e) => setFocusTopic(e.target.value)}
-            />
-            <button
-              onClick={startFocusSession}
-              disabled={!focusTopic.trim() || focusRemaining <= 0}
-              className="w-full mt-3 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-violet-600 text-white text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
-            >
-              <Play size={16} className="inline mr-2" /> Start Focus Session
-            </button>
-            <p className="text-xs text-white/30 text-center mt-2">
-              {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
-            </p>
-          </Card>
-
-          {/* Today's Tasks */}
-          <Card className="mb-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                <CheckCircle size={18} className="text-green-400" /> Today's Tasks
-              </h3>
-              <span className="text-sm text-white/30">{tasksDoneToday}/{totalTasks} done</span>
-            </div>
-            <form onSubmit={handleAddTask} className="flex gap-2 mb-3">
-              <input
-                id="task-input"
-                type="text"
-                className="flex-1 bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                placeholder="Add a task..."
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-              />
-              <button type="submit" disabled={actionLoading} className="px-4 py-2.5 bg-brand-500 text-white rounded-xl text-sm font-medium hover:opacity-90 transition active:scale-95">
-                <Plus size={18} />
-              </button>
-            </form>
-            {tasks.length === 0 ? (
-              <p className="text-sm text-white/40 text-center py-3">✨ No tasks for today</p>
-            ) : (
-              <div className="space-y-2 max-h-32 overflow-y-auto">
-                {tasks.slice(0, 4).map((task) => (
-                  <div key={task.id} className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
-                    <button
-                      onClick={() => !task.is_completed && handleTaskComplete(task)}
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                        task.is_completed ? 'bg-green-500 border-green-500' : 'border-white/30'
-                      }`}
-                    >
-                      {task.is_completed && <CheckCircle size={12} className="text-white" />}
-                    </button>
-                    <span className={`text-sm flex-1 truncate ${task.is_completed ? 'line-through text-white/30' : 'text-white/80'}`}>
-                      {task.title}
-                    </span>
-                    <span className="text-xs text-white/30">{task.xp_reward}XP</span>
-                  </div>
-                ))}
-                {tasks.length > 4 && (
-                  <p className="text-xs text-white/30 text-center">+{tasks.length - 4} more</p>
-                )}
-              </div>
-            )}
-          </Card>
-
-          {/* Social Buzz */}
-          <Card className="mb-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                <Users size={18} className="text-brand-400" /> Social Buzz
-              </h3>
-              <Link to="/momentum" className="text-sm text-brand-400 hover:underline">View all →</Link>
-            </div>
-            <GlanceTicker posts={feedPosts} loading={feedLoading} />
-          </Card>
-
-          {/* Orbit */}
-          <Card gradient className="mb-4 border-purple-500/30">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                  <Rocket size={18} className="text-purple-400" /> Orbit
+        {/* ===== MAIN 2-COLUMN LAYOUT ===== */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* ---- Left Column (2/3) – Engine ---- */}
+          <div className="lg:col-span-2 space-y-5">
+            {/* Focus + Tasks combined */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Focus Timer Card */}
+              <Card>
+                <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
+                  <Clock size={18} className="text-cyan-400" /> Focus Session
                 </h3>
-                <p className="text-xs text-white/50 mt-1">AI-powered interactive learning</p>
-              </div>
-              <Sparkles size={20} className="text-purple-400 animate-pulse" />
-            </div>
-            <Link
-              to="/orbit"
-              className="mt-3 inline-block w-full text-center py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium hover:opacity-90 transition active:scale-95"
-            >
-              Launch Orbit 🚀
-            </Link>
-          </Card>
-
-          {/* Mood Card - use autoMood */}
-          <Card className="mb-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                <Smile size={18} className="text-yellow-400" /> Mood
-              </h3>
-              <span className="text-xs text-white/30">Today</span>
-            </div>
-            <div className="flex items-center gap-4 mt-2">
-              <span className="text-4xl">
-                {autoMood === 'happy' ? '😊' : 
-                 autoMood === 'calm' ? '😌' : 
-                 autoMood === 'tired' ? '😴' : 
-                 autoMood === 'stressed' ? '😤' : '😐'}
-              </span>
-              <div className="flex-1">
-                <p className="text-sm text-white font-medium">
-                  {autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-white/40">Energy</span>
-                  <div className="flex-1 h-1.5 bg-white/10 rounded-full">
-                    <div className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full" style={{ width: '65%' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <button onClick={() => document.querySelector('.holographic-avatar')?.click()} className="mt-3 text-sm text-brand-400 hover:underline">
-              Change Mood
-            </button>
-          </Card>
-
-          {/* AI Suggestions Card */}
-          <Card className="mb-4">
-            <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-3">
-              <Brain size={18} className="text-amber-400" /> AI Suggestions
-            </h3>
-            <div className="space-y-2">
-              <p className="text-sm text-white/70 flex items-start gap-2">
-                <span className="text-amber-400 mt-0.5">•</span>
-                You haven't studied today. Start a focus session.
-              </p>
-              <p className="text-sm text-white/70 flex items-start gap-2">
-                <span className="text-amber-400 mt-0.5">•</span>
-                Algebra seems weak – try Orbit Cortex mode.
-              </p>
-              <p className="text-sm text-white/70 flex items-start gap-2">
-                <span className="text-amber-400 mt-0.5">•</span>
-                2 tasks are overdue. Complete them now.
-              </p>
-            </div>
-            <button className="mt-2 text-sm text-brand-400 hover:underline">Refresh suggestions</button>
-          </Card>
-
-          {/* Today's Schedule */}
-          <Card className="mb-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                <Calendar size={18} className="text-violet-400" /> Today's Schedule
-              </h3>
-              <Link to="/studysphere" className="text-sm text-brand-400 hover:underline">View all →</Link>
-            </div>
-            {todayEntries.length === 0 ? (
-              <p className="text-sm text-white/40 text-center py-3">No classes scheduled</p>
-            ) : (
-              <div className="space-y-2">
-                {todayEntries.slice(0, 3).map((entry, idx) => (
-                  <div key={idx} className="flex items-center gap-3 text-sm bg-white/10 rounded-xl px-3 py-2">
-                    <span className="text-white/40 w-16">{entry.start_time?.slice(0,5) || '—'}</span>
-                    <span className="text-white/80">{entry.subject_name || entry.title || 'Class'}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          {/* Brain Dump */}
-          <Card className="mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                <PenTool size={18} className="text-green-400" /> Brain Dump
-              </h3>
-              <button onClick={() => setShowBrainDump(!showBrainDump)} className="text-white/40 hover:text-white transition">
-                {showBrainDump ? <X size={16} /> : <Plus size={16} />}
-              </button>
-            </div>
-            {showBrainDump ? (
-              <div>
-                <textarea
-                  className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-3 h-28 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                  placeholder="Write your thoughts..."
-                  value={brainDump}
-                  onChange={(e) => setBrainDump(e.target.value)}
-                />
-                <div className="flex gap-2 mt-3">
-                  <button onClick={saveBrainDump} className="flex-1 py-2 bg-brand-500 text-white text-sm font-medium rounded-xl hover:opacity-90 transition active:scale-95">
-                    Save
-                  </button>
-                  <button onClick={() => setShowBrainDump(false)} className="flex-1 py-2 bg-white/10 text-white text-sm font-medium rounded-xl hover:bg-white/20 transition active:scale-95">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-white/40">{brainDump ? brainDump.split('\n').slice(-1)[0] : 'No notes yet.'}</p>
-            )}
-          </Card>
-
-          {/* Quick Add */}
-          <Card className="mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                <Plus size={18} className="text-cyan-400" /> Quick Add
-              </h3>
-              <button onClick={() => setShowQuickAdd(!showQuickAdd)} className="text-white/40 hover:text-white transition">
-                {showQuickAdd ? <X size={16} /> : <Plus size={16} />}
-              </button>
-            </div>
-            {showQuickAdd && (
-              <div>
-                <div className="flex gap-2 mb-3">
-                  {['task', 'note', 'reminder'].map((type) => (
+                <div className="flex gap-2 mb-2">
+                  {[10, 25, 45].map((mins) => (
                     <button
-                      key={type}
-                      onClick={() => setQuickAddType(type)}
-                      className={`flex-1 py-2 text-sm rounded-xl transition ${
-                        quickAddType === type
+                      key={mins}
+                      onClick={() => selectDuration(mins)}
+                      className={`flex-1 py-1.5 text-xs rounded-lg transition ${
+                        selectedDuration === mins
                           ? 'bg-brand-500 text-white'
                           : 'bg-white/10 text-white/60 hover:bg-white/20'
                       }`}
                     >
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                      {mins}m
                     </button>
                   ))}
                 </div>
                 <input
                   type="text"
-                  className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                  placeholder={`Add a ${quickAddType}...`}
-                  value={quickAddText}
-                  onChange={(e) => setQuickAddText(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+                  className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                  placeholder="What to focus on?"
+                  value={focusTopic}
+                  onChange={(e) => setFocusTopic(e.target.value)}
                 />
-                <button onClick={handleQuickAdd} className="w-full mt-3 py-2.5 bg-brand-500 text-white text-sm font-medium rounded-xl hover:opacity-90 transition active:scale-95">
-                  Add
-                </button>
-              </div>
-            )}
-          </Card>
-        </div>
-
-        {/* ============================================================= */}
-        {/* DESKTOP LAYOUT */}
-        {/* ============================================================= */}
-        <div className="hidden lg:block">
-          {/* Daily Progress Stats */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <Card>
-              <div className="flex items-center justify-between">
-                <p className="text-white/40 text-sm">Level</p>
-                <Zap size={20} className="text-brand-400" />
-              </div>
-              <p className="text-2xl font-bold text-white">{currentLevel}</p>
-              <p className="text-xs text-white/40">{stats.totalXP} XP</p>
-            </Card>
-            <Card>
-              <div className="flex items-center justify-between">
-                <p className="text-white/40 text-sm">Study Time</p>
-                <Clock size={20} className="text-cyan-400" />
-              </div>
-              <p className="text-2xl font-bold text-white">{formatStudyTime(studyTime)}</p>
-              <p className="text-xs text-white/40">Today</p>
-            </Card>
-            <Card>
-              <div className="flex items-center justify-between">
-                <p className="text-white/40 text-sm">Streak</p>
-                <Flame size={20} className="text-orange-400" />
-              </div>
-              <p className="text-2xl font-bold text-white">{stats.streakDays}</p>
-              <p className="text-xs text-white/40">Keep going!</p>
-            </Card>
-            <Card>
-              <div className="flex items-center justify-between">
-                <p className="text-white/40 text-sm">Today's Progress</p>
-                <CheckCircle size={20} className="text-green-400" />
-              </div>
-              <p className="text-2xl font-bold text-white">{Math.round(progressPercent)}%</p>
-              <div className="w-full h-1.5 bg-white/10 rounded-full mt-1 overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style={{ width: `${progressPercent}%` }} />
-              </div>
-            </Card>
-          </div>
-
-          {/* Desktop Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              {/* Focus + Tasks */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
-                    <Clock size={20} className="text-cyan-400" /> Focus Session
-                  </h2>
-                  <div className="flex gap-2 mb-4">
-                    {[10, 25, 45].map((mins) => (
-                      <button
-                        key={mins}
-                        onClick={() => selectDuration(mins)}
-                        className={`flex-1 py-2 rounded-xl text-sm font-medium transition ${
-                          selectedDuration === mins
-                            ? 'bg-brand-500 text-white'
-                            : 'bg-white/10 text-white/60 hover:bg-white/20'
-                        }`}
-                      >
-                        {mins}m
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="text"
-                    className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                    placeholder="What do you want to focus on?"
-                    value={focusTopic}
-                    onChange={(e) => setFocusTopic(e.target.value)}
-                  />
-                  <button
-                    onClick={startFocusSession}
-                    disabled={!focusTopic.trim() || focusRemaining <= 0}
-                    className="w-full mt-3 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-violet-600 text-white font-medium hover:opacity-90 transition disabled:opacity-50"
-                  >
-                    <Play size={16} className="inline mr-2" /> Start Focus Session
-                  </button>
-                  <p className="text-xs text-white/40 text-center mt-2">
-                    {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
-                  </p>
-                </Card>
-
-                <Card>
-                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
-                    <CheckCircle size={20} className="text-green-400" /> Today's Tasks
-                  </h2>
-                  <form onSubmit={handleAddTask} className="flex gap-2 mb-4">
-                    <input
-                      type="text"
-                      className="flex-1 bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                      placeholder="Add a task..."
-                      value={newTaskTitle}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      className="w-20 bg-white/10 text-white text-sm rounded-xl px-3 py-2.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                      placeholder="XP"
-                      value={newTaskXp}
-                      onChange={(e) => setNewTaskXp(parseInt(e.target.value) || 0)}
-                    />
-                    <button type="submit" disabled={actionLoading} className="px-4 py-2.5 bg-brand-500 text-white rounded-xl hover:opacity-90 transition active:scale-95">
-                      <Plus size={18} />
-                    </button>
-                  </form>
-                  {tasks.length === 0 ? (
-                    <p className="text-white/40 text-sm">No tasks for today.</p>
-                  ) : (
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {tasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className={`flex items-center gap-3 p-3 bg-white/10 rounded-xl border ${
-                            task.is_completed ? 'border-green-500/30 opacity-60' : 'border-white/10'
-                          }`}
-                        >
-                          <button
-                            onClick={() => !task.is_completed && handleTaskComplete(task)}
-                            disabled={task.is_completed}
-                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                              task.is_completed ? 'bg-green-500 border-green-500' : 'border-white/30 hover:border-brand-400'
-                            }`}
-                          >
-                            {task.is_completed && <CheckCircle size={12} className="text-white" />}
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm ${task.is_completed ? 'line-through text-white/40' : 'text-white/90'}`}>
-                              {task.title}
-                            </p>
-                            <div className="flex items-center gap-2 text-xs text-white/30 mt-0.5">
-                              {task.xp_reward && <span>+{task.xp_reward} XP</span>}
-                              {task.due_date && (
-                                <span className="flex items-center gap-1">
-                                  <CalendarIcon size={10} /> {new Date(task.due_date).toLocaleDateString()}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button onClick={() => openEditModal(task)} className="text-white/30 hover:text-blue-400 transition" title="Edit task">
-                              <Edit2 size={14} />
-                            </button>
-                            <button onClick={() => handleDeleteTask(task.id)} className="text-white/30 hover:text-red-400 transition" title="Delete task">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              </div>
-
-              {/* Social Buzz */}
-              <Card>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-semibold flex items-center gap-2 text-white">
-                    <Users size={20} className="text-brand-400" /> Social Buzz
-                  </h2>
-                  <Link to="/momentum" className="text-sm text-brand-400 hover:underline">View all →</Link>
+                <div className="mt-2 text-xs text-white/30">
+                  {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
                 </div>
-                <GlanceTicker posts={feedPosts} loading={feedLoading} />
               </Card>
 
-              {/* Orbit */}
-              <Card gradient className="border-purple-500/30">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold flex items-center gap-2 text-white">
-                      <Rocket size={20} className="text-purple-400" /> Orbit
-                    </h2>
-                    <p className="text-sm text-white/60 mt-1">AI-powered interactive learning space</p>
-                    <p className="text-xs text-white/40 mt-1">
-                      Explore topics through Cortex, CluePath, Pathfinder & Reflex.
-                    </p>
-                  </div>
-                  <Sparkles size={24} className="text-purple-400 animate-pulse" />
-                </div>
-                <Link
-                  to="/orbit"
-                  className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90 transition text-white font-medium"
-                >
-                  Launch Orbit <Rocket size={16} />
-                </Link>
-              </Card>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-6">
-              {/* Mood */}
+              {/* Tasks Card */}
               <Card>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-white font-semibold">Mood</h3>
-                  <span className="text-sm text-white/40">Today</span>
-                </div>
-                <div className="flex items-center gap-4 mt-3">
-                  <span className="text-4xl">
-                    {autoMood === 'happy' ? '😊' : 
-                     autoMood === 'calm' ? '😌' : 
-                     autoMood === 'tired' ? '😴' : 
-                     autoMood === 'stressed' ? '😤' : '😐'}
-                  </span>
-                  <div>
-                    <p className="text-white font-medium">
-                      {autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-white/40">Energy</span>
-                      <div className="w-24 h-2 bg-white/10 rounded-full">
-                        <div className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full" style={{ width: '65%' }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <button onClick={() => document.querySelector('.holographic-avatar')?.click()} className="mt-3 text-sm text-brand-400 hover:underline">
-                  Change Mood
-                </button>
-              </Card>
-
-              {/* AI Suggestions */}
-              <Card>
-                <h3 className="text-white font-semibold flex items-center gap-2">
-                  <Brain size={18} className="text-amber-400" /> AI Suggestions
-                </h3>
-                <div className="mt-3 space-y-2">
-                  <p className="text-sm text-white/80">• You haven't studied today. Start a focus session.</p>
-                  <p className="text-sm text-white/80">• Algebra seems weak – try Orbit Cortex mode.</p>
-                  <p className="text-sm text-white/80">• 2 tasks are overdue. Complete them now.</p>
-                </div>
-                <button className="mt-3 text-xs text-brand-400 hover:underline">Refresh</button>
-              </Card>
-
-              {/* Today's Schedule */}
-              <Card>
-                <h3 className="text-white font-semibold flex items-center gap-2">
-                  <Calendar size={18} className="text-violet-400" /> Today's Schedule
-                </h3>
-                {todayEntries.length === 0 ? (
-                  <p className="text-sm text-white/40 mt-3">No classes scheduled for today</p>
-                ) : (
-                  <div className="mt-3 space-y-2">
-                    {todayEntries.map((entry, idx) => (
-                      <div key={idx} className="flex items-center gap-3 text-sm p-2 bg-white/10 rounded-xl">
-                        <span className="text-white/40 w-16">{entry.start_time?.slice(0,5) || '—'}</span>
-                        <span className="text-white/90">{entry.subject_name || entry.title || 'Class'}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <Link to="/studysphere" className="text-xs text-brand-400 hover:underline mt-3 block">
-                  View full timetable →
-                </Link>
-              </Card>
-
-              {/* Brain Dump */}
-              <Card>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-white font-semibold flex items-center gap-2">
-                    <PenTool size={18} className="text-green-400" /> Brain Dump
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
+                    <CheckCircle size={18} className="text-green-400" /> Today's Tasks
                   </h3>
-                  <button onClick={() => setShowBrainDump(!showBrainDump)} className="text-white/40 hover:text-white transition">
-                    {showBrainDump ? <X size={16} /> : <Plus size={16} />}
-                  </button>
+                  <span className="text-xs text-white/30">{tasksDoneToday}/{totalTasks}</span>
                 </div>
-                {showBrainDump ? (
-                  <div className="mt-3">
-                    <textarea
-                      className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-3 h-24 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                      placeholder="Write your thoughts..."
-                      value={brainDump}
-                      onChange={(e) => setBrainDump(e.target.value)}
-                    />
-                    <div className="flex gap-2 mt-3">
-                      <button onClick={saveBrainDump} className="flex-1 py-2 bg-brand-500 text-white text-sm font-medium rounded-xl hover:opacity-90 transition">
-                        Save
-                      </button>
-                      <button onClick={() => setShowBrainDump(false)} className="flex-1 py-2 bg-white/10 text-white text-sm font-medium rounded-xl hover:bg-white/20 transition">
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
+                {tasks.length === 0 ? (
+                  <p className="text-sm text-white/40 text-center py-2">✨ No tasks for today</p>
                 ) : (
-                  <p className="text-sm text-white/40 mt-3">{brainDump ? brainDump.split('\n').slice(-1)[0] : 'No notes yet.'}</p>
-                )}
-              </Card>
-
-              {/* Quick Add */}
-              <Card>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-white font-semibold flex items-center gap-2">
-                    <Plus size={18} className="text-cyan-400" /> Quick Add
-                  </h3>
-                  <button onClick={() => setShowQuickAdd(!showQuickAdd)} className="text-white/40 hover:text-white transition">
-                    {showQuickAdd ? <X size={16} /> : <Plus size={16} />}
-                  </button>
-                </div>
-                {showQuickAdd && (
-                  <div className="mt-3">
-                    <div className="flex gap-2 mb-3">
-                      {['task', 'note', 'reminder'].map((type) => (
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                    {tasks.slice(0, 4).map((task) => (
+                      <div key={task.id} className="flex items-center gap-2 bg-white/10 rounded-xl px-2 py-1.5">
                         <button
-                          key={type}
-                          onClick={() => setQuickAddType(type)}
-                          className={`flex-1 py-2 text-sm rounded-xl transition ${
-                            quickAddType === type
-                              ? 'bg-brand-500 text-white'
-                              : 'bg-white/10 text-white/60 hover:bg-white/20'
+                          onClick={() => !task.is_completed && handleTaskComplete(task)}
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                            task.is_completed ? 'bg-green-500 border-green-500' : 'border-white/30'
                           }`}
                         >
-                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                          {task.is_completed && <CheckCircle size={10} className="text-white" />}
                         </button>
-                      ))}
-                    </div>
-                    <input
-                      type="text"
-                      className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                      placeholder={`Add a ${quickAddType}...`}
-                      value={quickAddText}
-                      onChange={(e) => setQuickAddText(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
-                    />
-                    <button onClick={handleQuickAdd} className="w-full mt-3 py-2.5 bg-brand-500 text-white text-sm font-medium rounded-xl hover:opacity-90 transition">
-                      Add
-                    </button>
+                        <span className={`text-xs flex-1 truncate ${task.is_completed ? 'line-through text-white/30' : 'text-white/80'}`}>
+                          {task.title}
+                        </span>
+                        <span className="text-[10px] text-white/30">{task.xp_reward}XP</span>
+                      </div>
+                    ))}
                   </div>
                 )}
+                <button onClick={() => document.getElementById('task-input')?.focus()} className="mt-2 text-xs text-brand-400 hover:underline">
+                  + Add task
+                </button>
               </Card>
             </div>
+
+            {/* Social Buzz */}
+            <Card>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
+                  <Users size={18} className="text-brand-400" /> Social Buzz
+                </h3>
+                <Link to="/momentum" className="text-xs text-brand-400 hover:underline">View all →</Link>
+              </div>
+              <GlanceTicker posts={feedPosts} loading={feedLoading} />
+            </Card>
           </div>
 
-          {/* Study Groups */}
-          <div className="mt-6 card p-5">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2 text-white">
-                <Users size={20} className="text-brand-400" /> My Study Groups
-              </h2>
-              <Link to="/study-groups" className="text-sm text-brand-400 hover:underline">View all →</Link>
-            </div>
-            <ActiveStudyGroups />
+          {/* ---- Right Column (1/3) – Overview ---- */}
+          <div className="space-y-4">
+            {/* Smart Suggestions (AI) */}
+            <Card>
+              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
+                <Brain size={18} className="text-amber-400" /> Smart Suggestions
+              </h3>
+              <div className="space-y-1.5">
+                <div className="flex items-start gap-2 text-sm text-white/70">
+                  <span className="text-amber-400 mt-0.5">•</span>
+                  <span>You haven't studied today. Start a focus session.</span>
+                </div>
+                <div className="flex items-start gap-2 text-sm text-white/70">
+                  <span className="text-amber-400 mt-0.5">•</span>
+                  <span>Algebra seems weak – try Orbit Cortex.</span>
+                </div>
+                <div className="flex items-start gap-2 text-sm text-white/70">
+                  <span className="text-amber-400 mt-0.5">•</span>
+                  <span>2 tasks are overdue. Complete them now.</span>
+                </div>
+              </div>
+              <button className="mt-2 text-xs text-brand-400 hover:underline">Refresh</button>
+            </Card>
+
+            {/* Your Path (Skills & Opportunities) */}
+            <Card>
+              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
+                <Target size={18} className="text-purple-400" /> Your Path
+              </h3>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-white/60">Career Readiness</span>
+                <span className="text-white font-medium">{Math.round(progressPercent)}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-white/10 rounded-full mt-1 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" style={{ width: `${progressPercent}%` }} />
+              </div>
+              <div className="mt-2 text-xs text-white/40">
+                {stats.totalXP > 500 ? '🌟 You\'re on track!' : 'Complete tasks & challenges to grow.'}
+              </div>
+            </Card>
+
+            {/* Up Next (Timetable) */}
+            <Card>
+              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
+                <Calendar size={18} className="text-violet-400" /> Up Next
+              </h3>
+              {todayEntries.length === 0 ? (
+                <p className="text-sm text-white/40">No classes scheduled</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {todayEntries.slice(0, 2).map((entry, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm">
+                      <span className="text-white/40 w-14">{entry.start_time?.slice(0,5) || '—'}</span>
+                      <span className="text-white/80">{entry.subject_name || entry.title || 'Class'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Link to="/studysphere" className="mt-2 text-xs text-brand-400 hover:underline block">View full timetable →</Link>
+            </Card>
+
+            {/* Quick Capture (Brain Dump) */}
+            <Card>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
+                  <PenTool size={18} className="text-green-400" /> Quick Capture
+                </h3>
+                <button onClick={() => setShowBrainDump(!showBrainDump)} className="text-white/40 hover:text-white transition">
+                  {showBrainDump ? <X size={16} /> : <Plus size={16} />}
+                </button>
+              </div>
+              {showBrainDump ? (
+                <div className="mt-2">
+                  <textarea
+                    className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 h-16 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                    placeholder="Write your thoughts..."
+                    value={brainDump}
+                    onChange={(e) => setBrainDump(e.target.value)}
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={saveBrainDump} className="flex-1 py-1.5 bg-brand-500 text-white text-xs font-medium rounded-xl hover:opacity-90 transition">
+                      Save
+                    </button>
+                    <button onClick={() => setShowBrainDump(false)} className="flex-1 py-1.5 bg-white/10 text-white text-xs font-medium rounded-xl hover:bg-white/20 transition">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-white/40 mt-1">{brainDump ? brainDump.split('\n').slice(-1)[0] : 'No notes yet.'}</p>
+              )}
+            </Card>
           </div>
         </div>
 
