@@ -130,21 +130,22 @@ const MobileNav = ({ active, navigate }) => {
   );
 };
 
-// ---- Reusable Compact Stat Card ----
+// ---- Reusable Compact Stat Card – now even smaller on mobile ----
 const StatCard = ({ icon: Icon, label, value, subtext, color = 'text-brand-400' }) => (
-  <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-2.5 text-center hover:border-white/20 transition">
-    <div className={`flex items-center justify-center gap-1 ${color}`}>
-      <Icon size={14} />
-      <span className="text-[10px] text-white/60 uppercase tracking-wide">{label}</span>
+  <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-1.5 sm:p-2.5 text-center hover:border-white/20 transition">
+    <div className={`flex items-center justify-center gap-0.5 sm:gap-1 ${color}`}>
+      <Icon size={12} className="sm:hidden" />
+      <Icon size={14} className="hidden sm:block" />
+      <span className="text-[8px] xs:text-[10px] sm:text-[10px] text-white/60 uppercase tracking-wide">{label}</span>
     </div>
-    <div className="text-lg font-bold text-white">{value}</div>
-    {subtext && <div className="text-[10px] text-white/30">{subtext}</div>}
+    <div className="text-sm xs:text-base sm:text-lg font-bold text-white">{value}</div>
+    {subtext && <div className="text-[8px] xs:text-[10px] text-white/30">{subtext}</div>}
   </div>
 );
 
 // ---- Reusable Card (for larger content) ----
 const Card = ({ children, className = '', noPadding = false, gradient = false }) => (
-  <div className={`bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:border-white/20 transition ${noPadding ? '' : 'p-4'} ${gradient ? 'bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-500/30' : ''} ${className}`}>
+  <div className={`bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:border-white/20 transition ${noPadding ? '' : 'p-3 sm:p-4'} ${gradient ? 'bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-500/30' : ''} ${className}`}>
     {children}
   </div>
 );
@@ -543,7 +544,7 @@ export default function DashboardPage() {
   return (
     <div
       className="relative min-h-screen bg-cover bg-center bg-fixed pb-16 lg:pb-0"
-      style={{ backgroundImage: "" }}
+      style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}
     >
       <div className="absolute inset-0 bg-black/60 z-0"></div>
 
@@ -584,7 +585,7 @@ export default function DashboardPage() {
         {renderSubscriptionBanner()}
 
         {/* ===== STAT CARDS – Compact Grid ===== */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 sm:gap-2 mb-4">
           <StatCard
             icon={Zap}
             label="Level"
@@ -594,7 +595,7 @@ export default function DashboardPage() {
           />
           <StatCard
             icon={Clock}
-            label="Study Time"
+            label="Study"
             value={formatStudyTime(studyTime)}
             subtext="Today"
             color="text-cyan-400"
