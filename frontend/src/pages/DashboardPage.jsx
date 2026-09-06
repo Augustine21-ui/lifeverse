@@ -310,7 +310,7 @@ export default function DashboardPage() {
     loadFocusRemaining();
   }, []);
 
-  // ---- Focus Session (unchanged) ----
+  // ---- Focus Session ----
   const startFocusSession = () => {
     if (!focusTopic.trim() || focusRemaining <= 0) return;
     setFocusMode(true);
@@ -539,7 +539,7 @@ export default function DashboardPage() {
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
         {/* ===== HEADER – condensed ===== */}
-        <div className="flex flex-wrap items-start justify-between mb-4 gap-2">
+        <div className="flex flex-wrap items-start justify-between mb-3 gap-2">
           <div className="flex-1 min-w-0">
             <h1 className="text-base sm:text-xl lg:text-2xl font-bold text-white break-normal">
               {greeting}, {displayName} 👋
@@ -571,8 +571,8 @@ export default function DashboardPage() {
 
         {renderSubscriptionBanner()}
 
-        {/* ===== PRIMARY ACTION BAR ===== */}
-        <div className="flex flex-wrap items-center gap-3 mb-4 p-3 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10">
+        {/* ===== PRIMARY STATS BAR ===== */}
+        <div className="flex flex-wrap items-center gap-3 mb-4 p-2.5 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10">
           <div className="flex items-center gap-3 flex-1 min-w-[150px]">
             <div className="flex items-center gap-1">
               <span className="text-lg font-bold text-white">{currentLevel}</span>
@@ -592,88 +592,91 @@ export default function DashboardPage() {
             <span className="flex items-center gap-1"><Flame size={16} className="text-orange-400" /> {stats.streakDays}d</span>
             <span className="flex items-center gap-1"><Clock size={16} className="text-cyan-400" /> {formatStudyTime(studyTime)}</span>
           </div>
-          <button
-            onClick={startFocusSession}
-            disabled={!focusTopic.trim() || focusRemaining <= 0}
-            className="px-4 py-2 bg-gradient-to-r from-brand-500 to-violet-600 text-white text-sm font-medium rounded-xl hover:opacity-90 transition flex items-center gap-2 disabled:opacity-50"
-          >
-            <Play size={16} /> Start Focus
-          </button>
+        </div>
+
+        {/* ===== FOCUS ZONE – PROMINENT ===== */}
+        <div className="mb-5 p-5 bg-gradient-to-br from-brand-500/10 via-violet-500/10 to-purple-500/10 border border-brand-500/20 rounded-2xl backdrop-blur-sm">
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <div className="flex-1 w-full">
+              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
+                <Clock size={18} className="text-cyan-400" /> Focus Session
+              </h3>
+              <div className="flex gap-2 mb-2">
+                {[10, 25, 45].map((mins) => (
+                  <button
+                    key={mins}
+                    onClick={() => selectDuration(mins)}
+                    className={`flex-1 py-1.5 text-xs rounded-lg transition ${
+                      selectedDuration === mins
+                        ? 'bg-brand-500 text-white'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    {mins}m
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                placeholder="What do you want to focus on?"
+                value={focusTopic}
+                onChange={(e) => setFocusTopic(e.target.value)}
+              />
+              <div className="mt-1.5 text-xs text-white/30">
+                {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
+              </div>
+            </div>
+            <div className="flex-shrink-0">
+              <button
+                onClick={startFocusSession}
+                disabled={!focusTopic.trim() || focusRemaining <= 0}
+                className="px-8 py-3.5 bg-gradient-to-r from-brand-500 to-violet-600 hover:from-brand-600 hover:to-violet-700 text-white font-semibold rounded-xl shadow-lg shadow-brand-500/30 hover:shadow-brand-500/50 transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-base"
+              >
+                <Play size={20} /> Start Focus
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* ===== MAIN 2-COLUMN LAYOUT ===== */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* ---- Left Column (2/3) – Engine ---- */}
           <div className="lg:col-span-2 space-y-5">
-            {/* Focus + Tasks combined */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Focus Timer Card */}
-              <Card>
-                <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
-                  <Clock size={18} className="text-cyan-400" /> Focus Session
+            {/* Tasks Card */}
+            <Card>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
+                  <CheckCircle size={18} className="text-green-400" /> Today's Tasks
                 </h3>
-                <div className="flex gap-2 mb-2">
-                  {[10, 25, 45].map((mins) => (
-                    <button
-                      key={mins}
-                      onClick={() => selectDuration(mins)}
-                      className={`flex-1 py-1.5 text-xs rounded-lg transition ${
-                        selectedDuration === mins
-                          ? 'bg-brand-500 text-white'
-                          : 'bg-white/10 text-white/60 hover:bg-white/20'
-                      }`}
-                    >
-                      {mins}m
-                    </button>
+                <span className="text-xs text-white/30">{tasksDoneToday}/{totalTasks}</span>
+              </div>
+              {tasks.length === 0 ? (
+                <p className="text-sm text-white/40 text-center py-2">✨ No tasks for today</p>
+              ) : (
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {tasks.slice(0, 4).map((task) => (
+                    <div key={task.id} className="flex items-center gap-2 bg-white/10 rounded-xl px-2 py-1.5">
+                      <button
+                        onClick={() => !task.is_completed && handleTaskComplete(task)}
+                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                          task.is_completed ? 'bg-green-500 border-green-500' : 'border-white/30'
+                        }`}
+                      >
+                        {task.is_completed && <CheckCircle size={10} className="text-white" />}
+                      </button>
+                      <span className={`text-xs flex-1 truncate ${task.is_completed ? 'line-through text-white/30' : 'text-white/80'}`}>
+                        {task.title}
+                      </span>
+                      <span className="text-[10px] text-white/30">{task.xp_reward}XP</span>
+                    </div>
                   ))}
                 </div>
-                <input
-                  type="text"
-                  className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                  placeholder="What to focus on?"
-                  value={focusTopic}
-                  onChange={(e) => setFocusTopic(e.target.value)}
-                />
-                <div className="mt-2 text-xs text-white/30">
-                  {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
-                </div>
-              </Card>
-
-              {/* Tasks Card */}
-              <Card>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                    <CheckCircle size={18} className="text-green-400" /> Today's Tasks
-                  </h3>
-                  <span className="text-xs text-white/30">{tasksDoneToday}/{totalTasks}</span>
-                </div>
-                {tasks.length === 0 ? (
-                  <p className="text-sm text-white/40 text-center py-2">✨ No tasks for today</p>
-                ) : (
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                    {tasks.slice(0, 4).map((task) => (
-                      <div key={task.id} className="flex items-center gap-2 bg-white/10 rounded-xl px-2 py-1.5">
-                        <button
-                          onClick={() => !task.is_completed && handleTaskComplete(task)}
-                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                            task.is_completed ? 'bg-green-500 border-green-500' : 'border-white/30'
-                          }`}
-                        >
-                          {task.is_completed && <CheckCircle size={10} className="text-white" />}
-                        </button>
-                        <span className={`text-xs flex-1 truncate ${task.is_completed ? 'line-through text-white/30' : 'text-white/80'}`}>
-                          {task.title}
-                        </span>
-                        <span className="text-[10px] text-white/30">{task.xp_reward}XP</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <button onClick={() => document.getElementById('task-input')?.focus()} className="mt-2 text-xs text-brand-400 hover:underline">
-                  + Add task
-                </button>
-              </Card>
-            </div>
+              )}
+              <button onClick={() => document.getElementById('task-input')?.focus()} className="mt-2 text-xs text-brand-400 hover:underline">
+                + Add task
+              </button>
+            </Card>
 
             {/* Social Buzz */}
             <Card>
