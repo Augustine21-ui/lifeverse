@@ -130,9 +130,9 @@ const MobileNav = ({ active, navigate }) => {
   );
 };
 
-// ---- Reusable Card (simplified) ----
-const Card = ({ children, className = '', noPadding = false }) => (
-  <div className={`bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:border-white/20 transition ${noPadding ? '' : 'p-4'} ${className}`}>
+// ---- Reusable Card ----
+const Card = ({ children, className = '', noPadding = false, gradient = false }) => (
+  <div className={`bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:border-white/20 transition ${noPadding ? '' : 'p-4'} ${gradient ? 'bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-500/30' : ''} ${className}`}>
     {children}
   </div>
 );
@@ -475,7 +475,7 @@ export default function DashboardPage() {
     return <div className="p-6 text-white text-center">Loading dashboard...</div>;
   }
 
-  // ---- Subscription Banner (simplified) ----
+  // ---- Subscription Banner ----
   const renderSubscriptionBanner = () => {
     let status = subscriptionStatus;
     if (!status && user) {
@@ -605,7 +605,40 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* ---- Left Column (2/3) – Engine ---- */}
           <div className="lg:col-span-2 space-y-5">
-            {/* Tasks Card with working input */}
+            {/* Focus Session Card - NOW VISIBLE */}
+            <Card>
+              <div className="flex items-center gap-2 mb-2">
+                <Clock size={18} className="text-cyan-400" />
+                <h3 className="text-sm font-semibold text-white/80">Focus Session</h3>
+              </div>
+              <div className="flex gap-2 mb-2">
+                {[10, 25, 45].map((mins) => (
+                  <button
+                    key={mins}
+                    onClick={() => selectDuration(mins)}
+                    className={`flex-1 py-1.5 text-xs rounded-lg transition ${
+                      selectedDuration === mins
+                        ? 'bg-brand-500 text-white'
+                        : 'bg-white/10 text-white/60 hover:bg-white/20'
+                    }`}
+                  >
+                    {mins}m
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-1.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                placeholder="What to focus on?"
+                value={focusTopic}
+                onChange={(e) => setFocusTopic(e.target.value)}
+              />
+              <div className="mt-1.5 text-xs text-white/30">
+                {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
+              </div>
+            </Card>
+
+            {/* Tasks Card */}
             <Card>
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
@@ -614,7 +647,6 @@ export default function DashboardPage() {
                 <span className="text-xs text-white/30">{tasksDoneToday}/{totalTasks}</span>
               </div>
 
-              {/* Add task input */}
               <form onSubmit={handleAddTask} className="flex gap-2 mb-3">
                 <input
                   id="task-input"
@@ -640,7 +672,6 @@ export default function DashboardPage() {
                 </button>
               </form>
 
-              {/* Task list */}
               {tasks.length === 0 ? (
                 <p className="text-sm text-white/40 text-center py-2">✨ No tasks for today</p>
               ) : (
@@ -676,8 +707,8 @@ export default function DashboardPage() {
               <GlanceTicker posts={feedPosts} loading={feedLoading} />
             </Card>
 
-            {/* Orbit Card - Re-integrated */}
-            <Card gradient className="border-purple-500/30">
+            {/* Orbit Card */}
+            <Card gradient>
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-white flex items-center gap-2">
