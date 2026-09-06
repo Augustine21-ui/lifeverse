@@ -130,7 +130,7 @@ const MobileNav = ({ active, navigate }) => {
   );
 };
 
-// ---- Reusable Compact Stat Card – now even smaller on mobile ----
+// ---- Compact Stat Card – responsive sizing ----
 const StatCard = ({ icon: Icon, label, value, subtext, color = 'text-brand-400' }) => (
   <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-1.5 sm:p-2.5 text-center hover:border-white/20 transition">
     <div className={`flex items-center justify-center gap-0.5 sm:gap-1 ${color}`}>
@@ -143,7 +143,7 @@ const StatCard = ({ icon: Icon, label, value, subtext, color = 'text-brand-400' 
   </div>
 );
 
-// ---- Reusable Card (for larger content) ----
+// ---- Reusable Card – with responsive padding ----
 const Card = ({ children, className = '', noPadding = false, gradient = false }) => (
   <div className={`bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:border-white/20 transition ${noPadding ? '' : 'p-3 sm:p-4'} ${gradient ? 'bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-500/30' : ''} ${className}`}>
     {children}
@@ -623,13 +623,14 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* ===== MAIN 2-COLUMN LAYOUT ===== */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* ===== MAIN 2-COLUMN LAYOUT – compact spacing ===== */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4"> {/* reduced gap */}
           {/* ---- Left Column (2/3) – Engine ---- */}
-          <div className="lg:col-span-2 space-y-5">
-            {/* Focus Session Card */}
+          <div className="lg:col-span-2 space-y-3"> {/* reduced vertical gap */}
+
+            {/* Focus Session Card – with Start Focus inside */}
             <Card>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock size={18} className="text-cyan-400" />
@@ -661,13 +662,13 @@ export default function DashboardPage() {
                     {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
                   </div>
                 </div>
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 self-start sm:self-center">
                   <button
                     onClick={startFocusSession}
                     disabled={!focusTopic.trim() || focusRemaining <= 0}
-                    className="px-6 py-2.5 bg-gradient-to-r from-brand-500 to-violet-600 text-white font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50 flex items-center gap-2"
+                    className="px-4 py-1.5 bg-gradient-to-r from-brand-500 to-violet-600 text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    <Play size={16} /> Start Focus
+                    <Play size={14} /> Start
                   </button>
                 </div>
               </div>
@@ -766,7 +767,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ---- Right Column (1/3) – Overview ---- */}
-          <div className="space-y-4">
+          <div className="space-y-3"> {/* reduced vertical gap */}
             {/* Smart Suggestions (AI) */}
             <Card>
               <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
