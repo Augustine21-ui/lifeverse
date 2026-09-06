@@ -605,7 +605,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* ---- Left Column (2/3) – Engine ---- */}
           <div className="lg:col-span-2 space-y-5">
-            {/* Focus Session Card - NOW VISIBLE */}
+            {/* Focus Session Card - VISIBLE NOW */}
             <Card>
               <div className="flex items-center gap-2 mb-2">
                 <Clock size={18} className="text-cyan-400" />
