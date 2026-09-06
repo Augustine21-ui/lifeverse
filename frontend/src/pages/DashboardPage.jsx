@@ -543,7 +543,7 @@ export default function DashboardPage() {
   return (
     <div
       className="relative min-h-screen bg-cover bg-center bg-fixed pb-16 lg:pb-0"
-      style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}
+      style={{ backgroundImage: "" }}
     >
       <div className="absolute inset-0 bg-black/60 z-0"></div>
 
