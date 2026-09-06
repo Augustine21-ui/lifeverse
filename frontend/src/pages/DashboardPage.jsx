@@ -130,7 +130,19 @@ const MobileNav = ({ active, navigate }) => {
   );
 };
 
-// ---- Reusable Card ----
+// ---- Reusable Compact Stat Card ----
+const StatCard = ({ icon: Icon, label, value, subtext, color = 'text-brand-400' }) => (
+  <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-2.5 text-center hover:border-white/20 transition">
+    <div className={`flex items-center justify-center gap-1 ${color}`}>
+      <Icon size={14} />
+      <span className="text-[10px] text-white/60 uppercase tracking-wide">{label}</span>
+    </div>
+    <div className="text-lg font-bold text-white">{value}</div>
+    {subtext && <div className="text-[10px] text-white/30">{subtext}</div>}
+  </div>
+);
+
+// ---- Reusable Card (for larger content) ----
 const Card = ({ children, className = '', noPadding = false, gradient = false }) => (
   <div className={`bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:border-white/20 transition ${noPadding ? '' : 'p-4'} ${gradient ? 'bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-500/30' : ''} ${className}`}>
     {children}
@@ -498,7 +510,7 @@ export default function DashboardPage() {
 
     if (isInstitutional) {
       return (
-        <div className="mb-4 px-4 py-2 bg-green-900/40 border border-green-500/30 rounded-xl flex items-center justify-between text-sm">
+        <div className="mb-3 px-4 py-1.5 bg-green-900/40 border border-green-500/30 rounded-xl flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
             <Crown size={16} className="text-green-400" />
             <span className="text-white font-medium">🏫 Institutional</span>
@@ -510,7 +522,7 @@ export default function DashboardPage() {
 
     if (isTrial && daysRemaining > 0 && daysRemaining <= 3) {
       return (
-        <div className="mb-4 px-4 py-2 bg-purple-900/40 border border-purple-500/30 rounded-xl flex items-center justify-between text-sm">
+        <div className="mb-3 px-4 py-1.5 bg-purple-900/40 border border-purple-500/30 rounded-xl flex items-center justify-between text-sm">
           <div className="flex items-center gap-2">
             <Gift size={16} className="text-purple-400" />
             <span className="text-white font-medium">Trial: {daysRemaining}d left</span>
@@ -539,7 +551,7 @@ export default function DashboardPage() {
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
         {/* ===== HEADER – condensed ===== */}
-        <div className="flex flex-wrap items-start justify-between mb-3 gap-2">
+        <div className="flex flex-wrap items-start justify-between mb-2 gap-2">
           <div className="flex-1 min-w-0">
             <h1 className="text-base sm:text-xl lg:text-2xl font-bold text-white break-normal">
               {greeting}, {displayName} 👋
@@ -571,70 +583,92 @@ export default function DashboardPage() {
 
         {renderSubscriptionBanner()}
 
-        {/* ===== PRIMARY STATS BAR (with Start Focus button) ===== */}
-        <div className="flex flex-wrap items-center gap-3 mb-4 p-2.5 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10">
-          <div className="flex items-center gap-3 flex-1 min-w-[150px]">
-            <div className="flex items-center gap-1">
-              <span className="text-lg font-bold text-white">{currentLevel}</span>
-              <span className="text-xs text-white/40">Lv</span>
-            </div>
-            <div className="flex-1 min-w-[80px]">
-              <div className="flex justify-between text-xs text-white/50">
-                <span>{stats.totalXP} XP</span>
-                <span>{Math.round((stats.totalXP % 500) / 5)}%</span>
-              </div>
-              <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style={{ width: `${Math.min((stats.totalXP % 500) / 5, 100)}%` }} />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 text-sm text-white/60">
-            <span className="flex items-center gap-1"><Flame size={16} className="text-orange-400" /> {stats.streakDays}d</span>
-            <span className="flex items-center gap-1"><Clock size={16} className="text-cyan-400" /> {formatStudyTime(studyTime)}</span>
-          </div>
-          <button
-            onClick={startFocusSession}
-            disabled={!focusTopic.trim() || focusRemaining <= 0}
-            className="px-4 py-2 bg-gradient-to-r from-brand-500 to-violet-600 text-white text-sm font-medium rounded-xl hover:opacity-90 transition flex items-center gap-2 disabled:opacity-50"
-          >
-            <Play size={16} /> Start Focus
-          </button>
+        {/* ===== STAT CARDS – Compact Grid ===== */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-4">
+          <StatCard
+            icon={Zap}
+            label="Level"
+            value={currentLevel}
+            subtext={`${stats.totalXP} XP`}
+            color="text-brand-400"
+          />
+          <StatCard
+            icon={Clock}
+            label="Study Time"
+            value={formatStudyTime(studyTime)}
+            subtext="Today"
+            color="text-cyan-400"
+          />
+          <StatCard
+            icon={Flame}
+            label="Streak"
+            value={stats.streakDays}
+            subtext={stats.streakDays > 0 ? 'Keep going!' : 'Start today'}
+            color="text-orange-400"
+          />
+          <StatCard
+            icon={Smile}
+            label="Mood"
+            value={autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
+            subtext={autoMood === 'happy' ? '😊' : autoMood === 'calm' ? '😌' : autoMood === 'tired' ? '😴' : autoMood === 'stressed' ? '😤' : '😐'}
+            color="text-yellow-400"
+          />
+          <StatCard
+            icon={CheckCircle}
+            label="Progress"
+            value={`${Math.round(progressPercent)}%`}
+            subtext="Today"
+            color="text-green-400"
+          />
         </div>
 
         {/* ===== MAIN 2-COLUMN LAYOUT ===== */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* ---- Left Column (2/3) – Engine ---- */}
           <div className="lg:col-span-2 space-y-5">
-            {/* Focus Session Card - VISIBLE NOW */}
+            {/* Focus Session Card */}
             <Card>
-              <div className="flex items-center gap-2 mb-2">
-                <Clock size={18} className="text-cyan-400" />
-                <h3 className="text-sm font-semibold text-white/80">Focus Session</h3>
-              </div>
-              <div className="flex gap-2 mb-2">
-                {[10, 25, 45].map((mins) => (
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock size={18} className="text-cyan-400" />
+                    <h3 className="text-sm font-semibold text-white/80">Focus Session</h3>
+                  </div>
+                  <div className="flex gap-2 mb-2">
+                    {[10, 25, 45].map((mins) => (
+                      <button
+                        key={mins}
+                        onClick={() => selectDuration(mins)}
+                        className={`flex-1 py-1.5 text-xs rounded-lg transition ${
+                          selectedDuration === mins
+                            ? 'bg-brand-500 text-white'
+                            : 'bg-white/10 text-white/60 hover:bg-white/20'
+                        }`}
+                      >
+                        {mins}m
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-1.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                    placeholder="What to focus on?"
+                    value={focusTopic}
+                    onChange={(e) => setFocusTopic(e.target.value)}
+                  />
+                  <div className="mt-1.5 text-xs text-white/30">
+                    {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
                   <button
-                    key={mins}
-                    onClick={() => selectDuration(mins)}
-                    className={`flex-1 py-1.5 text-xs rounded-lg transition ${
-                      selectedDuration === mins
-                        ? 'bg-brand-500 text-white'
-                        : 'bg-white/10 text-white/60 hover:bg-white/20'
-                    }`}
+                    onClick={startFocusSession}
+                    disabled={!focusTopic.trim() || focusRemaining <= 0}
+                    className="px-6 py-2.5 bg-gradient-to-r from-brand-500 to-violet-600 text-white font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50 flex items-center gap-2"
                   >
-                    {mins}m
+                    <Play size={16} /> Start Focus
                   </button>
-                ))}
-              </div>
-              <input
-                type="text"
-                className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-1.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                placeholder="What to focus on?"
-                value={focusTopic}
-                onChange={(e) => setFocusTopic(e.target.value)}
-              />
-              <div className="mt-1.5 text-xs text-white/30">
-                {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
+                </div>
               </div>
             </Card>
 
