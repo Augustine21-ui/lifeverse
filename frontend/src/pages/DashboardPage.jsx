@@ -586,8 +586,13 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0 cursor-pointer" onClick={() => setShowMoodModal(true)}>
-              <HolographicAvatar mood={autoMood} size={48} />
-            </div>
+              <HolographicAvatar 
+                  mood={autoMood} 
+                  size={48} 
+                  animation="float"   // or 'bounce', 'walk', 'talk', 'idle' (default)
+                  onClick={() => setShowMoodModal(true)} 
+                />
+                  </div>
             <div>
               <h1 className="text-base sm:text-xl font-bold text-white">
                 {greeting}, {displayName} 👋

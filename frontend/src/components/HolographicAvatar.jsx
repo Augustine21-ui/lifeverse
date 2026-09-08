@@ -3,42 +3,195 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
-import { User } from 'lucide-react';
 import AvatarInteractionMenu from './AvatarInteractionMenu';
 
+// ---------- Mood config with expression mapping ----------
 const moodConfig = {
-  happy: { glow: 'rgba(100,200,255,0.8)', pulse: '1.5s', bg: 'from-blue-400/30 to-cyan-500/30', label: '😊 Happy', color: '#4fc3f7' },
-  calm:   { glow: 'rgba(100,200,255,0.8)', pulse: '3s', bg: 'from-blue-400/30 to-cyan-500/30', label: '😌 Calm', color: '#4fc3f7' },
-  tired:  { glow: 'rgba(150,150,200,0.5)', pulse: '4s', bg: 'from-purple-400/20 to-gray-500/20', label: '😴 Tired', color: '#9575cd' },
-  stressed:{ glow: 'rgba(255,100,50,0.8)', pulse: '1.2s', bg: 'from-red-400/30 to-orange-500/30', label: '😤 Stressed', color: '#ff6b6b' },
-  neutral: { glow: 'rgba(100,150,255,0.8)', pulse: '2.5s', bg: 'from-brand-400/30 to-violet-500/30', label: '😐 Neutral', color: '#7c4dff' },
+  // Mood → { expression, label, glowColor, pulseDuration }
+  happy:    { expression: 'happy', label: '😊 Happy', glow: 'rgba(100,200,255,0.8)', pulse: '1.5s', color: '#4fc3f7' },
+  excited:  { expression: 'excited', label: '🤩 Excited', glow: 'rgba(255,200,100,0.8)', pulse: '1.2s', color: '#ffb74d' },
+  calm:     { expression: 'calm', label: '😌 Calm', glow: 'rgba(100,150,255,0.6)', pulse: '3s', color: '#7c4dff' },
+  thinking: { expression: 'thinking', label: '🤔 Thinking', glow: 'rgba(150,150,200,0.6)', pulse: '2s', color: '#9575cd' },
+  focused:  { expression: 'focused', label: '🎯 Focused', glow: 'rgba(255,100,50,0.8)', pulse: '1.5s', color: '#ff6b6b' },
+  working:  { expression: 'working', label: '💪 Working', glow: 'rgba(100,200,100,0.8)', pulse: '1.8s', color: '#66bb6a' },
+  thumbsup: { expression: 'thumbsup', label: '👍 ThumbsUp', glow: 'rgba(100,200,100,0.8)', pulse: '2s', color: '#4caf50' },
+  surprised:{ expression: 'surprised', label: '😮 Surprised', glow: 'rgba(255,200,50,0.8)', pulse: '1s', color: '#ffca28' },
+  celebrating:{ expression:'celebrating', label:'🎉 Celebrating', glow:'rgba(255,150,50,0.9)', pulse:'0.8s', color:'#ff9800' },
+  sad:      { expression: 'sad', label: '😢 Sad', glow: 'rgba(100,100,150,0.5)', pulse: '3.5s', color: '#78909c' },
+  concerned:{ expression: 'concerned', label: '😟 Concerned', glow: 'rgba(150,100,100,0.5)', pulse: '3s', color: '#a1887f' },
+  pointing: { expression: 'pointing', label: '👉 Pointing', glow: 'rgba(100,150,200,0.7)', pulse: '2.5s', color: '#64b5f6' },
+  neutral:  { expression: 'neutral', label: '😐 Neutral', glow: 'rgba(100,150,255,0.8)', pulse: '2.5s', color: '#7c4dff' },
 };
 
-export default function HolographicAvatar({ mood = 'neutral', size = 80, onClick }) {
+// ---------- Helper to get expression component ----------
+const getExpressionSVG = (expression, accentColor) => {
+  // All SVG paths for each expression
+  const expressions = {
+    happy: (
+      <>
+        <path d="M32 32 Q38 26 44 32" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M56 32 Q62 26 68 32" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M38 42 Q50 52 62 42" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <ellipse cx="28" cy="38" rx="6" ry="3" fill="rgba(255,150,150,0.4)" />
+        <ellipse cx="72" cy="38" rx="6" ry="3" fill="rgba(255,150,150,0.4)" />
+      </>
+    ),
+    excited: (
+      <>
+        <path d="M30 30 Q38 22 46 30" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M54 30 Q62 22 70 30" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <ellipse cx="50" cy="44" rx="14" ry="10" fill="none" stroke="white" strokeWidth="2" />
+        <ellipse cx="50" cy="46" rx="12" ry="8" fill="rgba(255,200,100,0.3)" />
+        <ellipse cx="28" cy="38" rx="6" ry="3" fill="rgba(255,150,150,0.4)" />
+        <ellipse cx="72" cy="38" rx="6" ry="3" fill="rgba(255,150,150,0.4)" />
+        <path d="M20 20 L30 28 M80 20 L70 28" stroke="white" strokeWidth="1.5" opacity="0.6" />
+      </>
+    ),
+    calm: (
+      <>
+        <ellipse cx="38" cy="32" rx="5" ry="4" fill="white" opacity="0.7" />
+        <ellipse cx="62" cy="32" rx="5" ry="4" fill="white" opacity="0.7" />
+        <path d="M40 44 Q50 48 60 44" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M30 24 Q38 22 46 24" stroke="white" strokeWidth="1.5" fill="none" opacity="0.5" />
+        <path d="M54 24 Q62 22 70 24" stroke="white" strokeWidth="1.5" fill="none" opacity="0.5" />
+      </>
+    ),
+    thinking: (
+      <>
+        <ellipse cx="38" cy="32" rx="5" ry="3" fill="white" opacity="0.8" />
+        <ellipse cx="62" cy="32" rx="5" ry="3" fill="white" opacity="0.8" />
+        <ellipse cx="50" cy="44" rx="6" ry="3" fill="none" stroke="white" strokeWidth="2" />
+        <path d="M30 24 Q38 20 46 24" stroke="white" strokeWidth="2" fill="none" />
+        <path d="M28 16 L22 10" stroke="white" strokeWidth="1.5" fill="none" opacity="0.4" />
+      </>
+    ),
+    focused: (
+      <>
+        <rect x="32" y="30" width="10" height="5" rx="2" fill="white" opacity="0.9" />
+        <rect x="58" y="30" width="10" height="5" rx="2" fill="white" opacity="0.9" />
+        <path d="M40 44 Q50 48 60 44" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M28 24 L44 28" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M72 24 L56 28" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" />
+      </>
+    ),
+    working: (
+      <>
+        <rect x="32" y="30" width="10" height="5" rx="2" fill="white" opacity="0.9" />
+        <rect x="58" y="30" width="10" height="5" rx="2" fill="white" opacity="0.9" />
+        <path d="M40 44 Q50 48 60 44" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M28 24 L44 28" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M72 24 L56 28" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M18 55 L30 65 M82 55 L70 65" stroke="white" strokeWidth="1.5" opacity="0.5" />
+      </>
+    ),
+    thumbsup: (
+      <>
+        <ellipse cx="38" cy="32" rx="5" ry="5" fill="white" opacity="0.8" />
+        <ellipse cx="62" cy="32" rx="5" ry="5" fill="white" opacity="0.8" />
+        <path d="M40 44 Q50 52 60 44" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M30 24 Q38 20 46 24" stroke="white" strokeWidth="2" fill="none" />
+        <path d="M72 30 L80 20 M72 35 L80 25" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <circle cx="82" cy="28" r="2" fill="white" opacity="0.5" />
+      </>
+    ),
+    surprised: (
+      <>
+        <ellipse cx="38" cy="30" rx="8" ry="9" fill="white" opacity="0.9" />
+        <ellipse cx="38" cy="30" rx="3" ry="4" fill="rgba(100,200,255,0.8)" />
+        <ellipse cx="62" cy="30" rx="8" ry="9" fill="white" opacity="0.9" />
+        <ellipse cx="62" cy="30" rx="3" ry="4" fill="rgba(100,200,255,0.8)" />
+        <ellipse cx="50" cy="46" rx="8" ry="9" fill="none" stroke="white" strokeWidth="2" />
+        <ellipse cx="50" cy="46" rx="6" ry="7" fill="rgba(100,200,255,0.2)" />
+      </>
+    ),
+    celebrating: (
+      <>
+        <path d="M32 32 Q38 26 44 32" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M56 32 Q62 26 68 32" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <ellipse cx="50" cy="44" rx="12" ry="8" fill="none" stroke="white" strokeWidth="2" />
+        <ellipse cx="50" cy="46" rx="10" ry="6" fill="rgba(255,200,100,0.3)" />
+        <ellipse cx="28" cy="38" rx="6" ry="3" fill="rgba(255,150,150,0.4)" />
+        <ellipse cx="72" cy="38" rx="6" ry="3" fill="rgba(255,150,150,0.4)" />
+        <path d="M20 20 L30 30 M80 20 L70 30 M20 30 L30 20 M80 30 L70 20" stroke="white" strokeWidth="1.5" opacity="0.6" />
+      </>
+    ),
+    sad: (
+      <>
+        <ellipse cx="38" cy="32" rx="5" ry="5" fill="white" opacity="0.7" />
+        <ellipse cx="62" cy="32" rx="5" ry="5" fill="white" opacity="0.7" />
+        <path d="M38 48 Q50 40 62 48" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M28 24 Q38 28 48 24" stroke="white" strokeWidth="2" fill="none" />
+        <path d="M52 24 Q62 28 72 24" stroke="white" strokeWidth="2" fill="none" />
+        <ellipse cx="62" cy="40" rx="2" ry="4" fill="rgba(100,200,255,0.5)" />
+      </>
+    ),
+    concerned: (
+      <>
+        <ellipse cx="38" cy="32" rx="5" ry="5" fill="white" opacity="0.7" />
+        <ellipse cx="62" cy="32" rx="5" ry="5" fill="white" opacity="0.7" />
+        <path d="M38 46 Q50 42 62 46" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M28 24 Q38 26 48 24" stroke="white" strokeWidth="2" fill="none" />
+        <path d="M52 24 Q62 26 72 24" stroke="white" strokeWidth="2" fill="none" />
+        <ellipse cx="50" cy="30" rx="8" ry="3" fill="none" stroke="white" strokeWidth="1" opacity="0.4" />
+      </>
+    ),
+    pointing: (
+      <>
+        <ellipse cx="38" cy="32" rx="5" ry="5" fill="white" opacity="0.8" />
+        <ellipse cx="62" cy="32" rx="5" ry="5" fill="white" opacity="0.8" />
+        <path d="M40 44 Q50 50 60 44" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M30 24 Q38 20 46 24" stroke="white" strokeWidth="2" fill="none" />
+        <path d="M70 35 L85 40 L78 48" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </>
+    ),
+    neutral: (
+      <>
+        <ellipse cx="38" cy="32" rx="5" ry="5" fill="white" opacity="0.8" />
+        <ellipse cx="38" cy="32" rx="2" ry="2" fill={accentColor} />
+        <ellipse cx="62" cy="32" rx="5" ry="5" fill="white" opacity="0.8" />
+        <ellipse cx="62" cy="32" rx="2" ry="2" fill={accentColor} />
+        <path d="M40 44 Q50 50 60 44" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      </>
+    ),
+  };
+  return expressions[expression] || expressions.neutral;
+};
+
+export default function HolographicAvatar({
+  mood = 'neutral',
+  size = 80,
+  animation = 'idle', // 'idle' | 'bounce' | 'walk' | 'talk' | 'float'
+  onClick
+}) {
   const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
   const canvasRef = useRef(null);
-  const [currentMood, setCurrentMood] = useState(mood);
   const [showMenu, setShowMenu] = useState(false);
   const avatarRef = useRef(null);
 
-  // ✅ FIX: Sync external mood prop to internal state
+  // Get config for this mood
+  const config = moodConfig[mood] || moodConfig.neutral;
+  const expression = config.expression;
+  const glowColor = config.glow;
+  const accentColor = config.color;
+  const pulseDuration = config.pulse;
+
+  // Internal sync: if mood prop changes, we update local state (but we don't need local state if we use props directly)
+  // We'll keep a local state for the interaction menu, but expression is derived from props.
+  const [currentMood, setCurrentMood] = useState(mood);
+
+  // Sync prop to local state (so menu can update)
   useEffect(() => {
     setCurrentMood(mood);
   }, [mood]);
 
-  const config = moodConfig[currentMood] || moodConfig.neutral;
-  const glowColor = config.glow;
-  const accentColor = config.color;
-
-  // ─── Particle animation ──────────────────────────────────────────────
+  // ---------- Particle animation (canvas) ----------
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
-
     const particles = [];
     const count = 80;
     for (let i = 0; i < count; i++) {
@@ -51,7 +204,6 @@ export default function HolographicAvatar({ mood = 'neutral', size = 80, onClick
         color: `hsla(${210 + Math.random() * 40}, 80%, 70%, ${Math.random() * 0.4 + 0.2})`,
       });
     }
-
     let animationId;
     const animate = () => {
       ctx.clearRect(0, 0, width, height);
@@ -71,105 +223,7 @@ export default function HolographicAvatar({ mood = 'neutral', size = 80, onClick
     return () => cancelAnimationFrame(animationId);
   }, []);
 
-  // ─── Get facial expression SVG ─────────────────────────────────────
-  const getExpression = (mood) => {
-    switch (mood) {
-      case 'happy':
-        return (
-          <>
-            {/* Eyes - happy (curved) */}
-            <path d="M32 32 Q38 26 44 32" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            <path d="M56 32 Q62 26 68 32" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            {/* Smile */}
-            <path d="M38 42 Q50 52 62 42" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            {/* Blush */}
-            <ellipse cx="28" cy="38" rx="6" ry="3" fill="rgba(255,150,150,0.4)" />
-            <ellipse cx="72" cy="38" rx="6" ry="3" fill="rgba(255,150,150,0.4)" />
-          </>
-        );
-      case 'thinking':
-        return (
-          <>
-            {/* Eyes - thinking (squinty) */}
-            <ellipse cx="38" cy="32" rx="5" ry="3" fill="white" opacity="0.8" />
-            <ellipse cx="62" cy="32" rx="5" ry="3" fill="white" opacity="0.8" />
-            {/* Mouth - pursed */}
-            <ellipse cx="50" cy="44" rx="6" ry="3" fill="none" stroke="white" strokeWidth="2" />
-            {/* Eyebrow - raised */}
-            <path d="M30 24 Q38 20 46 24" stroke="white" strokeWidth="2" fill="none" />
-          </>
-        );
-      case 'focused':
-        return (
-          <>
-            {/* Eyes - focused (straight) */}
-            <rect x="32" y="30" width="10" height="5" rx="2" fill="white" opacity="0.9" />
-            <rect x="58" y="30" width="10" height="5" rx="2" fill="white" opacity="0.9" />
-            {/* Mouth - neutral */}
-            <path d="M40 44 Q50 48 60 44" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            {/* Eyebrows - determined */}
-            <path d="M28 24 L44 28" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" />
-            <path d="M72 24 L56 28" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" />
-          </>
-        );
-      case 'surprised':
-        return (
-          <>
-            {/* Eyes - wide */}
-            <ellipse cx="38" cy="30" rx="8" ry="9" fill="white" opacity="0.9" />
-            <ellipse cx="38" cy="30" rx="3" ry="4" fill="rgba(100,200,255,0.8)" />
-            <ellipse cx="62" cy="30" rx="8" ry="9" fill="white" opacity="0.9" />
-            <ellipse cx="62" cy="30" rx="3" ry="4" fill="rgba(100,200,255,0.8)" />
-            {/* Mouth - open */}
-            <ellipse cx="50" cy="46" rx="8" ry="9" fill="none" stroke="white" strokeWidth="2" />
-            <ellipse cx="50" cy="46" rx="6" ry="7" fill="rgba(100,200,255,0.2)" />
-          </>
-        );
-      case 'celebrating':
-        return (
-          <>
-            {/* Eyes - happy (curved) */}
-            <path d="M32 32 Q38 26 44 32" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            <path d="M56 32 Q62 26 68 32" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            {/* Open smile */}
-            <ellipse cx="50" cy="44" rx="12" ry="8" fill="none" stroke="white" strokeWidth="2" />
-            <ellipse cx="50" cy="46" rx="10" ry="6" fill="rgba(100,200,255,0.2)" />
-            {/* Blush */}
-            <ellipse cx="28" cy="38" rx="6" ry="3" fill="rgba(255,150,150,0.4)" />
-            <ellipse cx="72" cy="38" rx="6" ry="3" fill="rgba(255,150,150,0.4)" />
-          </>
-        );
-      case 'sad':
-        return (
-          <>
-            {/* Eyes - droopy */}
-            <ellipse cx="38" cy="32" rx="5" ry="5" fill="white" opacity="0.7" />
-            <ellipse cx="62" cy="32" rx="5" ry="5" fill="white" opacity="0.7" />
-            {/* Mouth - sad */}
-            <path d="M38 48 Q50 40 62 48" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            {/* Eyebrows - sad */}
-            <path d="M28 24 Q38 28 48 24" stroke="white" strokeWidth="2" fill="none" />
-            <path d="M52 24 Q62 28 72 24" stroke="white" strokeWidth="2" fill="none" />
-            {/* Tear */}
-            <ellipse cx="62" cy="40" rx="2" ry="4" fill="rgba(100,200,255,0.5)" />
-          </>
-        );
-      default:
-        // Neutral
-        return (
-          <>
-            {/* Eyes - neutral */}
-            <ellipse cx="38" cy="32" rx="5" ry="5" fill="white" opacity="0.8" />
-            <ellipse cx="38" cy="32" rx="2" ry="2" fill={accentColor} />
-            <ellipse cx="62" cy="32" rx="5" ry="5" fill="white" opacity="0.8" />
-            <ellipse cx="62" cy="32" rx="2" ry="2" fill={accentColor} />
-            {/* Mouth - slight smile */}
-            <path d="M40 44 Q50 50 60 44" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-          </>
-        );
-    }
-  };
-
+  // ---------- Update mood (from menu) ----------
   const updateMood = async (newMood) => {
     try {
       await api.recordMood(newMood);
@@ -178,27 +232,40 @@ export default function HolographicAvatar({ mood = 'neutral', size = 80, onClick
       refreshUser();
       showToast(`Mood updated to ${moodConfig[newMood]?.label || newMood}`, 'success');
     } catch (err) {
-      console.error('Mood update error:', err);
+      console.error(err);
       showToast('Failed to update mood', 'error');
     }
   };
 
   const toggleMenu = () => setShowMenu(!showMenu);
 
+  // ---------- CSS animation classes ----------
+  const getAnimationClass = () => {
+    switch (animation) {
+      case 'bounce': return 'animate-bounce';
+      case 'walk': return 'animate-walk';
+      case 'talk': return 'animate-talk';
+      case 'float': return 'animate-float';
+      default: return '';
+    }
+  };
+
+  // ---------- Render ----------
+  const expressionSVG = getExpressionSVG(expression, accentColor);
+
   return (
     <div className="relative flex flex-col items-center z-50 isolate" ref={avatarRef}>
-      {/* ─── Holographic Frame ────────────────────────────────────── */}
       <div
         className="relative cursor-pointer group"
         style={{ width: size, height: size }}
-        onClick={toggleMenu}
+        onClick={() => { if (onClick) onClick(); toggleMenu(); }}
       >
         {/* Outer glow ring */}
         <div
           className="absolute inset-[-12px] rounded-full transition-all duration-500"
           style={{
             background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
-            animation: `pulse ${config.pulse} ease-in-out infinite`,
+            animation: `pulse ${pulseDuration} ease-in-out infinite`,
             opacity: 0.7,
           }}
         />
@@ -209,17 +276,17 @@ export default function HolographicAvatar({ mood = 'neutral', size = 80, onClick
         <div className="absolute inset-[-22px] rounded-full border border-cyan-400/10 animate-spin-slow" style={{ animationDuration: '12s' }} />
 
         {/* Main holographic circle */}
-        <div className="relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-brand-500/10 via-violet-600/10 to-cyan-500/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-
-          {/* ─── Scanline effect ────────────────────────────────── */}
+        <div
+          className={`relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-brand-500/10 via-violet-600/10 to-cyan-500/10 backdrop-blur-sm border border-white/20 flex items-center justify-center ${getAnimationClass()}`}
+        >
+          {/* Scanline effect */}
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-brand-400/40 to-transparent animate-scan" />
             <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(100,200,255,0.03)_3px,rgba(100,200,255,0.03)_4px)]" />
           </div>
 
-          {/* ─── SVG Avatar with holographic glow ───────────────── */}
+          {/* SVG Avatar */}
           <svg viewBox="0 0 100 100" className="w-full h-full" style={{ filter: 'drop-shadow(0 0 20px rgba(100,200,255,0.3))' }}>
-            {/* Holographic body glow */}
             <defs>
               <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor={accentColor} stopOpacity="0.3" />
@@ -236,7 +303,7 @@ export default function HolographicAvatar({ mood = 'neutral', size = 80, onClick
             {/* Body glow */}
             <ellipse cx="50" cy="70" rx="30" ry="20" fill="url(#glowGrad)" />
 
-            {/* Torso - holographic body */}
+            {/* Torso */}
             <path d="M30 55 L70 55 L75 85 L25 85 Z" fill={`${accentColor}15`} stroke={accentColor} strokeWidth="1.5" opacity="0.6" />
 
             {/* Neck */}
@@ -245,19 +312,19 @@ export default function HolographicAvatar({ mood = 'neutral', size = 80, onClick
             {/* Shoulders */}
             <path d="M25 55 L30 48 L70 48 L75 55" fill={`${accentColor}10`} stroke={accentColor} strokeWidth="1" opacity="0.4" />
 
-            {/* Head - holographic */}
+            {/* Head */}
             <circle cx="50" cy="30" r="22" fill={`${accentColor}10`} stroke={accentColor} strokeWidth="1.5" />
 
             {/* Face glow */}
             <circle cx="50" cy="30" r="18" fill="url(#scanGrad)" opacity="0.3" />
 
             {/* Facial expression */}
-            {getExpression(currentMood)}
+            {expressionSVG}
 
             {/* Holographic noise overlay */}
             <circle cx="50" cy="30" r="22" fill="none" stroke={`${accentColor}20`} strokeWidth="0.5" opacity="0.5" strokeDasharray="2,4" />
 
-            {/* Floating data particles around head */}
+            {/* Floating data particles */}
             <circle cx="20" cy="25" r="1.5" fill={accentColor} opacity="0.6" />
             <circle cx="80" cy="20" r="1.5" fill={accentColor} opacity="0.5" />
             <circle cx="22" cy="40" r="1" fill={accentColor} opacity="0.4" />
@@ -276,15 +343,15 @@ export default function HolographicAvatar({ mood = 'neutral', size = 80, onClick
         />
       </div>
 
-      {/* ─── Mood label ────────────────────────────────────────── */}
+      {/* Mood label */}
       <div className="mt-2 text-xs text-white/40 flex items-center gap-1">
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full inline-block" style={{ background: glowColor }} />
-          {moodConfig[currentMood]?.label || currentMood}
+          {config.label}
         </span>
       </div>
 
-      {/* ─── Interaction Menu ──────────────────────────────────── */}
+      {/* Interaction menu */}
       {showMenu && (
         <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[9999] w-64 pointer-events-auto">
           <AvatarInteractionMenu
