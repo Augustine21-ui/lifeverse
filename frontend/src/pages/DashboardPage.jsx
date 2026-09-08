@@ -221,6 +221,8 @@ export default function DashboardPage() {
     excited: '/excited.jpg',
     thinking: '/thinking.jpg',
     neutral: '/neutral.jpg',
+    suprised: '/suprised.jpg',
+    celebrating: '/celebrating.jpg'
     // you can add more moods as you generate images
   };
 
