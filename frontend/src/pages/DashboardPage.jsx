@@ -16,7 +16,7 @@ import QuizModal from '../components/QuizModal';
 import GlanceTicker from '../components/GlanceTicker';
 import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
-import HolographicAvatar from '../components/HolographicAvatar';
+import AnimatedAvatar from '../components/AnimatedAvatar'; // ✅ NEW
 import { useTheme } from '../context/ThemeContext';
 
 // ---- Confetti (unchanged) ----
@@ -210,6 +210,9 @@ export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const dailyQuote = getDailyQuote();
 
+  // ---- Avatar state (derived from autoMood and focus) ----
+  const [avatarState, setAvatarState] = useState('idle');
+
   // ---- Effects ----
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -280,6 +283,17 @@ export default function DashboardPage() {
         setSubscriptionStatus(subscriptionData);
         setHasPremiumAccess(subscriptionData.isActive || subscriptionData.isInstitutional);
       }
+
+      // ─── Update avatar state based on mood and focus ──────────
+      const moodToState = {
+        happy: 'happy',
+        calm: 'idle',
+        stressed: 'sad',
+        tired: 'sad',
+        neutral: 'idle',
+      };
+      const newState = focusMode ? 'focused' : (moodToState[autoMood] || 'idle');
+      setAvatarState(newState);
     } catch (err) {
       console.error(err);
       showToast('Failed to load dashboard', 'error');
@@ -544,23 +558,43 @@ export default function DashboardPage() {
   return (
     <div
       className="relative min-h-screen bg-cover bg-center bg-fixed pb-16 lg:pb-0"
-      style={{ backgroundImage: "" }}
+      style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}
     >
       <div className="absolute inset-0 bg-black/60 z-0"></div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-4 lg:px-6 lg:py-6">
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
-        {/* ===== HEADER – condensed ===== */}
-        <div className="flex flex-wrap items-start justify-between mb-2 gap-2">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-base sm:text-xl lg:text-2xl font-bold text-white break-normal">
-              {greeting}, {displayName} 👋
-            </h1>
-            <p className="text-xs lg:text-sm text-white/50 mt-0.5 flex items-center gap-2">
-              <Calendar size={14} /> {formattedDate} · {formattedTime}
-            </p>
-            <p className="text-xs lg:text-sm text-white/40 italic mt-0.5">"{dailyQuote}"</p>
+        {/* ===== HEADER – with AnimatedAvatar ===== */}
+        <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">
+              <AnimatedAvatar
+                state={avatarState}
+                size={48}
+                className="hidden sm:block"
+                onClick={() => { /* open mood menu later */ }}
+              />
+              <AnimatedAvatar
+                state={avatarState}
+                size={36}
+                className="sm:hidden"
+                onClick={() => { /* open mood menu later */ }}
+              />
+            </div>
+            <div>
+              <h1 className="text-base sm:text-xl font-bold text-white">
+                {greeting}, {displayName} 👋
+              </h1>
+              <p className="text-xs text-white/50 flex items-center gap-2 flex-wrap">
+                <span className="flex items-center gap-1">
+                  <Calendar size={12} /> {formattedDate}
+                </span>
+                <span className="hidden xs:inline">·</span>
+                <span className="hidden xs:inline">{formattedTime}</span>
+                <span className="text-white/30 italic">— "{dailyQuote}"</span>
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 ml-1 sm:ml-2 z-20 relative">
             <button
@@ -575,9 +609,6 @@ export default function DashboardPage() {
               <span className="text-xs text-white/70 hidden xs:inline">
                 {autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
               </span>
-            </div>
-            <div className="scale-90 sm:scale-100 transition-transform z-50 relative">
-              <HolographicAvatar mood={autoMood} />
             </div>
           </div>
         </div>
@@ -624,9 +655,9 @@ export default function DashboardPage() {
         </div>
 
         {/* ===== MAIN 2-COLUMN LAYOUT – compact spacing ===== */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4"> {/* reduced gap */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* ---- Left Column (2/3) – Engine ---- */}
-          <div className="lg:col-span-2 space-y-3"> {/* reduced vertical gap */}
+          <div className="lg:col-span-2 space-y-3">
 
             {/* Focus Session Card – with Start Focus inside */}
             <Card>
@@ -767,7 +798,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ---- Right Column (1/3) – Overview ---- */}
-          <div className="space-y-3"> {/* reduced vertical gap */}
+          <div className="space-y-3">
             {/* Smart Suggestions (AI) */}
             <Card>
               <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
