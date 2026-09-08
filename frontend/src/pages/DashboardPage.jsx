@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import QuizModal from '../components/QuizModal';
+import GlanceTicker from '../components/GlanceTicker';   // ← restored
 import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
@@ -171,7 +172,7 @@ export default function DashboardPage() {
 
   const [progressPercent, setProgressPercent] = useState(0);
   const [autoMood, setAutoMood] = useState('neutral');
-  const [moodPercent, setMoodPercent] = useState(0); // for the mood stat subtext
+  const [moodPercent, setMoodPercent] = useState(0);
 
   const [focusRemaining, setFocusRemaining] = useState(4);
   const [selectedDuration, setSelectedDuration] = useState(25);
@@ -210,10 +211,8 @@ export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const dailyQuote = getDailyQuote();
 
-  // ---- Avatar state (derived from autoMood and focus) ----
+  // ---- Avatar state ----
   const [avatarState, setAvatarState] = useState('idle');
-
-  // ---- Mood modal state ----
   const [showMoodModal, setShowMoodModal] = useState(false);
 
   // ---- Effects ----
@@ -288,7 +287,6 @@ export default function DashboardPage() {
         setHasPremiumAccess(subscriptionData.isActive || subscriptionData.isInstitutional);
       }
 
-      // ─── Update avatar state based on mood and focus ──────────
       const moodToState = {
         happy: 'happy',
         calm: 'idle',
@@ -650,24 +648,24 @@ export default function DashboardPage() {
             icon={Smile}
             label="Mood"
             value={autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
-            subtext={`${moodPercent}% Today`}   // matches reference: "0% Today"
+            subtext={`${moodPercent}% Today`}
             color="text-yellow-400"
           />
           <StatCard
             icon={CheckCircle}
             label="Progress"
             value={`${Math.round(progressPercent)}%`}
-            subtext=""   // removed "Today" to match reference (shows only percentage)
+            subtext=""
             color="text-green-400"
           />
         </div>
 
-        {/* ===== MAIN 2-COLUMN LAYOUT – compact spacing ===== */}
+        {/* ===== MAIN 2-COLUMN LAYOUT ===== */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* ---- Left Column (2/3) – Engine ---- */}
           <div className="lg:col-span-2 space-y-3">
 
-            {/* Focus Session Card – with Start Focus inside */}
+            {/* Focus Session Card */}
             <Card>
               <div className="flex flex-col sm:flex-row sm:items-start gap-3">
                 <div className="flex-1">
@@ -771,7 +769,7 @@ export default function DashboardPage() {
               )}
             </Card>
 
-            {/* ===== Social Buzz – REPLACED GlanceTicker with static list ===== */}
+            {/* ===== Social Buzz – Using GlanceTicker (restored) ===== */}
             <Card>
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
@@ -779,27 +777,7 @@ export default function DashboardPage() {
                 </h3>
                 <Link to="/momentum" className="text-xs text-brand-400 hover:underline">View all →</Link>
               </div>
-              {feedLoading ? (
-                <p className="text-sm text-white/40">Loading buzz...</p>
-              ) : feedPosts.length === 0 ? (
-                <p className="text-sm text-white/40">No posts yet</p>
-              ) : (
-                <div className="space-y-3 max-h-48 overflow-y-auto">
-                  {feedPosts.slice(0, 2).map((post) => (
-                    <div key={post.id} className="border-b border-white/10 pb-2 last:border-0">
-                      <div className="flex justify-between text-xs text-white/40">
-                        <span>{post.location || 'Global'}</span>
-                        <span>{post.time_ago || 'just now'}</span>
-                      </div>
-                      <p className="text-sm text-white/80 mt-0.5">{post.content}</p>
-                      <div className="flex gap-4 mt-1 text-xs text-white/30">
-                        <span>❓ {post.questions || 0}</span>
-                        <span>⭐ {post.stars || 0}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <GlanceTicker posts={feedPosts} loading={feedLoading} />
             </Card>
 
             {/* Orbit Card */}
