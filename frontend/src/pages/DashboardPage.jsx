@@ -16,7 +16,7 @@ import QuizModal from '../components/QuizModal';
 import GlanceTicker from '../components/GlanceTicker';
 import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
-import AvatarCharacter from '../components/AvatarCharacter'; // ✅ Fixed import
+import HolographicAvatar from '../components/HolographicAvatar';
 import { useTheme } from '../context/ThemeContext';
 
 // ---- Confetti (unchanged) ----
@@ -565,22 +565,13 @@ export default function DashboardPage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-4 lg:px-6 lg:py-6">
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
-        {/* ===== HEADER – with AvatarCharacter ===== */}
+        {/* ===== HEADER – with  ===== */}
         <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0">
-              <AvatarCharacter
-                state={avatarState}
-                size={48}
-                className="hidden sm:block"
-                onClick={() => { /* open mood menu later */ }}
-              />
-              <AvatarCharacter
-                state={avatarState}
-                size={36}
-                className="sm:hidden"
-                onClick={() => { /* open mood menu later */ }}
-              />
+              <HolographicAvatar mood={autoMood} 
+              size={48} 
+              onClick={() => { /* open mood menu */ }} />  
             </div>
             <div>
               <h1 className="text-base sm:text-xl font-bold text-white">
