@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import QuizModal from '../components/QuizModal';
-import GlanceTicker from '../components/GlanceTicker';   // ← restored
+import GlanceTicker from '../components/GlanceTicker';
 import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
@@ -214,6 +214,15 @@ export default function DashboardPage() {
   // ---- Avatar state ----
   const [avatarState, setAvatarState] = useState('idle');
   const [showMoodModal, setShowMoodModal] = useState(false);
+
+  // ---- Image map for avatar (new) ----
+  const avatarImageMap = {
+    happy: '/avatars/happy.png',
+    excited: '/avatars/excited.png',
+    thinking: '/avatars/thinking.png',
+    neutral: '/avatars/neutral.png',
+    // you can add more moods as you generate images
+  };
 
   // ---- Effects ----
   useEffect(() => {
@@ -587,12 +596,13 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0 cursor-pointer" onClick={() => setShowMoodModal(true)}>
               <HolographicAvatar 
-                  mood={autoMood} 
-                  size={48} 
-                  animation="float"   // or 'bounce', 'walk', 'talk', 'idle' (default)
-                  onClick={() => setShowMoodModal(true)} 
-                />
-                  </div>
+                mood={autoMood} 
+                size={48} 
+                animation="float"
+                imageMap={avatarImageMap}   // ← added image mapping
+                onClick={() => setShowMoodModal(true)} 
+              />
+            </div>
             <div>
               <h1 className="text-base sm:text-xl font-bold text-white">
                 {greeting}, {displayName} 👋

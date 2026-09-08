@@ -5,7 +5,6 @@ import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import AvatarInteractionMenu from './AvatarInteractionMenu';
 
-// ---------- Mood config – glow, label, pulse ----------
 const moodConfig = {
   happy:    { label: '😊 Happy', glow: 'rgba(100,200,255,0.8)', pulse: '1.5s', color: '#4fc3f7' },
   excited:  { label: '🤩 Excited', glow: 'rgba(255,200,100,0.8)', pulse: '1.2s', color: '#ffb74d' },
@@ -22,21 +21,20 @@ const moodConfig = {
   neutral:  { label: '😐 Neutral', glow: 'rgba(100,150,255,0.8)', pulse: '2.5s', color: '#7c4dff' },
 };
 
-// ---------- Default image mapping (place your own images here) ----------
 const defaultImageMap = {
   happy: '/avatars/happy.png',
   excited: '/avatars/excited.png',
   thinking: '/avatars/thinking.png',
-  // if missing, fallback to neutral
   neutral: '/avatars/neutral.png',
+  // add more as you generate them
 };
 
 export default function HolographicAvatar({
   mood = 'neutral',
   size = 80,
-  animation = 'idle', // 'idle' | 'bounce' | 'walk' | 'talk' | 'float'
+  animation = 'idle',
   onClick,
-  imageMap = defaultImageMap,    // custom mapping
+  imageMap = defaultImageMap,
   fallbackImage = '/avatars/neutral.png',
 }) {
   const { user, refreshUser } = useAuth();
@@ -52,15 +50,13 @@ export default function HolographicAvatar({
 
   const [currentMood, setCurrentMood] = useState(mood);
 
-  // Sync prop to local state
   useEffect(() => {
     setCurrentMood(mood);
   }, [mood]);
 
-  // Determine image source – fallback to neutral image
   const imageSrc = imageMap[mood] || imageMap.neutral || fallbackImage;
 
-  // ---------- Particle animation (canvas) ----------
+  // ─── Particle animation ────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -98,7 +94,6 @@ export default function HolographicAvatar({
     return () => cancelAnimationFrame(animationId);
   }, []);
 
-  // ---------- Update mood (from menu) ----------
   const updateMood = async (newMood) => {
     try {
       await api.recordMood(newMood);
@@ -114,7 +109,6 @@ export default function HolographicAvatar({
 
   const toggleMenu = () => setShowMenu(!showMenu);
 
-  // ---------- CSS animation classes ----------
   const getAnimationClass = () => {
     switch (animation) {
       case 'bounce': return 'animate-bounce';
@@ -125,7 +119,6 @@ export default function HolographicAvatar({
     }
   };
 
-  // ---------- Render ----------
   return (
     <div className="relative flex flex-col items-center z-50 isolate" ref={avatarRef}>
       <div
@@ -148,7 +141,7 @@ export default function HolographicAvatar({
         <div className="absolute inset-[-14px] rounded-full border border-violet-400/20 animate-spin-reverse" style={{ animationDuration: '8s' }} />
         <div className="absolute inset-[-22px] rounded-full border border-cyan-400/10 animate-spin-slow" style={{ animationDuration: '12s' }} />
 
-        {/* Main holographic circle – now with an image */}
+        {/* Main holographic circle – image container */}
         <div
           className={`relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-brand-500/10 via-violet-600/10 to-cyan-500/10 backdrop-blur-sm border border-white/20 flex items-center justify-center ${getAnimationClass()}`}
         >
@@ -166,7 +159,7 @@ export default function HolographicAvatar({
             style={{ filter: `drop-shadow(0 0 20px ${glowColor})` }}
           />
 
-          {/* Glow overlay – tint the image with mood colour */}
+          {/* Glow overlay */}
           <div
             className="absolute inset-0 rounded-full mix-blend-overlay pointer-events-none"
             style={{ background: `radial-gradient(circle, ${glowColor}30, transparent 70%)` }}
