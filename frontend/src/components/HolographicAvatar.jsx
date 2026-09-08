@@ -22,6 +22,11 @@ export default function HolographicAvatar({ mood = 'neutral', size = 80, onClick
   const [showMenu, setShowMenu] = useState(false);
   const avatarRef = useRef(null);
 
+  // ✅ FIX: Sync external mood prop to internal state
+  useEffect(() => {
+    setCurrentMood(mood);
+  }, [mood]);
+
   const config = moodConfig[currentMood] || moodConfig.neutral;
   const glowColor = config.glow;
   const accentColor = config.color;
