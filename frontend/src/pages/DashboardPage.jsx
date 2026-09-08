@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import QuizModal from '../components/QuizModal';
-import GlanceTicker from '../components/GlanceTicker';
 import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
@@ -172,6 +171,7 @@ export default function DashboardPage() {
 
   const [progressPercent, setProgressPercent] = useState(0);
   const [autoMood, setAutoMood] = useState('neutral');
+  const [moodPercent, setMoodPercent] = useState(0); // for the mood stat subtext
 
   const [focusRemaining, setFocusRemaining] = useState(4);
   const [selectedDuration, setSelectedDuration] = useState(25);
@@ -212,6 +212,9 @@ export default function DashboardPage() {
 
   // ---- Avatar state (derived from autoMood and focus) ----
   const [avatarState, setAvatarState] = useState('idle');
+
+  // ---- Mood modal state ----
+  const [showMoodModal, setShowMoodModal] = useState(false);
 
   // ---- Effects ----
   useEffect(() => {
@@ -277,6 +280,7 @@ export default function DashboardPage() {
       setStudyTime(statsData.studyTimeMinutes ?? 0);
       setProgressPercent(statsData.progressPercent ?? 0);
       setAutoMood(userData.mood ?? 'neutral');
+      setMoodPercent(userData.moodPercent ?? 0);
       setAcademicTimetable(timetableData || []);
       setAcademicAssignments(assignmentsData || []);
       if (subscriptionData) {
@@ -471,6 +475,21 @@ export default function DashboardPage() {
     setShowBrainDump(false);
   };
 
+  // ---- Mood update ----
+  const handleMoodUpdate = async (newMood) => {
+    try {
+      // Call API to save mood (if you have one)
+      // await api.updateMood(newMood);
+      setAutoMood(newMood);
+      // Optionally set a random percent for demo
+      setMoodPercent(Math.floor(Math.random() * 100));
+      setShowMoodModal(false);
+      showToast(`Mood updated to ${newMood}`, 'success');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // ---- Computed ----
   const displayName = user?.full_name || user?.username || 'Learner';
   const tasksDoneToday = tasks.filter(t => t.is_completed).length;
@@ -565,13 +584,11 @@ export default function DashboardPage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-4 lg:px-6 lg:py-6">
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
-        {/* ===== HEADER – with  ===== */}
+        {/* ===== HEADER – with HolographicAvatar ===== */}
         <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
           <div className="flex items-center gap-3">
-            <div className="flex-shrink-0">
-              <HolographicAvatar mood={autoMood} 
-              size={48} 
-              onClick={() => { /* open mood menu */ }} />  
+            <div className="flex-shrink-0 cursor-pointer" onClick={() => setShowMoodModal(true)}>
+              <HolographicAvatar mood={autoMood} size={48} />
             </div>
             <div>
               <h1 className="text-base sm:text-xl font-bold text-white">
@@ -633,14 +650,14 @@ export default function DashboardPage() {
             icon={Smile}
             label="Mood"
             value={autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
-            subtext={autoMood === 'happy' ? '😊' : autoMood === 'calm' ? '😌' : autoMood === 'tired' ? '😴' : autoMood === 'stressed' ? '😤' : '😐'}
+            subtext={`${moodPercent}% Today`}   // matches reference: "0% Today"
             color="text-yellow-400"
           />
           <StatCard
             icon={CheckCircle}
             label="Progress"
             value={`${Math.round(progressPercent)}%`}
-            subtext="Today"
+            subtext=""   // removed "Today" to match reference (shows only percentage)
             color="text-green-400"
           />
         </div>
@@ -754,7 +771,7 @@ export default function DashboardPage() {
               )}
             </Card>
 
-            {/* Social Buzz */}
+            {/* ===== Social Buzz – REPLACED GlanceTicker with static list ===== */}
             <Card>
               <div className="flex justify-between items-center mb-2">
                 <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
@@ -762,7 +779,27 @@ export default function DashboardPage() {
                 </h3>
                 <Link to="/momentum" className="text-xs text-brand-400 hover:underline">View all →</Link>
               </div>
-              <GlanceTicker posts={feedPosts} loading={feedLoading} />
+              {feedLoading ? (
+                <p className="text-sm text-white/40">Loading buzz...</p>
+              ) : feedPosts.length === 0 ? (
+                <p className="text-sm text-white/40">No posts yet</p>
+              ) : (
+                <div className="space-y-3 max-h-48 overflow-y-auto">
+                  {feedPosts.slice(0, 2).map((post) => (
+                    <div key={post.id} className="border-b border-white/10 pb-2 last:border-0">
+                      <div className="flex justify-between text-xs text-white/40">
+                        <span>{post.location || 'Global'}</span>
+                        <span>{post.time_ago || 'just now'}</span>
+                      </div>
+                      <p className="text-sm text-white/80 mt-0.5">{post.content}</p>
+                      <div className="flex gap-4 mt-1 text-xs text-white/30">
+                        <span>❓ {post.questions || 0}</span>
+                        <span>⭐ {post.stars || 0}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
 
             {/* Orbit Card */}
@@ -883,8 +920,43 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* ===== MOOD FOOTER – exactly as in reference ===== */}
+        <div className="mt-4 text-center text-xs text-white/30 border-t border-white/5 pt-3">
+          Mood updated to 🔥 {autoMood} ✨
+        </div>
+
         {/* ===== Mobile Bottom Navigation ===== */}
         <MobileNav active="home" navigate={navigate} />
+
+        {/* ===== Mood Selection Modal ===== */}
+        {showMoodModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800/90 backdrop-blur-md rounded-2xl p-6 max-w-sm w-full border border-white/10">
+              <h3 className="text-lg font-semibold text-white mb-4 text-center">How are you feeling today?</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {['happy', 'neutral', 'sad', 'focused', 'surprised', 'celebrating', 'thinking', 'calm', 'stressed'].map((mood) => (
+                  <button
+                    key={mood}
+                    onClick={() => handleMoodUpdate(mood)}
+                    className={`py-2 px-3 rounded-xl text-sm font-medium transition ${
+                      autoMood === mood
+                        ? 'bg-brand-500 text-white'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                    }`}
+                  >
+                    {mood.charAt(0).toUpperCase() + mood.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowMoodModal(false)}
+                className="mt-4 w-full py-2 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 transition text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ===== Modals ===== */}
         {showEditModal && editingTask && (
