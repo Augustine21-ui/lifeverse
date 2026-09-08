@@ -6,7 +6,8 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "db:migrate": "node src/config/migrate.js",
-    "db:seed": "node src/config/seed.js"
+    "db:seed": "node src/config/seed.js",
+    "seed:demo": "node scripts/seedDemo.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -36,4 +37,7 @@
   "devDependencies": {
     "nodemon": "^3.1.4"
   }
+
 }
+
+
