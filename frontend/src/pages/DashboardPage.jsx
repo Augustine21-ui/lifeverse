@@ -16,7 +16,7 @@ import QuizModal from '../components/QuizModal';
 import GlanceTicker from '../components/GlanceTicker';
 import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
-import AnimatedAvatar from '../components/AnimatedAvatar'; // ✅ NEW
+import AvatarCharacter from '../components/AvatarCharacter'; // ✅ Already imported
 import { useTheme } from '../context/ThemeContext';
 
 // ---- Confetti (unchanged) ----
@@ -565,17 +565,17 @@ export default function DashboardPage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-4 lg:px-6 lg:py-6">
         {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
-        {/* ===== HEADER – with AnimatedAvatar ===== */}
+        {/* ===== HEADER – with AvatarCharacter ===== */}
         <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
           <div className="flex items-center gap-3">
             <div className="flex-shrink-0">
-              <AnimatedAvatar
+              <AvatarCharacter
                 state={avatarState}
                 size={48}
                 className="hidden sm:block"
                 onClick={() => { /* open mood menu later */ }}
               />
-              <AnimatedAvatar
+              <AvatarCharacter
                 state={avatarState}
                 size={36}
                 className="sm:hidden"
