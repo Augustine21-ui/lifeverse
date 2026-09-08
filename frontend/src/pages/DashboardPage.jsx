@@ -217,10 +217,10 @@ export default function DashboardPage() {
 
   // ---- Image map for avatar (new) ----
   const avatarImageMap = {
-    happy: '/avatars/happy.png',
-    excited: '/avatars/excited.png',
-    thinking: '/avatars/thinking.png',
-    neutral: '/avatars/neutral.png',
+    happy: '/happy.png',
+    excited: '/excited.png',
+    thinking: '/thinking.png',
+    neutral: '/neutral.png',
     // you can add more moods as you generate images
   };
 

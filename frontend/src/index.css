@@ -316,3 +316,68 @@ body {
 .animate-twinkle {
   animation: twinkle 3s ease-in-out infinite;
 }
+
+/* ============================================================ */
+/* ===== HOLOGRAPHIC AVATAR ANIMATIONS (added) ================ */
+/* ============================================================ */
+
+/* Floating idle */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+/* Bouncing (excited/celebrating) */
+@keyframes bounce {
+  0%, 100% { transform: translateY(0px); }
+  30% { transform: translateY(-15px); }
+  60% { transform: translateY(-5px); }
+}
+
+/* Walking sway */
+@keyframes walk {
+  0%, 100% { transform: translateX(0px) rotate(0deg); }
+  25% { transform: translateX(5px) rotate(-3deg); }
+  75% { transform: translateX(-5px) rotate(3deg); }
+}
+
+/* Talking – mouth movement (scaling the whole avatar slightly) */
+@keyframes talk {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.95); }
+}
+
+/* Glow pulse (already used inline, but we define it for consistency) */
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+/* Scanline vertical movement */
+@keyframes scan {
+  0% { top: -10%; }
+  100% { top: 110%; }
+}
+
+/* Utility classes for the avatar */
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+.animate-bounce {
+  animation: bounce 1.5s ease-in-out infinite;
+}
+.animate-walk {
+  animation: walk 2s ease-in-out infinite;
+}
+.animate-talk {
+  animation: talk 0.5s ease-in-out infinite;
+}
+.animate-pulse-glow {
+  animation: pulse 2.5s ease-in-out infinite;
+}
+.animate-scan {
+  animation: scan 3s linear infinite;
+}
+
+/* Override for existing pulse if needed – we keep both */
+/* The avatar uses inline style for pulse, but this class can be used elsewhere */
