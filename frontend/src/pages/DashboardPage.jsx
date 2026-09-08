@@ -16,7 +16,7 @@ import QuizModal from '../components/QuizModal';
 import GlanceTicker from '../components/GlanceTicker';
 import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
-import AvatarCharacter from '../components/AvatarCharacter'; // ✅ Already imported
+import AvatarCharacter from '../components/AvatarCharacter'; // ✅ Fixed import
 import { useTheme } from '../context/ThemeContext';
 
 // ---- Confetti (unchanged) ----
