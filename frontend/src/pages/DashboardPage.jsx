@@ -601,7 +601,7 @@ export default function DashboardPage() {
             <div className="flex-shrink-0 cursor-pointer" onClick={() => setShowMoodModal(true)}>
               <HolographicAvatar 
                 mood={autoMood} 
-                size={129} 
+                size={100} 
                 animation="float"
                 imageMap={avatarImageMap}   // ← added image mapping
                 onClick={() => setShowMoodModal(true)} 
