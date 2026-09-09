@@ -5,147 +5,120 @@ import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import AvatarInteractionMenu from './AvatarInteractionMenu';
 
-// ─── Expanded mood config ──────────────────────────────────────────
+// ─── Mood config ────────────────────────────────────────────────────
 const moodConfig = {
   happy: {
-    label: '😊 Happy',
     glow: 'rgba(255, 200, 100, 0.8)',
     pulse: '1.5s',
     color: '#f59e0b',
     overlayColor: 'rgba(255, 200, 100, 0.15)',
     filter: 'brightness(1.05) saturate(1.2)',
     animation: 'float',
-    emoji: '🌟',
   },
   excited: {
-    label: '🤩 Excited',
     glow: 'rgba(255, 150, 50, 0.9)',
     pulse: '0.8s',
     color: '#ff9800',
     overlayColor: 'rgba(255, 150, 50, 0.2)',
     filter: 'brightness(1.1) saturate(1.4) contrast(1.1)',
     animation: 'bounce',
-    emoji: '⚡',
   },
   calm: {
-    label: '😌 Calm',
     glow: 'rgba(100, 150, 255, 0.6)',
     pulse: '3s',
     color: '#3b82f6',
     overlayColor: 'rgba(100, 150, 255, 0.15)',
     filter: 'brightness(1.0) saturate(0.9)',
     animation: 'float',
-    emoji: '🌊',
   },
   thinking: {
-    label: '🤔 Thinking',
     glow: 'rgba(150, 150, 200, 0.6)',
     pulse: '2s',
     color: '#9575cd',
     overlayColor: 'rgba(150, 150, 200, 0.15)',
     filter: 'brightness(0.95) saturate(0.9)',
     animation: 'idle',
-    emoji: '💭',
   },
   focused: {
-    label: '🎯 Focused',
     glow: 'rgba(255, 100, 50, 0.8)',
     pulse: '1.5s',
     color: '#ff6b6b',
     overlayColor: 'rgba(255, 100, 50, 0.15)',
     filter: 'brightness(1.0) saturate(1.1) contrast(1.1)',
     animation: 'idle',
-    emoji: '🔍',
   },
   working: {
-    label: '💪 Working',
     glow: 'rgba(100, 200, 100, 0.8)',
     pulse: '1.8s',
     color: '#4caf50',
     overlayColor: 'rgba(100, 200, 100, 0.15)',
     filter: 'brightness(1.0) saturate(1.1)',
     animation: 'idle',
-    emoji: '⚙️',
   },
   thumbsup: {
-    label: '👍 ThumbsUp',
     glow: 'rgba(100, 200, 100, 0.8)',
     pulse: '2s',
     color: '#4caf50',
     overlayColor: 'rgba(100, 200, 100, 0.15)',
     filter: 'brightness(1.0) saturate(1.0)',
     animation: 'float',
-    emoji: '👍',
   },
   surprised: {
-    label: '😮 Surprised',
     glow: 'rgba(255, 200, 50, 0.8)',
     pulse: '1s',
     color: '#ffca28',
     overlayColor: 'rgba(255, 200, 50, 0.2)',
     filter: 'brightness(1.05) saturate(1.2) contrast(1.05)',
     animation: 'bounce',
-    emoji: '😮',
   },
   celebrating: {
-    label: '🎉 Celebrating',
     glow: 'rgba(255, 150, 50, 0.9)',
     pulse: '0.8s',
     color: '#ff9800',
     overlayColor: 'rgba(255, 150, 50, 0.2)',
     filter: 'brightness(1.1) saturate(1.3)',
     animation: 'bounce',
-    emoji: '🎉',
   },
   sad: {
-    label: '😢 Sad',
     glow: 'rgba(100, 100, 150, 0.5)',
     pulse: '3.5s',
     color: '#78909c',
     overlayColor: 'rgba(100, 100, 150, 0.2)',
     filter: 'brightness(0.9) saturate(0.7)',
     animation: 'idle',
-    emoji: '💧',
   },
   concerned: {
-    label: '😟 Concerned',
     glow: 'rgba(150, 100, 100, 0.5)',
     pulse: '3s',
     color: '#a1887f',
     overlayColor: 'rgba(150, 100, 100, 0.15)',
     filter: 'brightness(0.95) saturate(0.8)',
     animation: 'idle',
-    emoji: '😟',
   },
   pointing: {
-    label: '👉 Pointing',
     glow: 'rgba(100, 150, 200, 0.7)',
     pulse: '2.5s',
     color: '#64b5f6',
     overlayColor: 'rgba(100, 150, 200, 0.15)',
     filter: 'brightness(1.0) saturate(1.0)',
     animation: 'idle',
-    emoji: '👉',
   },
   neutral: {
-    label: '😐 Neutral',
     glow: 'rgba(100, 150, 255, 0.8)',
     pulse: '2.5s',
     color: '#7c4dff',
     overlayColor: 'rgba(100, 150, 255, 0.1)',
     filter: 'brightness(1.0) saturate(1.0)',
     animation: 'float',
-    emoji: '😐',
   },
 };
 
-// ─── Default image map (fallback if no user photo) ──────────────
+// ─── Default image map ─────────────────────────────────────────────
 const defaultImageMap = {
   happy: '/happy.jpg',
   excited: '/excited.jpg',
   thinking: '/thinking.jpg',
   neutral: '/neutral.jpg',
-  // add more if needed
 };
 
 // ─── Helper: animation class ──────────────────────────────────────
@@ -162,7 +135,7 @@ const getAnimationClass = (animation) => {
 export default function HolographicAvatar({
   mood = 'neutral',
   size = 80,
-  imageSrc = null,          // user‑uploaded photo (overrides imageMap)
+  imageSrc = null,
   imageMap = defaultImageMap,
   fallbackImage = '/neutral.jpg',
   onClick,
@@ -183,15 +156,13 @@ export default function HolographicAvatar({
 
   const [currentMood, setCurrentMood] = useState(mood);
 
-  // Sync mood prop to state
   useEffect(() => {
     setCurrentMood(mood);
   }, [mood]);
 
-  // Determine which image to display: user photo, or static mood image
   const displayImage = imageSrc || imageMap[mood] || imageMap.neutral || fallbackImage;
 
-  // ─── Particle animation (tinted to match mood) ──────────────────
+  // ─── Particle animation ──────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -241,7 +212,7 @@ export default function HolographicAvatar({
       setCurrentMood(newMood);
       if (user) user.mood = newMood;
       refreshUser();
-      showToast(`Mood updated to ${moodConfig[newMood]?.label || newMood}`, 'success');
+      showToast(`Mood updated to ${newMood}`, 'success');
     } catch (err) {
       console.error(err);
       showToast('Failed to update mood', 'error');
@@ -296,13 +267,7 @@ export default function HolographicAvatar({
             style={{ background: `radial-gradient(circle at 50% 50%, ${overlayColor}, transparent 70%)` }}
           />
 
-          {/* ─── EMOJI BADGE ────────────────────────────────────── */}
-          <div
-            className="absolute bottom-1 right-1 text-xs font-bold bg-black/40 backdrop-blur-sm rounded-full px-1.5 py-0.5 border border-white/10 pointer-events-none"
-            style={{ color: accentColor }}
-          >
-            {config.emoji}
-          </div>
+          {/* ─── EMOJI BADGE REMOVED ─────────────────────────────── */}
         </div>
 
         {/* Particle canvas overlay */}
