@@ -3,14 +3,8 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
-// Models – adjust paths if needed
-const User = require('../models/User');
-const Task = require('../models/Task');
-const FocusSession = require('../models/FocusSession');
-const OrbitSession = require('../models/OrbitSession');
-const Post = require('../models/Post');
-const Timetable = require('../models/Timetable');
-const Opportunity = require('../models/Opportunity');
+// Models are ESM – we load them with dynamic import()
+let User, Task, FocusSession, OrbitSession, Post, Timetable, Opportunity;
 
 const DEMO_USER = {
   username: 'demo_user',
@@ -30,19 +24,37 @@ const DEMO_USER = {
 
 async function seedDemo() {
   try {
+    // 1. Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
-    // Delete existing demo user
+    // 2. Dynamically import models (since they are ESM)
+    const userModule = await import('../models/User.js');
+    const taskModule = await import('../models/Task.js');
+    const focusModule = await import('../models/FocusSession.js');
+    const orbitModule = await import('../models/OrbitSession.js');
+    const postModule = await import('../models/Post.js');
+    const timetableModule = await import('../models/Timetable.js');
+    const oppModule = await import('../models/Opportunity.js');
+
+    User = userModule.default;
+    Task = taskModule.default;
+    FocusSession = focusModule.default;
+    OrbitSession = orbitModule.default;
+    Post = postModule.default;
+    Timetable = timetableModule.default;
+    Opportunity = oppModule.default;
+
+    // 3. Delete existing demo user
     await User.deleteOne({ email: DEMO_USER.email });
 
-    // Create user
+    // 4. Create demo user
     const hashedPassword = await bcrypt.hash(DEMO_USER.password, 10);
     const user = new User({ ...DEMO_USER, password: hashedPassword });
     await user.save();
     console.log(`✅ Demo user created: ${user.username} (${user.email})`);
 
-    // Tasks
+    // 5. Create tasks
     const tasks = [
       { title: 'Complete React module', xp_reward: 50, is_completed: true },
       { title: 'Practice algorithms', xp_reward: 30, is_completed: false },
@@ -60,7 +72,7 @@ async function seedDemo() {
     }
     console.log(`✅ ${tasks.length} tasks created`);
 
-    // Focus sessions (last 7 days)
+    // 6. Focus sessions (last 7 days)
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
@@ -75,7 +87,7 @@ async function seedDemo() {
     }
     console.log('✅ Focus sessions created');
 
-    // Orbit sessions
+    // 7. Orbit sessions
     const orbitTopics = ['Cortex', 'CluePath', 'Pathfinder', 'Reflex'];
     for (const topic of orbitTopics) {
       await OrbitSession.create({
@@ -88,7 +100,7 @@ async function seedDemo() {
     }
     console.log('✅ Orbit sessions created');
 
-    // Social posts
+    // 8. Social posts
     const posts = [
       {
         user: user._id,
@@ -112,7 +124,7 @@ async function seedDemo() {
     }
     console.log('✅ Social posts created');
 
-    // Timetable
+    // 9. Timetable
     const timetableEntries = [
       { day_of_week: 1, subject_name: 'Maths', start_time: '09:00', end_time: '10:30' },
       { day_of_week: 1, subject_name: 'Physics', start_time: '11:00', end_time: '12:30' },
@@ -126,7 +138,7 @@ async function seedDemo() {
     }
     console.log('✅ Timetable created');
 
-    // Opportunities
+    // 10. Opportunities
     const opportunities = [
       {
         title: 'Junior Software Developer',

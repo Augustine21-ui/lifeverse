@@ -6,8 +6,8 @@
   margin: 0 auto;
   padding: 24px 32px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: radial-gradient(ellipse at 20% 50%, rgba(124, 58, 237, 0.08), transparent 60%),
-              radial-gradient(ellipse at 80% 50%, rgba(99, 102, 241, 0.05), transparent 60%),
+  background: radial-gradient(ellipse at 20% 50%, rgba(124,58,237,0.08), transparent 60%),
+              radial-gradient(ellipse at 80% 50%, rgba(99,102,241,0.05), transparent 60%),
               linear-gradient(135deg, #0b0b1a 0%, #1a1a2e 40%, #16213e 100%);
   min-height: 100vh;
   color: #f1f1f4;
@@ -23,7 +23,7 @@
    HEADER
    ====================================================== */
 .dashboard-header {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(99, 102, 241, 0.08));
+  background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(99,102,241,0.08));
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 24px;
@@ -160,7 +160,7 @@
   text-overflow: ellipsis;
 }
 
-/* stat-specific accent colors */
+/* stat accent colors */
 .stat-card.level .stat-icon { background: rgba(124,58,237,0.2); }
 .stat-card.study .stat-icon { background: rgba(59,130,246,0.2); }
 .stat-card.streak .stat-icon { background: rgba(239,68,68,0.2); }
@@ -525,7 +525,7 @@
 }
 
 /* ======================================================
-   RESPONSIVE – DESKTOP FIRST, THEN MOBILE
+   RESPONSIVE
    ====================================================== */
 @media (max-width: 1024px) {
   .stats-grid { grid-template-columns: repeat(3, 1fr); }
@@ -543,226 +543,57 @@
 }
 
 @media (max-width: 640px) {
-  /* ---- Compact everything ---- */
-  .dashboard-container {
-    padding: 12px 12px !important;
-  }
-
-  .dashboard-header {
-    padding: 14px 16px !important;
-    border-radius: 16px;
-    margin-bottom: 16px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-
-  .greeting-section {
-    gap: 12px;
-  }
-
-  .avatar-wrapper {
-    width: 48px !important;
-    height: 48px !important;
-    flex-shrink: 0;
-  }
-
-  .greeting-text h1 {
-    font-size: 18px !important;
-  }
-
-  .greeting-text .date-time {
-    font-size: 11px !important;
-    gap: 4px;
-  }
-  .greeting-text .daily-quote {
-    font-size: 10px !important;
-    display: block;
-    margin-top: 2px;
-  }
-
-  /* Stats */
-  .stats-grid {
-    gap: 8px !important;
-    margin-bottom: 16px;
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-
-  .stat-card {
-    padding: 10px 12px !important;
-    gap: 10px;
-    border-radius: 12px;
-  }
-
-  .stat-icon {
-    width: 34px !important;
-    height: 34px !important;
-    font-size: 16px !important;
-    border-radius: 8px;
-  }
-
-  .stat-value {
-    font-size: 18px !important;
-  }
-  .stat-label {
-    font-size: 9px !important;
-    letter-spacing: 0.4px;
-  }
-  .stat-sub {
-    font-size: 9px !important;
-    white-space: normal;
-  }
-
-  /* Main cards */
-  .card {
-    padding: 12px 14px !important;
-    border-radius: 16px;
-  }
-  .card h3 {
-    font-size: 14px !important;
-    margin-bottom: 10px;
-  }
-
-  /* Focus session */
-  .focus-duration-buttons button {
-    font-size: 12px !important;
-    padding: 8px 0 !important;
-    border-radius: 8px;
-  }
-  .focus-input {
-    font-size: 13px !important;
-    padding: 10px 12px !important;
-  }
-  .start-focus-btn {
-    font-size: 13px !important;
-    padding: 10px 16px !important;
-  }
-  .sessions-left {
-    font-size: 11px !important;
-  }
-
-  /* Tasks */
-  .task-input-group input[type="text"] {
-    font-size: 13px !important;
-    padding: 8px 10px !important;
-  }
-  .task-input-group input[type="number"] {
-    width: 54px !important;
-    padding: 8px 4px !important;
-    font-size: 13px !important;
-  }
-  .task-input-group button {
-    padding: 8px 12px !important;
-    font-size: 16px !important;
-  }
-  .task-item {
-    padding: 6px 8px !important;
-    gap: 8px;
-    border-radius: 8px;
-  }
-  .task-item .task-title {
-    font-size: 13px !important;
-  }
-  .task-item .task-xp {
-    font-size: 10px !important;
-  }
-
-  /* Social */
-  .post-header {
-    font-size: 11px !important;
-  }
-  .post-content {
-    font-size: 13px !important;
-  }
-  .post-engagement {
-    font-size: 11px !important;
-    gap: 10px;
-  }
-
-  /* Orbit */
-  .orbit-card .orbit-sub {
-    font-size: 12px !important;
-  }
-  .launch-orbit-btn {
-    font-size: 13px !important;
-    padding: 12px 0 !important;
-    border-radius: 10px;
-  }
-
-  /* Right column */
-  .suggestion-item {
-    font-size: 13px !important;
-    padding: 6px 0 !important;
-  }
-  .upcoming-item {
-    font-size: 13px !important;
-    padding: 4px 0 !important;
-  }
-  .upcoming-time {
-    min-width: 40px;
-  }
-  .progress-bar-container {
-    margin: 8px 0 4px 0;
-  }
-
-  /* Mood footer */
-  .mood-footer {
-    font-size: 12px !important;
-    margin-top: 20px !important;
-    padding: 10px 0 !important;
-  }
-
-  /* Grid gaps */
-  .grid {
-    gap: 12px !important;
-  }
-  .space-y-4, .space-y-6 {
-    gap: 12px !important;
-  }
-  .space-y-3 {
-    gap: 10px !important;
-  }
+  .dashboard-container { padding: 12px 12px !important; }
+  .dashboard-header { padding: 14px 16px !important; border-radius: 16px; flex-direction: column; align-items: stretch; gap: 12px; }
+  .greeting-section { gap: 12px; }
+  .avatar-wrapper { width: 48px !important; height: 48px !important; }
+  .greeting-text h1 { font-size: 18px !important; }
+  .greeting-text .date-time { font-size: 11px !important; gap: 4px; }
+  .greeting-text .daily-quote { font-size: 10px !important; display: block; margin-top: 2px; }
+  .stats-grid { gap: 8px !important; margin-bottom: 16px; grid-template-columns: repeat(2, 1fr) !important; }
+  .stat-card { padding: 10px 12px !important; gap: 10px; border-radius: 12px; }
+  .stat-icon { width: 34px !important; height: 34px !important; font-size: 16px !important; border-radius: 8px; }
+  .stat-value { font-size: 18px !important; }
+  .stat-label { font-size: 9px !important; letter-spacing: 0.4px; }
+  .stat-sub { font-size: 9px !important; white-space: normal; }
+  .card { padding: 12px 14px !important; border-radius: 16px; }
+  .card h3 { font-size: 14px !important; margin-bottom: 10px; }
+  .focus-duration-buttons button { font-size: 12px !important; padding: 8px 0 !important; border-radius: 8px; }
+  .focus-input { font-size: 13px !important; padding: 10px 12px !important; }
+  .start-focus-btn { font-size: 13px !important; padding: 10px 16px !important; }
+  .sessions-left { font-size: 11px !important; }
+  .task-input-group input[type="text"] { font-size: 13px !important; padding: 8px 10px !important; }
+  .task-input-group input[type="number"] { width: 54px !important; padding: 8px 4px !important; font-size: 13px !important; }
+  .task-input-group button { padding: 8px 12px !important; font-size: 16px !important; }
+  .task-item { padding: 6px 8px !important; gap: 8px; border-radius: 8px; }
+  .task-item .task-title { font-size: 13px !important; }
+  .task-item .task-xp { font-size: 10px !important; }
+  .post-header { font-size: 11px !important; }
+  .post-content { font-size: 13px !important; }
+  .post-engagement { font-size: 11px !important; gap: 10px; }
+  .orbit-card .orbit-sub { font-size: 12px !important; }
+  .launch-orbit-btn { font-size: 13px !important; padding: 12px 0 !important; border-radius: 10px; }
+  .suggestion-item { font-size: 13px !important; padding: 6px 0 !important; }
+  .upcoming-item { font-size: 13px !important; padding: 4px 0 !important; }
+  .upcoming-time { min-width: 40px; }
+  .progress-bar-container { margin: 8px 0 4px 0; }
+  .mood-footer { font-size: 12px !important; margin-top: 20px !important; padding: 10px 0 !important; }
+  .grid { gap: 12px !important; }
+  .space-y-4, .space-y-6 { gap: 12px !important; }
+  .space-y-3 { gap: 10px !important; }
 }
 
 @media (max-width: 400px) {
-  .dashboard-container {
-    padding: 8px 8px !important;
-  }
-  .stat-card {
-    padding: 8px 10px !important;
-    gap: 8px;
-  }
-  .stat-value {
-    font-size: 16px !important;
-  }
-  .stat-icon {
-    width: 28px !important;
-    height: 28px !important;
-    font-size: 14px !important;
-  }
-  .greeting-text h1 {
-    font-size: 16px !important;
-  }
-  .card {
-    padding: 10px 12px !important;
-  }
-  .focus-input-group {
-    flex-wrap: wrap;
-  }
-  .start-focus-btn {
-    width: 100%;
-    justify-content: center;
-  }
-  .task-input-group {
-    flex-wrap: wrap;
-  }
-  .task-input-group input[type="text"] {
-    flex: 0 0 100%;
-  }
-  .task-input-group input[type="number"] {
-    flex: 1;
-  }
-  .task-input-group button {
-    flex: 0 0 auto;
-  }
+  .dashboard-container { padding: 8px 8px !important; }
+  .stat-card { padding: 8px 10px !important; gap: 8px; }
+  .stat-value { font-size: 16px !important; }
+  .stat-icon { width: 28px !important; height: 28px !important; font-size: 14px !important; }
+  .greeting-text h1 { font-size: 16px !important; }
+  .card { padding: 10px 12px !important; }
+  .focus-input-group { flex-wrap: wrap; }
+  .start-focus-btn { width: 100%; justify-content: center; }
+  .task-input-group { flex-wrap: wrap; }
+  .task-input-group input[type="text"] { flex: 0 0 100%; }
+  .task-input-group input[type="number"] { flex: 1; }
+  .task-input-group button { flex: 0 0 auto; }
 }
