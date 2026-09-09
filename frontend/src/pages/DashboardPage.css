@@ -700,3 +700,42 @@
   .task-input-group input[type="number"] { flex: 1; }
   .task-input-group button { flex: 0 0 auto; }
 }
+
+/* ======================================================
+   MOBILE NAVIGATION – smaller and less intrusive
+   ====================================================== */
+
+/* Target the fixed bottom nav (Tailwind classes) */
+.lg\:hidden.fixed.bottom-0 {
+  height: 56px !important;
+  padding: 4px 0 !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Nav items container */
+.lg\:hidden.fixed.bottom-0 .flex {
+  gap: 4px !important;
+  padding: 0 8px !important;
+}
+
+/* Individual nav buttons */
+.lg\:hidden.fixed.bottom-0 button {
+  padding: 4px 8px !important;
+  gap: 2px !important;
+}
+
+/* Nav icons */
+.lg\:hidden.fixed.bottom-0 button svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Nav labels */
+.lg\:hidden.fixed.bottom-0 button span {
+  font-size: 9px !important;
+  letter-spacing: 0.2px !important;
+}
