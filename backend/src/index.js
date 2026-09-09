@@ -4,20 +4,37 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import compression from "compression"; // optional but recommended
 
+// ─── Security Middleware Imports ──────────────────────────────
+import {
+  generalLimiter,
+  authLimiter,
+  passwordResetLimiter,
+  securityHeaders,
+  xssProtection,
+  ipBlocklist,
+  requestLogger,
+} from "./middleware/security.js";
 
-// Load environment variables first
+import {
+  bodySizeLimiter,
+  sanitizeQuery,
+  preventParamPollution,
+} from "./middleware/sanitize.js";
+
+// ─── Load env ───────────────────────────────────────────────────
 dotenv.config();
 
-// Get __dirname in ES module
+// ─── __dirname in ES Module ──────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Import routes
+// ─── Routes ───────────────────────────────────────────────────
 import authRoutes from "./routes/authRoutes.js";
 import bridgeRoutes from "./routes/bridgeRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-import routes from "./routes/index.js";      // ← This includes skills routes
+import routes from "./routes/index.js";
 import tutorRoutes from "./routes/tutorRoutes.js";
 import quizRoutes from "./routes/quizRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
@@ -35,24 +52,47 @@ import momentumRoutes from "./routes/momentumRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 import institutionRoutes from './routes/institutionRoutes.js';
 
-
-// Import migration and database
+// ─── DB & Migrations ──────────────────────────────────────────
 import { createTables } from "./migrate.js";
 import db from "./config/db.js";
 
 console.log('🔵 Imports loaded');
 
-// Create app
+// ─── Create App ─────────────────────────────────────────────────
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// ─── 1. Compression ───────────────────────────────────────────
+app.use(compression());
+
+// ─── 2. Security Headers (Helmet) ─────────────────────────────
+app.use(securityHeaders);
+
+// ─── 3. Request Logging ──────────────────────────────────────
+app.use(requestLogger);
+
+// ─── 4. IP Blocklist ──────────────────────────────────────────
+app.use(ipBlocklist);
+
+// ─── 5. Body Size Limiter ─────────────────────────────────────
+app.use(bodySizeLimiter);
+
+// ─── 6. Query String Sanitization ─────────────────────────────
+app.use(sanitizeQuery);
+app.use(preventParamPollution);
+
+// ─── 7. XSS Protection ────────────────────────────────────────
+app.use(xssProtection);
+
+// ─── 8. Global Rate Limiter (all routes) ─────────────────────
+app.use(generalLimiter);
+
+// ─── 9. CORS ───────────────────────────────────────────────────
 const allowedOrigins = [
   'https://lifeverse-ivory.vercel.app',
   'https://lifeverse-frontend.onrender.com',
   'http://localhost:5173'
 ];
-
 if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL);
 }
@@ -68,10 +108,12 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+// ─── 10. Body Parsers ──────────────────────────────────────────
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files statically
+// ─── 11. Static files ──────────────────────────────────────────
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // ===== PUBLIC ROUTES (no authentication required) =====
@@ -81,7 +123,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Debug endpoints (public)
+// Debug endpoints (public) – you may want to disable these in production
 app.get("/api/debug/tables", async (req, res) => {
   try {
     const result = await db.query(`
@@ -132,10 +174,17 @@ app.get("/api/debug/table/:name", async (req, res) => {
   }
 });
 
-// ===== API ROUTES =====
-app.use("/api/auth", authRoutes);
+// ===== API ROUTES – with specific rate limiters where needed =====
+
+// Auth routes – strict limiter
+app.use("/api/auth", authLimiter, authRoutes);
+
+// Password reset – even stricter (already applied inside authRoutes if you use the specific endpoints, but we can also apply it here)
+// But we'll keep it as above; the authLimiter applies to all auth endpoints.
+
+// Other routes – use the general limiter already applied globally, so no extra needed.
 app.use("/api", bridgeRoutes);
-app.use("/api", routes);              // ← This mounts all routes from routes/index.js (including skills)
+app.use("/api", routes);
 app.use("/api", tutorRoutes);
 app.use("/api", quizRoutes);
 app.use("/api", taskRoutes);
@@ -154,13 +203,13 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use('/api/institution', institutionRoutes);
 
-// Global error handler
+// ─── Global Error Handler ───────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error('❌ Error details:', err.message);
   res.status(err.status || 500).json({ error: err.message || "Internal server error" });
 });
 
-// Start server
+// ─── Start Server ───────────────────────────────────────────────
 const startServer = async () => {
   try {
     console.log('🔵 Running migrations...');
