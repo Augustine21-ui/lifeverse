@@ -259,6 +259,16 @@ export const register = async (req, res) => {
     );
 
     const user = result.rows[0];
+    const userData = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      full_name: user.full_name,
+      xp: user.xp,
+      level: user.level,
+      avatar_url: user.avatar_url,   // <-- add this
+      // ... any other fields
+    };
 
     // Still try to send email, but don't block (email will probably fail)
     sendVerificationEmail(email, verificationCode)

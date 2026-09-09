@@ -42,4 +42,19 @@ router.post('/session/end-debug', async (req, res) => {
   });
 });
 
+// GET /api/orbit/sessions/count
+router.get('/sessions/count', auth, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT COUNT(*) FROM orbit_sessions 
+       WHERE user_id = $1 AND status = 'completed'`,
+      [req.user.id]
+    );
+    res.json({ count: parseInt(result.rows[0].count) });
+  } catch (err) {
+    console.error('Orbit count error:', err);
+    res.status(500).json({ error: 'Failed to fetch orbit count' });
+  }
+});
+
 export default router;

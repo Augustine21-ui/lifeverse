@@ -197,6 +197,10 @@ export default function DashboardPage() {
   const [avatarState, setAvatarState] = useState('idle');
   const [showMoodModal, setShowMoodModal] = useState(false);
 
+  // ---- NEW: for automatic mood based on orbit sessions ----
+  const [orbitSessionCount, setOrbitSessionCount] = useState(0);
+  const moodTimeoutRef = useRef(null);
+
   // ---- Image map for avatar ----
   const avatarImageMap = {
     happy: '/happy.jpg',
@@ -207,6 +211,22 @@ export default function DashboardPage() {
     celebrating: '/celebrating.jpg',
     focused: '/focused.jpg',
     calm: '/calm.jpg',
+  };
+
+  // ---- Automatic mood management ----
+  const setMoodWithReset = (newMood) => {
+    // Clear any pending reset
+    if (moodTimeoutRef.current) {
+      clearTimeout(moodTimeoutRef.current);
+      moodTimeoutRef.current = null;
+    }
+    // Set the new mood
+    setAutoMood(newMood);
+    // Reset to neutral after 2 minutes of inactivity
+    moodTimeoutRef.current = setTimeout(() => {
+      setAutoMood('neutral');
+      moodTimeoutRef.current = null;
+    }, 120000); // 2 minutes
   };
 
   // ---- Effects ----
@@ -279,6 +299,27 @@ export default function DashboardPage() {
       if (subscriptionData) {
         setSubscriptionStatus(subscriptionData);
         setHasPremiumAccess(subscriptionData.isActive || subscriptionData.isInstitutional);
+      }
+
+      // ---- NEW: Fetch orbit session count ----
+      try {
+        // Use a dedicated endpoint – if not available, fallback to a generic /orbit/sessions
+        let orbitData = null;
+        if (api.getOrbitSessionCount) {
+          orbitData = await api.getOrbitSessionCount();
+        } else {
+          // Fallback: fetch all completed sessions and count them
+          const sessions = await api.get('/orbit/sessions?status=completed');
+          orbitData = { count: sessions.length || 0 };
+        }
+        const count = orbitData.count || 0;
+        setOrbitSessionCount(count);
+        if (count >= 4) {
+          setMoodWithReset('excited');
+        }
+      } catch (e) {
+        console.warn('Could not fetch orbit session count:', e);
+        setOrbitSessionCount(0);
       }
 
       const moodToState = {
@@ -358,6 +399,9 @@ export default function DashboardPage() {
       setStudyTime(prev => prev + selectedDuration);
       await loadDashboard();
       await refreshUser();
+
+      // ---- AUTO MOOD: focused ----
+      setMoodWithReset('focused');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -404,10 +448,13 @@ export default function DashboardPage() {
       showToast(`✅ Task completed! +${task.xp_reward || 30} XP`);
       await loadDashboard();
       await refreshUser();
-      setTimeout(() => setShowConfetti(false), 3000);
+
+      // ---- AUTO MOOD: happy ----
+      setMoodWithReset('happy');
     } catch (err) {
       showToast(err.message, 'error');
     }
+    setTimeout(() => setShowConfetti(false), 3000);
   };
 
   const openEditModal = (task) => {
@@ -467,10 +514,10 @@ export default function DashboardPage() {
     setShowBrainDump(false);
   };
 
-  // ---- Mood update ----
+  // ---- Mood update (manual override) ----
   const handleMoodUpdate = async (newMood) => {
     try {
-      setAutoMood(newMood);
+      setMoodWithReset(newMood); // use the same logic with reset
       setMoodPercent(Math.floor(Math.random() * 100));
       setShowMoodModal(false);
       showToast(`Mood updated to ${newMood}`, 'success');
@@ -571,12 +618,13 @@ export default function DashboardPage() {
       <div className="dashboard-header">
         <div className="greeting-section">
           <div className="avatar-wrapper" onClick={() => setShowMoodModal(true)}>
-            <HolographicAvatar 
-              mood={autoMood} 
-              size={56} 
+            <HolographicAvatar
+              mood={autoMood}
+              size={56}
               animation="float"
               imageMap={avatarImageMap}
-              onClick={() => setShowMoodModal(true)} 
+              imageSrc={user?.avatar_url || null} // <-- user uploaded photo
+              onClick={() => setShowMoodModal(true)}
             />
           </div>
           <div className="greeting-text">

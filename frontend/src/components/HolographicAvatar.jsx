@@ -5,37 +5,167 @@ import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import AvatarInteractionMenu from './AvatarInteractionMenu';
 
+// ─── Expanded mood config ──────────────────────────────────────────
 const moodConfig = {
-  happy:    { label: '😊 Happy', glow: 'rgba(100,200,255,0.8)', pulse: '1.5s', color: '#4fc3f7' },
-  excited:  { label: '🤩 Excited', glow: 'rgba(255,200,100,0.8)', pulse: '1.2s', color: '#ffb74d' },
-  calm:     { label: '😌 Calm', glow: 'rgba(100,150,255,0.6)', pulse: '3s', color: '#7c4dff' },
-  thinking: { label: '🤔 Thinking', glow: 'rgba(150,150,200,0.6)', pulse: '2s', color: '#9575cd' },
-  focused:  { label: '🎯 Focused', glow: 'rgba(255,100,50,0.8)', pulse: '1.5s', color: '#ff6b6b' },
-  working:  { label: '💪 Working', glow: 'rgba(100,200,100,0.8)', pulse: '1.8s', color: '#66bb6a' },
-  thumbsup: { label: '👍 ThumbsUp', glow: 'rgba(100,200,100,0.8)', pulse: '2s', color: '#4caf50' },
-  surprised:{ label: '😮 Surprised', glow: 'rgba(255,200,50,0.8)', pulse: '1s', color: '#ffca28' },
-  celebrating:{ label:'🎉 Celebrating', glow:'rgba(255,150,50,0.9)', pulse:'0.8s', color:'#ff9800' },
-  sad:      { label: '😢 Sad', glow: 'rgba(100,100,150,0.5)', pulse: '3.5s', color: '#78909c' },
-  concerned:{ label: '😟 Concerned', glow: 'rgba(150,100,100,0.5)', pulse: '3s', color: '#a1887f' },
-  pointing: { label: '👉 Pointing', glow: 'rgba(100,150,200,0.7)', pulse: '2.5s', color: '#64b5f6' },
-  neutral:  { label: '😐 Neutral', glow: 'rgba(100,150,255,0.8)', pulse: '2.5s', color: '#7c4dff' },
+  happy: {
+    label: '😊 Happy',
+    glow: 'rgba(255, 200, 100, 0.8)',
+    pulse: '1.5s',
+    color: '#f59e0b',
+    overlayColor: 'rgba(255, 200, 100, 0.15)',
+    filter: 'brightness(1.05) saturate(1.2)',
+    animation: 'float',
+    emoji: '🌟',
+  },
+  excited: {
+    label: '🤩 Excited',
+    glow: 'rgba(255, 150, 50, 0.9)',
+    pulse: '0.8s',
+    color: '#ff9800',
+    overlayColor: 'rgba(255, 150, 50, 0.2)',
+    filter: 'brightness(1.1) saturate(1.4) contrast(1.1)',
+    animation: 'bounce',
+    emoji: '⚡',
+  },
+  calm: {
+    label: '😌 Calm',
+    glow: 'rgba(100, 150, 255, 0.6)',
+    pulse: '3s',
+    color: '#3b82f6',
+    overlayColor: 'rgba(100, 150, 255, 0.15)',
+    filter: 'brightness(1.0) saturate(0.9)',
+    animation: 'float',
+    emoji: '🌊',
+  },
+  thinking: {
+    label: '🤔 Thinking',
+    glow: 'rgba(150, 150, 200, 0.6)',
+    pulse: '2s',
+    color: '#9575cd',
+    overlayColor: 'rgba(150, 150, 200, 0.15)',
+    filter: 'brightness(0.95) saturate(0.9)',
+    animation: 'idle',
+    emoji: '💭',
+  },
+  focused: {
+    label: '🎯 Focused',
+    glow: 'rgba(255, 100, 50, 0.8)',
+    pulse: '1.5s',
+    color: '#ff6b6b',
+    overlayColor: 'rgba(255, 100, 50, 0.15)',
+    filter: 'brightness(1.0) saturate(1.1) contrast(1.1)',
+    animation: 'idle',
+    emoji: '🔍',
+  },
+  working: {
+    label: '💪 Working',
+    glow: 'rgba(100, 200, 100, 0.8)',
+    pulse: '1.8s',
+    color: '#4caf50',
+    overlayColor: 'rgba(100, 200, 100, 0.15)',
+    filter: 'brightness(1.0) saturate(1.1)',
+    animation: 'idle',
+    emoji: '⚙️',
+  },
+  thumbsup: {
+    label: '👍 ThumbsUp',
+    glow: 'rgba(100, 200, 100, 0.8)',
+    pulse: '2s',
+    color: '#4caf50',
+    overlayColor: 'rgba(100, 200, 100, 0.15)',
+    filter: 'brightness(1.0) saturate(1.0)',
+    animation: 'float',
+    emoji: '👍',
+  },
+  surprised: {
+    label: '😮 Surprised',
+    glow: 'rgba(255, 200, 50, 0.8)',
+    pulse: '1s',
+    color: '#ffca28',
+    overlayColor: 'rgba(255, 200, 50, 0.2)',
+    filter: 'brightness(1.05) saturate(1.2) contrast(1.05)',
+    animation: 'bounce',
+    emoji: '😮',
+  },
+  celebrating: {
+    label: '🎉 Celebrating',
+    glow: 'rgba(255, 150, 50, 0.9)',
+    pulse: '0.8s',
+    color: '#ff9800',
+    overlayColor: 'rgba(255, 150, 50, 0.2)',
+    filter: 'brightness(1.1) saturate(1.3)',
+    animation: 'bounce',
+    emoji: '🎉',
+  },
+  sad: {
+    label: '😢 Sad',
+    glow: 'rgba(100, 100, 150, 0.5)',
+    pulse: '3.5s',
+    color: '#78909c',
+    overlayColor: 'rgba(100, 100, 150, 0.2)',
+    filter: 'brightness(0.9) saturate(0.7)',
+    animation: 'idle',
+    emoji: '💧',
+  },
+  concerned: {
+    label: '😟 Concerned',
+    glow: 'rgba(150, 100, 100, 0.5)',
+    pulse: '3s',
+    color: '#a1887f',
+    overlayColor: 'rgba(150, 100, 100, 0.15)',
+    filter: 'brightness(0.95) saturate(0.8)',
+    animation: 'idle',
+    emoji: '😟',
+  },
+  pointing: {
+    label: '👉 Pointing',
+    glow: 'rgba(100, 150, 200, 0.7)',
+    pulse: '2.5s',
+    color: '#64b5f6',
+    overlayColor: 'rgba(100, 150, 200, 0.15)',
+    filter: 'brightness(1.0) saturate(1.0)',
+    animation: 'idle',
+    emoji: '👉',
+  },
+  neutral: {
+    label: '😐 Neutral',
+    glow: 'rgba(100, 150, 255, 0.8)',
+    pulse: '2.5s',
+    color: '#7c4dff',
+    overlayColor: 'rgba(100, 150, 255, 0.1)',
+    filter: 'brightness(1.0) saturate(1.0)',
+    animation: 'float',
+    emoji: '😐',
+  },
 };
 
+// ─── Default image map (fallback if no user photo) ──────────────
 const defaultImageMap = {
-  happy: '/avatars/happy.png',
-  excited: '/avatars/excited.png',
-  thinking: '/avatars/thinking.png',
-  neutral: '/avatars/neutral.png',
-  // add more as you generate them
+  happy: '/happy.jpg',
+  excited: '/excited.jpg',
+  thinking: '/thinking.jpg',
+  neutral: '/neutral.jpg',
+  // add more if needed
+};
+
+// ─── Helper: animation class ──────────────────────────────────────
+const getAnimationClass = (animation) => {
+  switch (animation) {
+    case 'bounce': return 'animate-bounce';
+    case 'walk': return 'animate-walk';
+    case 'talk': return 'animate-talk';
+    case 'float': return 'animate-float';
+    default: return '';
+  }
 };
 
 export default function HolographicAvatar({
   mood = 'neutral',
   size = 80,
-  animation = 'idle',
-  onClick,
+  imageSrc = null,          // user‑uploaded photo (overrides imageMap)
   imageMap = defaultImageMap,
-  fallbackImage = '/avatars/neutral.png',
+  fallbackImage = '/neutral.jpg',
+  onClick,
 }) {
   const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
@@ -47,22 +177,31 @@ export default function HolographicAvatar({
   const glowColor = config.glow;
   const accentColor = config.color;
   const pulseDuration = config.pulse;
+  const overlayColor = config.overlayColor;
+  const filterStyle = config.filter;
+  const animation = config.animation;
 
   const [currentMood, setCurrentMood] = useState(mood);
 
+  // Sync mood prop to state
   useEffect(() => {
     setCurrentMood(mood);
   }, [mood]);
 
-  const imageSrc = imageMap[mood] || imageMap.neutral || fallbackImage;
+  // Determine which image to display: user photo, or static mood image
+  const displayImage = imageSrc || imageMap[mood] || imageMap.neutral || fallbackImage;
 
-  // ─── Particle animation ────────────────────────────────────
+  // ─── Particle animation (tinted to match mood) ──────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
+
+    const hue = accentColor ? parseInt(accentColor.slice(1, 3), 16) : 210;
+    const particleColor = `hsla(${hue + 20}, 80%, 70%, 0.5)`;
+
     const particles = [];
     const count = 80;
     for (let i = 0; i < count; i++) {
@@ -72,9 +211,10 @@ export default function HolographicAvatar({
         r: Math.random() * 2 + 1,
         dx: (Math.random() - 0.5) * 0.6,
         dy: (Math.random() - 0.5) * 0.6,
-        color: `hsla(${210 + Math.random() * 40}, 80%, 70%, ${Math.random() * 0.4 + 0.2})`,
+        color: particleColor,
       });
     }
+
     let animationId;
     const animate = () => {
       ctx.clearRect(0, 0, width, height);
@@ -92,8 +232,9 @@ export default function HolographicAvatar({
     };
     animate();
     return () => cancelAnimationFrame(animationId);
-  }, []);
+  }, [accentColor]);
 
+  // ─── Update mood (from menu) ──────────────────────────────────
   const updateMood = async (newMood) => {
     try {
       await api.recordMood(newMood);
@@ -108,16 +249,6 @@ export default function HolographicAvatar({
   };
 
   const toggleMenu = () => setShowMenu(!showMenu);
-
-  const getAnimationClass = () => {
-    switch (animation) {
-      case 'bounce': return 'animate-bounce';
-      case 'walk': return 'animate-walk';
-      case 'talk': return 'animate-talk';
-      case 'float': return 'animate-float';
-      default: return '';
-    }
-  };
 
   return (
     <div className="relative flex flex-col items-center z-50 isolate" ref={avatarRef}>
@@ -141,9 +272,9 @@ export default function HolographicAvatar({
         <div className="absolute inset-[-14px] rounded-full border border-violet-400/20 animate-spin-reverse" style={{ animationDuration: '8s' }} />
         <div className="absolute inset-[-22px] rounded-full border border-cyan-400/10 animate-spin-slow" style={{ animationDuration: '12s' }} />
 
-        {/* Main holographic circle – image container */}
+        {/* Main holographic circle */}
         <div
-          className={`relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-brand-500/10 via-violet-600/10 to-cyan-500/10 backdrop-blur-sm border border-white/20 flex items-center justify-center ${getAnimationClass()}`}
+          className={`relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-brand-500/10 via-violet-600/10 to-cyan-500/10 backdrop-blur-sm border border-white/20 flex items-center justify-center ${getAnimationClass(animation)}`}
         >
           {/* Scanline effect */}
           <div className="absolute inset-0 pointer-events-none z-10">
@@ -151,19 +282,27 @@ export default function HolographicAvatar({
             <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_3px,rgba(100,200,255,0.03)_3px,rgba(100,200,255,0.03)_4px)]" />
           </div>
 
-          {/* Character image */}
+          {/* ─── IMAGE ────────────────────────────────────────────── */}
           <img
-            src={imageSrc}
+            src={displayImage}
             alt={mood}
-            className="w-full h-full object-cover rounded-full"
-            style={{ filter: `drop-shadow(0 0 20px ${glowColor})` }}
+            className="w-full h-full object-cover rounded-full transition-all duration-700"
+            style={{ filter: filterStyle }}
           />
 
-          {/* Glow overlay */}
+          {/* ─── MOOD OVERLAY (tint) ────────────────────────────── */}
           <div
-            className="absolute inset-0 rounded-full mix-blend-overlay pointer-events-none"
-            style={{ background: `radial-gradient(circle, ${glowColor}30, transparent 70%)` }}
+            className="absolute inset-0 rounded-full mix-blend-overlay pointer-events-none transition-all duration-700"
+            style={{ background: `radial-gradient(circle at 50% 50%, ${overlayColor}, transparent 70%)` }}
           />
+
+          {/* ─── EMOJI BADGE ────────────────────────────────────── */}
+          <div
+            className="absolute bottom-1 right-1 text-xs font-bold bg-black/40 backdrop-blur-sm rounded-full px-1.5 py-0.5 border border-white/10 pointer-events-none"
+            style={{ color: accentColor }}
+          >
+            {config.emoji}
+          </div>
         </div>
 
         {/* Particle canvas overlay */}
