@@ -19,6 +19,9 @@ import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
 import { useTheme } from '../context/ThemeContext';
 
+// ---- Import the new CSS for enhanced UI ----
+import './DashboardPage.css';
+
 // ---- Confetti (unchanged) ----
 function Confetti({ active, onComplete }) {
   const canvasRef = useRef(null);
@@ -130,26 +133,6 @@ const MobileNav = ({ active, navigate }) => {
   );
 };
 
-// ---- Compact Stat Card – responsive sizing ----
-const StatCard = ({ icon: Icon, label, value, subtext, color = 'text-brand-400' }) => (
-  <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-1.5 sm:p-2.5 text-center hover:border-white/20 transition">
-    <div className={`flex items-center justify-center gap-0.5 sm:gap-1 ${color}`}>
-      <Icon size={12} className="sm:hidden" />
-      <Icon size={14} className="hidden sm:block" />
-      <span className="text-[8px] xs:text-[10px] sm:text-[10px] text-white/60 uppercase tracking-wide">{label}</span>
-    </div>
-    <div className="text-sm xs:text-base sm:text-lg font-bold text-white">{value}</div>
-    {subtext && <div className="text-[8px] xs:text-[10px] text-white/30">{subtext}</div>}
-  </div>
-);
-
-// ---- Reusable Card – with responsive padding ----
-const Card = ({ children, className = '', noPadding = false, gradient = false }) => (
-  <div className={`bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:border-white/20 transition ${noPadding ? '' : 'p-3 sm:p-4'} ${gradient ? 'bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-500/30' : ''} ${className}`}>
-    {children}
-  </div>
-);
-
 export default function DashboardPage() {
   const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
@@ -211,11 +194,10 @@ export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const dailyQuote = getDailyQuote();
 
-  // ---- Avatar state ----
   const [avatarState, setAvatarState] = useState('idle');
   const [showMoodModal, setShowMoodModal] = useState(false);
 
-  // ---- Image map for avatar (new) ----
+  // ---- Image map for avatar ----
   const avatarImageMap = {
     happy: '/happy.jpg',
     excited: '/excited.jpg',
@@ -225,7 +207,6 @@ export default function DashboardPage() {
     celebrating: '/celebrating.jpg',
     focused: '/focused.jpg',
     calm: '/calm.jpg',
-    // you can add more moods as you generate images
   };
 
   // ---- Effects ----
@@ -489,10 +470,7 @@ export default function DashboardPage() {
   // ---- Mood update ----
   const handleMoodUpdate = async (newMood) => {
     try {
-      // Call API to save mood (if you have one)
-      // await api.updateMood(newMood);
       setAutoMood(newMood);
-      // Optionally set a random percent for demo
       setMoodPercent(Math.floor(Math.random() * 100));
       setShowMoodModal(false);
       showToast(`Mood updated to ${newMood}`, 'success');
@@ -586,438 +564,374 @@ export default function DashboardPage() {
 
   // ---- Main render ----
   return (
-    <div
-      className="relative min-h-screen bg-cover bg-center bg-fixed pb-16 lg:pb-0"
-      style={{ backgroundImage: "" }}
-    >
-      <div className="absolute inset-0 bg-black/60 z-0"></div>
+    <div className="dashboard-container">
+      {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-4 lg:px-6 lg:py-6">
-        {showConfetti && <Confetti active={showConfetti} onComplete={() => setShowConfetti(false)} />}
-
-        {/* ===== HEADER – with HolographicAvatar ===== */}
-        <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 cursor-pointer" onClick={() => setShowMoodModal(true)}>
-              <HolographicAvatar 
-                mood={autoMood} 
-                size={60} 
-                animation="float"
-                imageMap={avatarImageMap}   // ← added image mapping
-                onClick={() => setShowMoodModal(true)} 
-              />
-            </div>
-            <div>
-              <h1 className="text-base sm:text-xl font-bold text-white">
-                {greeting}, {displayName} 👋
-              </h1>
-              <p className="text-xs text-white/50 flex items-center gap-2 flex-wrap">
-                <span className="flex items-center gap-1">
-                  <Calendar size={12} /> {formattedDate}
-                </span>
-                <span className="hidden xs:inline">·</span>
-                <span className="hidden xs:inline">{formattedTime}</span>
-                <span className="text-white/30 italic">— "{dailyQuote}"</span>
-              </p>
-            </div>
+      {/* ----- HEADER ----- */}
+      <div className="dashboard-header">
+        <div className="greeting-section">
+          <div className="avatar-wrapper" onClick={() => setShowMoodModal(true)}>
+            <HolographicAvatar 
+              mood={autoMood} 
+              size={56} 
+              animation="float"
+              imageMap={avatarImageMap}
+              onClick={() => setShowMoodModal(true)} 
+            />
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0 ml-1 sm:ml-2 z-20 relative">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 hover:bg-white/20 transition"
-              aria-label="Toggle theme"
-            >
-              {theme === 'dark' ? <Sun size={18} className="text-yellow-400" /> : <Moon size={18} className="text-slate-400" />}
-            </button>
-            <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-2.5 py-1 border border-white/10">
-              <Smile size={14} className="text-yellow-400" />
-              <span className="text-xs text-white/70 hidden xs:inline">
-                {autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
-              </span>
+          <div className="greeting-text">
+            <h1>{greeting}, {displayName} 🎉</h1>
+            <div className="date-time">
+              <Calendar size={14} /> {formattedDate} · {formattedTime}
+              <span className="daily-quote">“{dailyQuote}”</span>
             </div>
           </div>
         </div>
-
-        {renderSubscriptionBanner()}
-
-        {/* ===== STAT CARDS – Compact Grid ===== */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 sm:gap-2 mb-4">
-          <StatCard
-            icon={Zap}
-            label="Level"
-            value={currentLevel}
-            subtext={`${stats.totalXP} XP`}
-            color="text-brand-400"
-          />
-          <StatCard
-            icon={Clock}
-            label="Study"
-            value={formatStudyTime(studyTime)}
-            subtext="Today"
-            color="text-cyan-400"
-          />
-          <StatCard
-            icon={Flame}
-            label="Streak"
-            value={stats.streakDays}
-            subtext={stats.streakDays > 0 ? 'Keep going!' : 'Start today'}
-            color="text-orange-400"
-          />
-          <StatCard
-            icon={Smile}
-            label="Mood"
-            value={autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
-            subtext={`${moodPercent}% Today`}
-            color="text-yellow-400"
-          />
-          <StatCard
-            icon={CheckCircle}
-            label="Progress"
-            value={`${Math.round(progressPercent)}%`}
-            subtext=""
-            color="text-green-400"
-          />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/10 hover:bg-white/20 transition"
+          >
+            {theme === 'dark' ? <Sun size={18} className="text-yellow-400" /> : <Moon size={18} className="text-slate-400" />}
+          </button>
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/10">
+            <Smile size={14} className="text-yellow-400" />
+            <span className="text-sm text-white/70 hidden sm:inline">
+              {autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}
+            </span>
+          </div>
         </div>
+      </div>
 
-        {/* ===== MAIN 2-COLUMN LAYOUT ===== */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* ---- Left Column (2/3) – Engine ---- */}
-          <div className="lg:col-span-2 space-y-3">
+      {renderSubscriptionBanner()}
 
-            {/* Focus Session Card */}
-            <Card>
-              <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock size={18} className="text-cyan-400" />
-                    <h3 className="text-sm font-semibold text-white/80">Focus Session</h3>
-                  </div>
-                  <div className="flex gap-2 mb-2">
-                    {[10, 25, 45].map((mins) => (
-                      <button
-                        key={mins}
-                        onClick={() => selectDuration(mins)}
-                        className={`flex-1 py-1.5 text-xs rounded-lg transition ${
-                          selectedDuration === mins
-                            ? 'bg-brand-500 text-white'
-                            : 'bg-white/10 text-white/60 hover:bg-white/20'
-                        }`}
-                      >
-                        {mins}m
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="text"
-                    className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-1.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                    placeholder="What to focus on?"
-                    value={focusTopic}
-                    onChange={(e) => setFocusTopic(e.target.value)}
-                  />
-                  <div className="mt-1.5 text-xs text-white/30">
-                    {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
-                  </div>
-                </div>
-                <div className="flex-shrink-0 self-start sm:self-center">
-                  <button
-                    onClick={startFocusSession}
-                    disabled={!focusTopic.trim() || focusRemaining <= 0}
-                    className="px-4 py-1.5 bg-gradient-to-r from-brand-500 to-violet-600 text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50 flex items-center gap-1.5"
-                  >
-                    <Play size={14} /> Start
-                  </button>
-                </div>
-              </div>
-            </Card>
+      {/* ----- STAT CARDS (5 columns) ----- */}
+      <div className="stats-grid">
+        <div className="stat-card level">
+          <div className="stat-icon">📊</div>
+          <div className="stat-content">
+            <span className="stat-label">Level</span>
+            <span className="stat-value">{currentLevel}</span>
+            <span className="stat-sub">{stats.totalXP} XP</span>
+          </div>
+        </div>
+        <div className="stat-card study">
+          <div className="stat-icon">📚</div>
+          <div className="stat-content">
+            <span className="stat-label">Study</span>
+            <span className="stat-value">{formatStudyTime(studyTime)}</span>
+            <span className="stat-sub">Today</span>
+          </div>
+        </div>
+        <div className="stat-card streak">
+          <div className="stat-icon">🔥</div>
+          <div className="stat-content">
+            <span className="stat-label">Streak</span>
+            <span className="stat-value">{stats.streakDays}</span>
+            <span className="stat-sub">{stats.streakDays > 0 ? 'Keep going!' : 'Start today'}</span>
+          </div>
+        </div>
+        <div className="stat-card mood" onClick={() => setShowMoodModal(true)}>
+          <div className="stat-icon">😊</div>
+          <div className="stat-content">
+            <span className="stat-label">Mood</span>
+            <span className="stat-value">{autoMood.charAt(0).toUpperCase() + autoMood.slice(1)}</span>
+            <span className="stat-sub">{moodPercent}% Today</span>
+          </div>
+        </div>
+        <div className="stat-card progress">
+          <div className="stat-icon">🎯</div>
+          <div className="stat-content">
+            <span className="stat-label">Progress</span>
+            <span className="stat-value">{Math.round(progressPercent)}%</span>
+            <span className="stat-sub">&nbsp;</span>
+          </div>
+        </div>
+      </div>
 
-            {/* Tasks Card */}
-            <Card>
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                  <CheckCircle size={18} className="text-green-400" /> Today's Tasks
-                </h3>
-                <span className="text-xs text-white/30">{tasksDoneToday}/{totalTasks}</span>
-              </div>
-
-              <form onSubmit={handleAddTask} className="flex gap-2 mb-3">
-                <input
-                  id="task-input"
-                  type="text"
-                  className="flex-1 bg-white/10 text-white text-sm rounded-xl px-3 py-1.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                  placeholder="Add a task..."
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                />
-                <input
-                  type="number"
-                  className="w-16 bg-white/10 text-white text-sm rounded-xl px-2 py-1.5 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                  placeholder="XP"
-                  value={newTaskXp}
-                  onChange={(e) => setNewTaskXp(parseInt(e.target.value) || 0)}
-                />
+      {/* ----- MAIN TWO-COLUMN GRID ----- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT COLUMN (2/3) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Focus Session Card */}
+          <div className="card">
+            <h3><Clock size={18} className="text-cyan-400" /> Focus Session</h3>
+            <div className="focus-duration-buttons">
+              {[10, 25, 45].map((mins) => (
                 <button
-                  type="submit"
-                  disabled={actionLoading || !newTaskTitle.trim()}
-                  className="px-3 py-1.5 bg-brand-500 text-white rounded-xl text-sm hover:opacity-90 transition active:scale-95 disabled:opacity-50"
+                  key={mins}
+                  onClick={() => selectDuration(mins)}
+                  className={selectedDuration === mins ? 'active' : ''}
                 >
-                  <Plus size={16} />
+                  {mins}m
                 </button>
-              </form>
-
-              {tasks.length === 0 ? (
-                <p className="text-sm text-white/40 text-center py-2">✨ No tasks for today</p>
-              ) : (
-                <div className="space-y-1.5 max-h-32 overflow-y-auto">
-                  {tasks.slice(0, 4).map((task) => (
-                    <div key={task.id} className="flex items-center gap-2 bg-white/10 rounded-xl px-2 py-1.5">
-                      <button
-                        onClick={() => !task.is_completed && handleTaskComplete(task)}
-                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                          task.is_completed ? 'bg-green-500 border-green-500' : 'border-white/30'
-                        }`}
-                      >
-                        {task.is_completed && <CheckCircle size={10} className="text-white" />}
-                      </button>
-                      <span className={`text-xs flex-1 truncate ${task.is_completed ? 'line-through text-white/30' : 'text-white/80'}`}>
-                        {task.title}
-                      </span>
-                      <span className="text-[10px] text-white/30">{task.xp_reward}XP</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            {/* ===== Social Buzz – Using GlanceTicker (restored) ===== */}
-            <Card>
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                  <Users size={18} className="text-brand-400" /> Social Buzz
-                </h3>
-                <Link to="/momentum" className="text-xs text-brand-400 hover:underline">View all →</Link>
-              </div>
-              <GlanceTicker posts={feedPosts} loading={feedLoading} />
-            </Card>
-
-            {/* Orbit Card */}
-            <Card gradient>
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                    <Rocket size={18} className="text-purple-400" /> Orbit
-                  </h3>
-                  <p className="text-xs text-white/50 mt-1">AI-powered interactive learning</p>
-                  <p className="text-xs text-white/40 mt-0.5">
-                    Explore topics through Cortex, CluePath, Pathfinder & Reflex.
-                  </p>
-                </div>
-                <Sparkles size={20} className="text-purple-400 animate-pulse" />
-              </div>
-              <Link
-                to="/orbit"
-                className="mt-3 inline-block w-full text-center py-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium hover:opacity-90 transition active:scale-95"
+              ))}
+            </div>
+            <div className="focus-input-group">
+              <input
+                type="text"
+                className="focus-input"
+                placeholder="What to focus on?"
+                value={focusTopic}
+                onChange={(e) => setFocusTopic(e.target.value)}
+              />
+              <button
+                className="start-focus-btn"
+                onClick={startFocusSession}
+                disabled={!focusTopic.trim() || focusRemaining <= 0}
               >
-                Launch Orbit 🚀
-              </Link>
-            </Card>
+                <Play size={16} className="inline mr-1" /> Start
+              </button>
+            </div>
+            <div className="sessions-left">
+              {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
+            </div>
           </div>
 
-          {/* ---- Right Column (1/3) – Overview ---- */}
-          <div className="space-y-3">
-            {/* Smart Suggestions (AI) */}
-            <Card>
-              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
-                <Brain size={18} className="text-amber-400" /> Smart Suggestions
-              </h3>
-              <div className="space-y-1.5">
-                <div className="flex items-start gap-2 text-sm text-white/70">
-                  <span className="text-amber-400 mt-0.5">•</span>
-                  <span>You haven't studied today. Start a focus session.</span>
-                </div>
-                <div className="flex items-start gap-2 text-sm text-white/70">
-                  <span className="text-amber-400 mt-0.5">•</span>
-                  <span>Algebra seems weak – try Orbit Cortex.</span>
-                </div>
-                <div className="flex items-start gap-2 text-sm text-white/70">
-                  <span className="text-amber-400 mt-0.5">•</span>
-                  <span>2 tasks are overdue. Complete them now.</span>
-                </div>
-              </div>
-              <button className="mt-2 text-xs text-brand-400 hover:underline">Refresh</button>
-            </Card>
-
-            {/* Your Path (Skills & Opportunities) */}
-            <Card>
-              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
-                <Target size={18} className="text-purple-400" /> Your Path
-              </h3>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-white/60">Career Readiness</span>
-                <span className="text-white font-medium">{Math.round(progressPercent)}%</span>
-              </div>
-              <div className="w-full h-1.5 bg-white/10 rounded-full mt-1 overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" style={{ width: `${progressPercent}%` }} />
-              </div>
-              <div className="mt-2 text-xs text-white/40">
-                {stats.totalXP > 500 ? '🌟 You\'re on track!' : 'Complete tasks & challenges to grow.'}
-              </div>
-            </Card>
-
-            {/* Up Next (Timetable) */}
-            <Card>
-              <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2 mb-2">
-                <Calendar size={18} className="text-violet-400" /> Up Next
-              </h3>
-              {todayEntries.length === 0 ? (
-                <p className="text-sm text-white/40">No classes scheduled</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {todayEntries.slice(0, 2).map((entry, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm">
-                      <span className="text-white/40 w-14">{entry.start_time?.slice(0,5) || '—'}</span>
-                      <span className="text-white/80">{entry.subject_name || entry.title || 'Class'}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <Link to="/studysphere" className="mt-2 text-xs text-brand-400 hover:underline block">View full timetable →</Link>
-            </Card>
-
-            {/* Quick Capture (Brain Dump) */}
-            <Card>
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white/80 flex items-center gap-2">
-                  <PenTool size={18} className="text-green-400" /> Quick Capture
-                </h3>
-                <button onClick={() => setShowBrainDump(!showBrainDump)} className="text-white/40 hover:text-white transition">
-                  {showBrainDump ? <X size={16} /> : <Plus size={16} />}
-                </button>
-              </div>
-              {showBrainDump ? (
-                <div className="mt-2">
-                  <textarea
-                    className="w-full bg-white/10 text-white text-sm rounded-xl px-3 py-2 h-16 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                    placeholder="Write your thoughts..."
-                    value={brainDump}
-                    onChange={(e) => setBrainDump(e.target.value)}
-                  />
-                  <div className="flex gap-2 mt-2">
-                    <button onClick={saveBrainDump} className="flex-1 py-1.5 bg-brand-500 text-white text-xs font-medium rounded-xl hover:opacity-90 transition">
-                      Save
-                    </button>
-                    <button onClick={() => setShowBrainDump(false)} className="flex-1 py-1.5 bg-white/10 text-white text-xs font-medium rounded-xl hover:bg-white/20 transition">
-                      Cancel
-                    </button>
+          {/* Today's Tasks */}
+          <div className="card">
+            <h3><CheckCircle size={18} className="text-green-400" /> Today's Tasks</h3>
+            <div className="task-input-group">
+              <input
+                type="text"
+                placeholder="Add a task..."
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+              />
+              <input
+                type="number"
+                placeholder="XP"
+                value={newTaskXp}
+                onChange={(e) => setNewTaskXp(parseInt(e.target.value) || 0)}
+              />
+              <button onClick={handleAddTask} disabled={actionLoading || !newTaskTitle.trim()}>
+                <Plus size={18} />
+              </button>
+            </div>
+            {tasks.length === 0 ? (
+              <p className="text-sm text-white/40 text-center py-4">✨ No tasks for today</p>
+            ) : (
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {tasks.slice(0, 5).map((task) => (
+                  <div key={task.id} className="task-item">
+                    <input
+                      type="checkbox"
+                      checked={task.is_completed}
+                      onChange={() => !task.is_completed && handleTaskComplete(task)}
+                    />
+                    <span className={`task-title ${task.is_completed ? 'done' : ''}`}>{task.title}</span>
+                    <span className="task-xp">{task.xp_reward} XP</span>
                   </div>
-                </div>
-              ) : (
-                <p className="text-sm text-white/40 mt-1">{brainDump ? brainDump.split('\n').slice(-1)[0] : 'No notes yet.'}</p>
-              )}
-            </Card>
-          </div>
-        </div>
-
-        {/* ===== MOOD FOOTER – exactly as in reference ===== */}
-        <div className="mt-4 text-center text-xs text-white/30 border-t border-white/5 pt-3">
-          Mood updated to 🔥 {autoMood} ✨
-        </div>
-
-        {/* ===== Mobile Bottom Navigation ===== */}
-        <MobileNav active="home" navigate={navigate} />
-
-        {/* ===== Mood Selection Modal ===== */}
-        {showMoodModal && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800/90 backdrop-blur-md rounded-2xl p-6 max-w-sm w-full border border-white/10">
-              <h3 className="text-lg font-semibold text-white mb-4 text-center">How are you feeling today?</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {['happy', 'neutral', 'sad', 'focused', 'surprised', 'celebrating', 'thinking', 'calm', 'stressed'].map((mood) => (
-                  <button
-                    key={mood}
-                    onClick={() => handleMoodUpdate(mood)}
-                    className={`py-2 px-3 rounded-xl text-sm font-medium transition ${
-                      autoMood === mood
-                        ? 'bg-brand-500 text-white'
-                        : 'bg-white/10 text-white/70 hover:bg-white/20'
-                    }`}
-                  >
-                    {mood.charAt(0).toUpperCase() + mood.slice(1)}
-                  </button>
                 ))}
               </div>
-              <button
-                onClick={() => setShowMoodModal(false)}
-                className="mt-4 w-full py-2 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 transition text-sm"
-              >
+            )}
+          </div>
+
+          {/* Social Buzz */}
+          <div className="card">
+            <h3><Users size={18} className="text-brand-400" /> Social Buzz</h3>
+            <GlanceTicker posts={feedPosts} loading={feedLoading} />
+          </div>
+
+          {/* Orbit Card */}
+          <div className="card orbit-card">
+            <h3><Rocket size={18} className="text-purple-400" /> Orbit</h3>
+            <p className="text-sm text-white/60">AI‑powered interactive learning</p>
+            <p className="orbit-sub">Explore topics through Cortex, CluePath, Pathfinder &amp; Reflex.</p>
+            <Link to="/orbit" className="launch-orbit-btn">🚀 Launch Orbit</Link>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN (1/3) */}
+        <div className="space-y-6">
+          {/* Smart Suggestions */}
+          <div className="card">
+            <h3><Brain size={18} className="text-amber-400" /> Smart Suggestions</h3>
+            <div className="space-y-2">
+              <div className="suggestion-item">
+                <span className="suggestion-dot">•</span>
+                <span>You haven't studied today. Start a focus session.</span>
+              </div>
+              <div className="suggestion-item">
+                <span className="suggestion-dot">•</span>
+                <span>Algebra seems weak – try Orbit Cortex.</span>
+              </div>
+              <div className="suggestion-item">
+                <span className="suggestion-dot">•</span>
+                <span>2 tasks are overdue. Complete them now.</span>
+              </div>
+            </div>
+            <button className="mt-4 text-sm text-brand-400 hover:underline">Refresh</button>
+          </div>
+
+          {/* Your Path */}
+          <div className="card">
+            <h3><Target size={18} className="text-purple-400" /> Your Path</h3>
+            <div className="flex justify-between text-sm">
+              <span className="text-white/60">Career Readiness</span>
+              <span className="text-white font-semibold">{Math.round(progressPercent)}%</span>
+            </div>
+            <div className="progress-bar-container">
+              <div className="progress-bar-track">
+                <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
+              </div>
+            </div>
+            <p className="text-xs text-white/40 mt-2">
+              {stats.totalXP > 500 ? '🌟 You\'re on track!' : 'Complete tasks & challenges to grow.'}
+            </p>
+          </div>
+
+          {/* Up Next */}
+          <div className="card">
+            <h3><Calendar size={18} className="text-violet-400" /> Up Next</h3>
+            {todayEntries.length === 0 ? (
+              <p className="text-sm text-white/40">No classes scheduled</p>
+            ) : (
+              <div className="space-y-1">
+                {todayEntries.slice(0, 3).map((entry, idx) => (
+                  <div key={idx} className="upcoming-item">
+                    <span className="upcoming-time">{entry.start_time?.slice(0,5) || '—'}</span>
+                    <span className="upcoming-subject">{entry.subject_name || entry.title || 'Class'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Link to="/studysphere" className="mt-3 text-sm text-brand-400 hover:underline inline-block">
+              View full timetable →
+            </Link>
+          </div>
+
+          {/* Quick Capture */}
+          <div className="card">
+            <div className="flex justify-between items-center">
+              <h3><PenTool size={18} className="text-green-400" /> Quick Capture</h3>
+              <button onClick={() => setShowBrainDump(!showBrainDump)} className="text-white/40 hover:text-white">
+                {showBrainDump ? <X size={18} /> : <Plus size={18} />}
+              </button>
+            </div>
+            {showBrainDump ? (
+              <div className="mt-3">
+                <textarea
+                  className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-3 h-24 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                  placeholder="Write your thoughts..."
+                  value={brainDump}
+                  onChange={(e) => setBrainDump(e.target.value)}
+                />
+                <div className="flex gap-2 mt-3">
+                  <button onClick={saveBrainDump} className="flex-1 py-2 bg-brand-500 text-white text-sm font-medium rounded-xl hover:opacity-90 transition">
+                    Save
+                  </button>
+                  <button onClick={() => setShowBrainDump(false)} className="flex-1 py-2 bg-white/10 text-white text-sm font-medium rounded-xl hover:bg-white/20 transition">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-white/40 mt-1">{brainDump ? brainDump.split('\n').slice(-1)[0] : 'No notes yet.'}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ----- MOOD FOOTER ----- */}
+      <div className="mood-footer">
+        Mood updated to 🔥 {autoMood} ✨
+      </div>
+
+      {/* ----- MOBILE NAV ----- */}
+      <MobileNav active="home" navigate={navigate} />
+
+      {/* ----- MODALS ----- */}
+      {showMoodModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800/90 backdrop-blur-md rounded-2xl p-6 max-w-sm w-full border border-white/10">
+            <h3 className="text-lg font-semibold text-white mb-4 text-center">How are you feeling today?</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {['happy', 'neutral', 'sad', 'focused', 'surprised', 'celebrating', 'thinking', 'calm', 'stressed'].map((mood) => (
+                <button
+                  key={mood}
+                  onClick={() => handleMoodUpdate(mood)}
+                  className={`py-2 px-3 rounded-xl text-sm font-medium transition ${
+                    autoMood === mood
+                      ? 'bg-brand-500 text-white'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20'
+                  }`}
+                >
+                  {mood.charAt(0).toUpperCase() + mood.slice(1)}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowMoodModal(false)}
+              className="mt-4 w-full py-2 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 transition text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && editingTask && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full">
+            <h3 className="text-xl font-bold text-white mb-4">Edit Task</h3>
+            <div className="space-y-3">
+              <input
+                type="text"
+                className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Task title"
+              />
+              <input
+                type="number"
+                className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                value={editXp}
+                onChange={(e) => setEditXp(parseInt(e.target.value) || 0)}
+                placeholder="XP reward"
+              />
+              <input
+                type="datetime-local"
+                className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={editPriority}
+                  onChange={(e) => setEditPriority(e.target.checked)}
+                  className="w-4 h-4 accent-brand-500"
+                />
+                <label className="text-white/80 text-sm">Priority</label>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition">
                 Cancel
+              </button>
+              <button onClick={saveEditTask} className="px-4 py-2 bg-brand-500 text-white rounded-xl hover:opacity-90 transition">
+                Save
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ===== Modals ===== */}
-        {showEditModal && editingTask && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full">
-              <h3 className="text-xl font-bold text-white mb-4">Edit Task</h3>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="Task title"
-                />
-                <input
-                  type="number"
-                  className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                  value={editXp}
-                  onChange={(e) => setEditXp(parseInt(e.target.value) || 0)}
-                  placeholder="XP reward"
-                />
-                <input
-                  type="datetime-local"
-                  className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-2.5 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                  value={editDueDate}
-                  onChange={(e) => setEditDueDate(e.target.value)}
-                />
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={editPriority}
-                    onChange={(e) => setEditPriority(e.target.checked)}
-                    className="w-4 h-4 accent-brand-500"
-                  />
-                  <label className="text-white/80 text-sm">Priority</label>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition">
-                  Cancel
-                </button>
-                <button onClick={saveEditTask} className="px-4 py-2 bg-brand-500 text-white rounded-xl hover:opacity-90 transition">
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showQuizModal && (
-          <QuizModal
-            questions={quizQuestions}
-            onSubmit={() => {}}
-            onClose={() => {
-              setShowQuizModal(false);
-              setQuizQuestions([]);
-              setQuizResult(null);
-            }}
-            loading={quizLoading}
-            result={quizResult}
-            onRetry={() => {}}
-          />
-        )}
-      </div>
+      {showQuizModal && (
+        <QuizModal
+          questions={quizQuestions}
+          onSubmit={() => {}}
+          onClose={() => {
+            setShowQuizModal(false);
+            setQuizQuestions([]);
+            setQuizResult(null);
+          }}
+          loading={quizLoading}
+          result={quizResult}
+          onRetry={() => {}}
+        />
+      )}
     </div>
   );
 }

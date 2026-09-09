@@ -1,0 +1,521 @@
+/* ======================================================
+   GLOBAL & LAYOUT
+   ====================================================== */
+.dashboard-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 32px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: linear-gradient(135deg, #0b0b1a 0%, #1a1a2e 40%, #16213e 100%);
+  min-height: 100vh;
+  color: #f1f1f4;
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ======================================================
+   HEADER
+   ====================================================== */
+.dashboard-header {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(99, 102, 241, 0.08));
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 24px;
+  padding: 24px 32px;
+  margin-bottom: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  transition: box-shadow 0.3s;
+}
+
+.greeting-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.greeting-text h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  background: linear-gradient(135deg, #ffffff 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.greeting-text .date-time {
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  font-weight: 400;
+  margin: 0;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.greeting-text .daily-quote {
+  font-style: italic;
+  color: rgba(255,255,255,0.3);
+  font-size: 13px;
+  margin: 0;
+}
+
+.avatar-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(124,58,237,0.3), rgba(99,102,241,0.2));
+  padding: 4px;
+  box-shadow: 0 0 30px rgba(124,58,237,0.2);
+  transition: transform 0.3s, box-shadow 0.3s;
+  cursor: pointer;
+}
+
+.avatar-wrapper:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 50px rgba(124,58,237,0.4);
+}
+
+/* ======================================================
+   STAT CARDS
+   ====================================================== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.25s, box-shadow 0.3s, border-color 0.3s;
+  cursor: default;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  border-color: rgba(124,58,237,0.3);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: rgba(124,58,237,0.12);
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: rgba(255,255,255,0.4);
+  display: block;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.stat-sub {
+  font-size: 12px;
+  color: rgba(255,255,255,0.3);
+  margin-top: 2px;
+}
+
+/* stat-specific accent colors */
+.stat-card.level .stat-icon { background: rgba(124,58,237,0.2); }
+.stat-card.study .stat-icon { background: rgba(59,130,246,0.2); }
+.stat-card.streak .stat-icon { background: rgba(239,68,68,0.2); }
+.stat-card.mood .stat-icon { background: rgba(245,158,11,0.2); }
+.stat-card.progress .stat-icon { background: rgba(16,185,129,0.2); }
+
+/* ======================================================
+   CARDS (shared)
+   ====================================================== */
+.card {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px;
+  padding: 22px 24px;
+  transition: transform 0.25s, box-shadow 0.3s, border-color 0.3s;
+}
+
+.card:hover {
+  border-color: rgba(124,58,237,0.2);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+}
+
+.card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ======================================================
+   FOCUS SESSION
+   ====================================================== */
+.focus-duration-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.focus-duration-buttons button {
+  flex: 1;
+  padding: 10px 0;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.5);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.focus-duration-buttons button.active {
+  background: linear-gradient(135deg, #7c3aed, #6366f1);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 20px rgba(124,58,237,0.3);
+}
+
+.focus-duration-buttons button:hover:not(.active) {
+  background: rgba(255,255,255,0.08);
+  color: white;
+}
+
+.focus-input-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.focus-input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: white;
+  font-size: 14px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.focus-input:focus {
+  outline: none;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+}
+
+.start-focus-btn {
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #7c3aed, #6366f1);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.3s;
+  white-space: nowrap;
+}
+
+.start-focus-btn:hover:not(:disabled) {
+  transform: scale(1.03);
+  box-shadow: 0 8px 30px rgba(124,58,237,0.4);
+}
+
+.start-focus-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sessions-left {
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.3);
+  text-align: right;
+}
+
+/* ======================================================
+   TASKS
+   ====================================================== */
+.task-input-group {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.task-input-group input[type="text"] {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: white;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.task-input-group input[type="text"]:focus {
+  outline: none;
+  border-color: #7c3aed;
+}
+
+.task-input-group input[type="number"] {
+  width: 70px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: white;
+  text-align: center;
+  font-size: 14px;
+}
+
+.task-input-group button {
+  padding: 10px 18px;
+  background: #7c3aed;
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.task-input-group button:hover:not(:disabled) {
+  background: #6d28d9;
+  transform: scale(1.02);
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  margin-bottom: 6px;
+  transition: background 0.2s;
+}
+
+.task-item:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.task-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #7c3aed;
+  cursor: pointer;
+}
+
+.task-item .task-title {
+  flex: 1;
+  font-size: 14px;
+  color: rgba(255,255,255,0.85);
+}
+
+.task-item .task-title.done {
+  text-decoration: line-through;
+  color: rgba(255,255,255,0.3);
+}
+
+.task-item .task-xp {
+  font-size: 12px;
+  color: rgba(255,255,255,0.3);
+}
+
+/* ======================================================
+   SOCIAL BUZZ
+   ====================================================== */
+.social-post {
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.social-post:last-child {
+  border-bottom: none;
+}
+
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 6px;
+}
+
+.post-content {
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.85);
+  margin: 0 0 8px 0;
+}
+
+.post-engagement {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.3);
+}
+
+/* ======================================================
+   ORBIT CARD
+   ====================================================== */
+.orbit-card {
+  background: linear-gradient(135deg, rgba(124,58,237,0.25), rgba(99,102,241,0.15), rgba(59,130,246,0.1));
+  border: 1px solid rgba(124,58,237,0.2);
+}
+
+.orbit-card h3 {
+  color: white;
+}
+
+.orbit-card .orbit-sub {
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+  margin: 4px 0 16px 0;
+}
+
+.launch-orbit-btn {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  padding: 14px 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7c3aed, #6366f1);
+  color: white;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.3s;
+}
+
+.launch-orbit-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 30px rgba(124,58,237,0.3);
+}
+
+/* ======================================================
+   RIGHT COLUMN
+   ====================================================== */
+.suggestion-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 14px;
+  color: rgba(255,255,255,0.6);
+  line-height: 1.4;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-dot {
+  color: #f59e0b;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.progress-bar-container {
+  margin: 12px 0 6px 0;
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+  border-radius: 99px;
+  transition: width 0.6s ease;
+}
+
+.upcoming-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 14px;
+  padding: 6px 0;
+}
+
+.upcoming-time {
+  color: rgba(255,255,255,0.3);
+  min-width: 50px;
+}
+
+.upcoming-subject {
+  color: rgba(255,255,255,0.8);
+}
+
+/* ======================================================
+   MOOD FOOTER
+   ====================================================== */
+.mood-footer {
+  margin-top: 32px;
+  padding: 16px 0;
+  text-align: center;
+  font-size: 14px;
+  color: rgba(255,255,255,0.2);
+  border-top: 1px solid rgba(255,255,255,0.05);
+  letter-spacing: 0.4px;
+}
+
+/* ======================================================
+   RESPONSIVE
+   ====================================================== */
+@media (max-width: 1024px) {
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .dashboard-container { padding: 16px; }
+  .greeting-text h1 { font-size: 22px; }
+  .stat-value { font-size: 20px; }
+}
