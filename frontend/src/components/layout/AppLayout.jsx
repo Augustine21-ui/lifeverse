@@ -365,7 +365,7 @@ export default function AppLayout() {
             </>
           )}
 
-          {!hasPremiumAccess && !isAdmin && isStudent && (
+          {!hasPremiumAccess && !isAdmin && isSttuudent && (
             <div
               style={{
                 marginTop: 8,
@@ -480,11 +480,11 @@ export default function AppLayout() {
 
       <button
         onClick={toggleTutor}
-        className="fixed bottom-6 right-6 z-50 p-4 rounded-full bg-gradient-to-r from-brand-500 to-violet-600 text-white shadow-lg hover:scale-105 transition-transform duration-200 flex items-center justify-center"
+        className="fixed bottom-20 right-6 z-50 p-2.5 rounded-full bg-gradient-to-r from-brand-500 to-violet-600 text-white shadow-lg hover:scale-105 transition-transform duration-200 flex items-center justify-center"
         aria-label="Toggle AI Tutor"
       >
-        {tutorOpen ? <X size={24} /> : <MessageCircle size={24} />}
-      </button>
+        {tutorOpen ? <X size={18} /> : <MessageCircle size={18} />}
+</button>
 
       <TutorAssistant isOpen={tutorOpen} onClose={() => setTutorOpen(false)} />
     </div>
