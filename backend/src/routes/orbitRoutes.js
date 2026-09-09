@@ -43,7 +43,7 @@ router.post('/session/end-debug', async (req, res) => {
 });
 
 // GET /api/orbit/sessions/count
-router.get('/sessions/count', auth, async (req, res) => {
+router.get('/sessions/count', authenticate, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT COUNT(*) FROM orbit_sessions 

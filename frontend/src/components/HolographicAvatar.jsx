@@ -314,13 +314,7 @@ export default function HolographicAvatar({
         />
       </div>
 
-      {/* Mood label */}
-      <div className="mt-2 text-xs text-white/40 flex items-center gap-1">
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full inline-block" style={{ background: glowColor }} />
-          {config.label}
-        </span>
-      </div>
+      {/* ─── MOOD LABEL REMOVED ─────────────────────────────────── */}
 
       {/* Interaction menu */}
       {showMenu && (

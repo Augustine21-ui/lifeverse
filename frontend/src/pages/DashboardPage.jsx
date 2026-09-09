@@ -19,21 +19,18 @@ import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
 import { useTheme } from '../context/ThemeContext';
 
-// ---- Import the new CSS for enhanced UI ----
 import './DashboardPage.css';
 
 // ---- Confetti (unchanged) ----
 function Confetti({ active, onComplete }) {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
-
   useEffect(() => {
     if (!active) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-
     const colors = ['#f44336', '#e91e63', '#9c27b0', '#3f51b5', '#2196f3', '#4caf50', '#ffeb3b', '#ff9800'];
     const particles = [];
     for (let i = 0; i < 150; i++) {
@@ -49,7 +46,6 @@ function Confetti({ active, onComplete }) {
         shape: Math.random() > 0.5 ? 'rect' : 'circle',
       });
     }
-
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       let allFinished = true;
@@ -82,7 +78,6 @@ function Confetti({ active, onComplete }) {
       cancelAnimationFrame(animationRef.current);
     };
   }, [active]);
-
   if (!active) return null;
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />;
 }
@@ -108,7 +103,6 @@ const MobileNav = ({ active, navigate }) => {
     { id: 'studysphere', icon: BookOpen, label: 'Study', path: '/studysphere' },
     { id: 'profile', icon: User, label: 'Profile', path: '/profile' },
   ];
-
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-t border-white/10 safe-bottom">
       <div className="flex justify-around items-center max-w-md mx-auto px-2 py-2">
@@ -195,9 +189,8 @@ export default function DashboardPage() {
   const dailyQuote = getDailyQuote();
 
   const [avatarState, setAvatarState] = useState('idle');
-  const [showMoodModal, setShowMoodModal] = useState(false);
 
-  // ---- NEW: for automatic mood based on orbit sessions ----
+  // ---- Automatic mood based on orbit sessions ----
   const [orbitSessionCount, setOrbitSessionCount] = useState(0);
   const moodTimeoutRef = useRef(null);
 
@@ -215,14 +208,11 @@ export default function DashboardPage() {
 
   // ---- Automatic mood management ----
   const setMoodWithReset = (newMood) => {
-    // Clear any pending reset
     if (moodTimeoutRef.current) {
       clearTimeout(moodTimeoutRef.current);
       moodTimeoutRef.current = null;
     }
-    // Set the new mood
     setAutoMood(newMood);
-    // Reset to neutral after 2 minutes of inactivity
     moodTimeoutRef.current = setTimeout(() => {
       setAutoMood('neutral');
       moodTimeoutRef.current = null;
@@ -301,14 +291,12 @@ export default function DashboardPage() {
         setHasPremiumAccess(subscriptionData.isActive || subscriptionData.isInstitutional);
       }
 
-      // ---- NEW: Fetch orbit session count ----
+      // ---- Fetch orbit session count ----
       try {
-        // Use a dedicated endpoint – if not available, fallback to a generic /orbit/sessions
         let orbitData = null;
         if (api.getOrbitSessionCount) {
           orbitData = await api.getOrbitSessionCount();
         } else {
-          // Fallback: fetch all completed sessions and count them
           const sessions = await api.get('/orbit/sessions?status=completed');
           orbitData = { count: sessions.length || 0 };
         }
@@ -514,18 +502,6 @@ export default function DashboardPage() {
     setShowBrainDump(false);
   };
 
-  // ---- Mood update (manual override) ----
-  const handleMoodUpdate = async (newMood) => {
-    try {
-      setMoodWithReset(newMood); // use the same logic with reset
-      setMoodPercent(Math.floor(Math.random() * 100));
-      setShowMoodModal(false);
-      showToast(`Mood updated to ${newMood}`, 'success');
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   // ---- Computed ----
   const displayName = user?.full_name || user?.username || 'Learner';
   const tasksDoneToday = tasks.filter(t => t.is_completed).length;
@@ -617,14 +593,13 @@ export default function DashboardPage() {
       {/* ----- HEADER ----- */}
       <div className="dashboard-header">
         <div className="greeting-section">
-          <div className="avatar-wrapper" onClick={() => setShowMoodModal(true)}>
+          <div className="avatar-wrapper">
             <HolographicAvatar
               mood={autoMood}
               size={56}
               animation="float"
               imageMap={avatarImageMap}
-              imageSrc={user?.avatar_url || null} // <-- user uploaded photo
-              onClick={() => setShowMoodModal(true)}
+              imageSrc={user?.avatar_url || null}
             />
           </div>
           <div className="greeting-text">
@@ -679,7 +654,7 @@ export default function DashboardPage() {
             <span className="stat-sub">{stats.streakDays > 0 ? 'Keep going!' : 'Start today'}</span>
           </div>
         </div>
-        <div className="stat-card mood" onClick={() => setShowMoodModal(true)}>
+        <div className="stat-card mood">
           <div className="stat-icon">😊</div>
           <div className="stat-content">
             <span className="stat-label">Mood</span>
@@ -881,44 +856,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ----- MOOD FOOTER ----- */}
-      <div className="mood-footer">
-        Mood updated to 🔥 {autoMood} ✨
-      </div>
-
       {/* ----- MOBILE NAV ----- */}
       <MobileNav active="home" navigate={navigate} />
 
-      {/* ----- MODALS ----- */}
-      {showMoodModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800/90 backdrop-blur-md rounded-2xl p-6 max-w-sm w-full border border-white/10">
-            <h3 className="text-lg font-semibold text-white mb-4 text-center">How are you feeling today?</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {['happy', 'neutral', 'sad', 'focused', 'surprised', 'celebrating', 'thinking', 'calm', 'stressed'].map((mood) => (
-                <button
-                  key={mood}
-                  onClick={() => handleMoodUpdate(mood)}
-                  className={`py-2 px-3 rounded-xl text-sm font-medium transition ${
-                    autoMood === mood
-                      ? 'bg-brand-500 text-white'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20'
-                  }`}
-                >
-                  {mood.charAt(0).toUpperCase() + mood.slice(1)}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowMoodModal(false)}
-              className="mt-4 w-full py-2 bg-white/5 text-white/60 rounded-xl hover:bg-white/10 transition text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
+      {/* ----- MODALS (only edit and quiz remain) ----- */}
       {showEditModal && editingTask && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full">
