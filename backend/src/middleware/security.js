@@ -1,12 +1,11 @@
-// backend/middleware/security.js
-const rateLimit = require('express-rate-limit');
-const helmet = require('helmet');
-const xss = require('xss');
+// backend/src/middleware/security.js
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import xss from 'xss';
 
-// ─── Rate Limiting ───────────────────────────────────────────────
+// ─── Rate Limiters ───────────────────────────────────────────────
 
-// General API limiter
-const generalLimiter = rateLimit({
+export const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 100,
   message: { error: 'Too many requests, please try again later.', status: 429 },
@@ -14,30 +13,27 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Auth limiter (stricter)
-const authLimiter = rateLimit({
+export const authLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
   message: { error: 'Too many login attempts, please try again after 1 minute.', status: 429 },
 });
 
-// Password reset limiter
-const passwordResetLimiter = rateLimit({
+export const passwordResetLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   max: 3,
   message: { error: 'Too many password reset requests, please try again later.', status: 429 },
 });
 
-// API key limiter (if you use API keys)
-const apiKeyLimiter = rateLimit({
+export const apiKeyLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 1000,
   message: { error: 'API rate limit exceeded.', status: 429 },
 });
 
-// ─── Security Headers (Helmet) ──────────────────────────────────
+// ─── Security Headers ──────────────────────────────────────────
 
-const securityHeaders = helmet({
+export const securityHeaders = helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -62,10 +58,9 @@ const securityHeaders = helmet({
   xssFilter: true,
 });
 
-// ─── XSS Protection ─────────────────────────────────────────────
+// ─── XSS Protection ────────────────────────────────────────────
 
-const xssProtection = (req, res, next) => {
-  // Sanitize body, query, params
+export const xssProtection = (req, res, next) => {
   const sanitize = (obj) => {
     for (const key in obj) {
       if (typeof obj[key] === 'string') {
@@ -83,8 +78,8 @@ const xssProtection = (req, res, next) => {
 
 // ─── IP Blocklist ──────────────────────────────────────────────
 
-const blockedIPs = new Set([]); // populate with IPs to block
-const ipBlocklist = (req, res, next) => {
+const blockedIPs = new Set([]);
+export const ipBlocklist = (req, res, next) => {
   const clientIP = req.ip || req.connection.remoteAddress;
   if (blockedIPs.has(clientIP)) {
     return res.status(403).json({ error: 'Access denied.' });
@@ -94,7 +89,7 @@ const ipBlocklist = (req, res, next) => {
 
 // ─── Request Logger ────────────────────────────────────────────
 
-const requestLogger = (req, res, next) => {
+export const requestLogger = (req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
@@ -114,15 +109,4 @@ const requestLogger = (req, res, next) => {
     }
   });
   next();
-};
-
-module.exports = {
-  generalLimiter,
-  authLimiter,
-  passwordResetLimiter,
-  apiKeyLimiter,
-  securityHeaders,
-  xssProtection,
-  ipBlocklist,
-  requestLogger,
 };

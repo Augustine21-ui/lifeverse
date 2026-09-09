@@ -1,9 +1,9 @@
-// backend/middleware/validation.js
-const { body, param, query, validationResult } = require('express-validator');
+// backend/src/middleware/validation.js
+import { body, param, query, validationResult } from 'express-validator';
 
 // ─── Validation Rules ──────────────────────────────────────────
 
-const validateRegistration = [
+export const validateRegistration = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
   body('password')
     .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
@@ -16,23 +16,23 @@ const validateRegistration = [
     .matches(/^[a-zA-Z0-9_]+$/).withMessage('Only letters, numbers, underscores'),
 ];
 
-const validateLogin = [
+export const validateLogin = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
   body('password').notEmpty().withMessage('Password required'),
 ];
 
-const validateTask = [
+export const validateTask = [
   body('title').isLength({ min: 1, max: 200 }).withMessage('Task title required'),
   body('xp_reward').optional().isInt({ min: 0, max: 1000 }).withMessage('XP reward 0–1000'),
   body('due_date').optional().isISO8601().withMessage('Invalid date'),
 ];
 
-const validateFocusSession = [
+export const validateFocusSession = [
   body('duration').isInt({ min: 1, max: 180 }).withMessage('Duration 1–180 minutes'),
   body('topic').optional().isLength({ max: 100 }).withMessage('Topic too long'),
 ];
 
-const validateOpportunity = [
+export const validateOpportunity = [
   body('title').isLength({ min: 1, max: 200 }).withMessage('Title required'),
   body('description').isLength({ min: 10, max: 2000 }).withMessage('Description 10–2000 chars'),
   body('age_min').optional().isInt({ min: 0, max: 100 }).withMessage('Invalid min age'),
@@ -49,7 +49,7 @@ const validateOpportunity = [
 
 // ─── Handle Validation Errors ──────────────────────────────────
 
-const handleValidationErrors = (req, res, next) => {
+export const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({
@@ -58,13 +58,4 @@ const handleValidationErrors = (req, res, next) => {
     });
   }
   next();
-};
-
-module.exports = {
-  validateRegistration,
-  validateLogin,
-  validateTask,
-  validateFocusSession,
-  validateOpportunity,
-  handleValidationErrors,
 };

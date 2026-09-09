@@ -1,8 +1,8 @@
-// backend/middleware/sanitize.js
+// backend/src/middleware/sanitize.js
 
 // ─── Request Body Size Limiter ─────────────────────────────────
 
-const bodySizeLimiter = (req, res, next) => {
+export const bodySizeLimiter = (req, res, next) => {
   const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
   const contentLength = parseInt(req.headers['content-length'] || '0');
   if (contentLength > MAX_SIZE) {
@@ -15,7 +15,7 @@ const bodySizeLimiter = (req, res, next) => {
 
 // ─── Query String Whitelist ────────────────────────────────────
 
-const sanitizeQuery = (req, res, next) => {
+export const sanitizeQuery = (req, res, next) => {
   const allowedParams = ['limit', 'offset', 'sort', 'order', 'search', 'filter'];
   for (const key in req.query) {
     if (!allowedParams.includes(key)) {
@@ -27,7 +27,7 @@ const sanitizeQuery = (req, res, next) => {
 
 // ─── Prevent Parameter Pollution ──────────────────────────────
 
-const preventParamPollution = (req, res, next) => {
+export const preventParamPollution = (req, res, next) => {
   for (const key in req.query) {
     if (Array.isArray(req.query[key])) {
       req.query[key] = req.query[key][0];
@@ -39,9 +39,3 @@ const preventParamPollution = (req, res, next) => {
 // ─── SQL Injection Warning (already handled by pg parameterization) ──
 // We just log a warning if we detect suspicious patterns in raw queries.
 // (But we don't have raw queries – we use parameterized queries.)
-
-module.exports = {
-  bodySizeLimiter,
-  sanitizeQuery,
-  preventParamPollution,
-};
