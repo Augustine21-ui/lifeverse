@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'; // ← added useLocation
 import { useAuth } from '../../hooks/useAuth';
 import {
   LayoutDashboard, Activity, Target, BookOpen, Briefcase, Users, Bot, Link, LogOut, Zap, Menu, ChevronDown, ChevronRight, Award, Trophy, ChevronLeft, MessageCircle, X, Send, Minimize2, Maximize2, Crown, Rocket
@@ -6,7 +6,7 @@ import {
 import { useState, useRef, useEffect } from 'react';
 import { useSubscription } from '../../hooks/useSubscription';
 
-// ===== Inline TutorAssistant component =====
+// ===== Inline TutorAssistant component (unchanged) =====
 function TutorAssistant({ isOpen, onClose }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -71,6 +71,7 @@ function TutorAssistant({ isOpen, onClose }) {
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation(); // ← for hiding on dashboard
   const [mobileOpen, setMobileOpen] = useState(false);
   const [studySphereOpen, setStudySphereOpen] = useState(true);
   const [tutorOpen, setTutorOpen] = useState(false);
@@ -103,7 +104,6 @@ export default function AppLayout() {
   if (isStudent) {
     mainNav = [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-      // ✅ Merged Goals, Badges, Skills, Leaderboard into one Skills item
       { to: '/skills', icon: Activity, label: 'Skills' },
     ];
   } else if (isParent) {
@@ -159,7 +159,6 @@ export default function AppLayout() {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
       if (!mobile) {
-        // On desktop, ensure sidebar is open
         setSidebarOpen(true);
       }
     };
@@ -365,7 +364,7 @@ export default function AppLayout() {
             </>
           )}
 
-          {!hasPremiumAccess && !isAdmin && isSttuudent && (
+          {!hasPremiumAccess && !isAdmin && isStudent && (
             <div
               style={{
                 marginTop: 8,
@@ -478,13 +477,17 @@ export default function AppLayout() {
         <Outlet />
       </main>
 
-      <button
-        onClick={toggleTutor}
-        className="fixed bottom-20 right-6 z-50 p-2.5 rounded-full bg-gradient-to-r from-brand-500 to-violet-600 text-white shadow-lg hover:scale-105 transition-transform duration-200 flex items-center justify-center"
-        aria-label="Toggle AI Tutor"
-      >
-        {tutorOpen ? <X size={18} /> : <MessageCircle size={18} />}
-</button>
+      {/* ─── AI TUTOR BUTTON ─────────────────────────────────────────── */}
+      {/* Only show on pages other than dashboard, and on mobile/desktop consistently */}
+      {location.pathname !== '/dashboard' && (
+        <button
+          onClick={toggleTutor}
+          className="fixed bottom-6 right-6 z-50 p-2 rounded-full bg-gradient-to-r from-brand-500 to-violet-600 text-white shadow-lg hover:scale-105 transition-transform duration-200 flex items-center justify-center"
+          aria-label="Toggle AI Tutor"
+        >
+          {tutorOpen ? <X size={16} /> : <MessageCircle size={16} />}
+        </button>
+      )}
 
       <TutorAssistant isOpen={tutorOpen} onClose={() => setTutorOpen(false)} />
     </div>
