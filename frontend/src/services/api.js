@@ -2,9 +2,6 @@
 // ✅ Updated - Added generic get/post/put/patch/delete methods
 // Original methods remain untouched
 
-
-
-
 const API_BASE = 'https://lifeverse-1.onrender.com/api';
 console.log('🔌 API_BASE:', API_BASE);
 
@@ -549,6 +546,14 @@ export const api = {
     headers: authHeaders()
   }).then(handleResponse),
 
+  /**
+   * ✅ NEW: Get count of completed orbit sessions
+   * Used by MoodContext to trigger "excited" mood when count >= 4
+   */
+  getOrbitSessionCount: () => fetch(`${API_BASE}/orbit/sessions/count`, {
+    headers: authHeaders(),
+  }).then(handleResponse),
+
   // Study context
   getCurrentStudy: () => fetch(`${API_BASE}/study/current`, {
     headers: authHeaders()
@@ -734,190 +739,177 @@ export const api = {
   }).then(handleResponse),
 
   // Institution endpoints
-getInstitutionDashboard: () => api.get('/institution/dashboard'),
-updateStudentGroup: (data) => api.put('/institution/students/group', data),
+  getInstitutionDashboard: () => api.get('/institution/dashboard'),
+  updateStudentGroup: (data) => api.put('/institution/students/group', data),
 
-// Groups
-getGroups: () => api.get('/institution/groups'),
-createGroup: (data) => api.post('/institution/groups', data),
-updateGroup: (id, data) => api.put(`/institution/groups/${id}`, data),
-deleteGroup: (id) => api.delete(`/institution/groups/${id}`),
+  // Groups
+  getGroups: () => api.get('/institution/groups'),
+  createGroup: (data) => api.post('/institution/groups', data),
+  updateGroup: (id, data) => api.put(`/institution/groups/${id}`, data),
+  deleteGroup: (id) => api.delete(`/institution/groups/${id}`),
 
-// Timetable
-getTimetableByGroup: (groupId) => api.get(`/institution/timetable/group/${groupId}`),
-uploadTimetableCSV: (formData) => api.post('/institution/timetable/upload', formData, {
-  headers: { 'Content-Type': 'multipart/form-data' },
-}),
+  // Timetable
+  getTimetableByGroup: (groupId) => api.get(`/institution/timetable/group/${groupId}`),
+  uploadTimetableCSV: (formData) => api.post('/institution/timetable/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
 
-// Resources
-createResource: (data) => api.post('/institution/resources', data),
-getResources: (targetType, targetId) => api.get(`/institution/resources/${targetType}/${targetId}`),
+  // Resources
+  createResource: (data) => api.post('/institution/resources', data),
+  getResources: (targetType, targetId) => api.get(`/institution/resources/${targetType}/${targetId}`),
 
-// Announcements
-createAnnouncement: (data) => api.post('/institution/announcements', data),
-getAnnouncements: () => api.get('/institution/announcements'),
+  // Announcements
+  createAnnouncement: (data) => api.post('/institution/announcements', data),
+  getAnnouncements: () => api.get('/institution/announcements'),
 
-// Teacher assignments
-assignTeacher: (data) => api.post('/institution/assign', data),
-removeTeacherAssignment: (teacherId, groupId) => api.delete(`/institution/assign/${teacherId}/${groupId}`),
+  // Teacher assignments
+  assignTeacher: (data) => api.post('/institution/assign', data),
+  removeTeacherAssignment: (teacherId, groupId) => api.delete(`/institution/assign/${teacherId}/${groupId}`),
 
-// StudySphere
-getStudentStudySphere: () => api.get('/institution/studysphere'),
-getHierarchy: () => api.get('/institution/hierarchy'),
-getStudentSubjects: () => api.get('/institution/student-subjects'),
+  // StudySphere
+  getStudentStudySphere: () => api.get('/institution/studysphere'),
+  getHierarchy: () => api.get('/institution/hierarchy'),
+  getStudentSubjects: () => api.get('/institution/student-subjects'),
 
-// Goals
-getGoals: () => api.get('/goals'),
-createGoal: (data) => fetch(`${API_BASE}/goals`, {
-  method: 'POST',
-  headers: authHeaders(),
-  body: JSON.stringify(data),
-}).then(handleResponse),
-updateGoal: (id, data) => api.put(`/goals/${id}`, data),
-deleteGoal: (id) => api.delete(`/goals/${id}`),
+  // Goals
+  getGoals: () => api.get('/goals'),
+  createGoal: (data) => fetch(`${API_BASE}/goals`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  }).then(handleResponse),
+  updateGoal: (id, data) => api.put(`/goals/${id}`, data),
+  deleteGoal: (id) => api.delete(`/goals/${id}`),
 
-// Skills
-getSkills: () => api.get('/skills'),
-getUserSkills: () => api.get('/user-skills'),
-updateUserSkill: (data) => api.put('/user-skills', data),
-getSkillsSummary: () => api.get('/skills-summary'),
+  // Skills
+  getSkills: () => api.get('/skills'),
+  getUserSkills: () => api.get('/user-skills'),
+  updateUserSkill: (data) => api.put('/user-skills', data),
+  getSkillsSummary: () => api.get('/skills-summary'),
 
-getUserBadges: () => api.get('/my-badges'),
-getBadges: () => api.get('/badges'),
+  getUserBadges: () => api.get('/my-badges'),
+  getBadges: () => api.get('/badges'),
 
-// ─── Skill Growth ───
-getSkillProgress: (skillId) => api.get(`/skills/${skillId}/progress`),
-getProjects: (skillId) => api.get(`/skills/${skillId}/projects`),
-assignProject: (projectId) => api.post('/projects/assign', { projectId }),
-updateProjectAssignment: (assignmentId, data) => api.put(`/project-assignments/${assignmentId}`, data),
-getUserProjects: (skillId) => api.get(`/skills/${skillId}/my-projects`),
-getChallenges: (skillId) => api.get(`/skills/${skillId}/challenges`),
-submitChallenge: (data) => api.post('/challenges/submit', data),
-getUserChallengeSubmissions: (skillId) => api.get(`/skills/${skillId}/my-challenges`),
-getPracticeActivities: (skillId) => api.get(`/skills/${skillId}/practice`),
-submitPracticeResult: (data) => api.post('/practice/submit', data),
-getUserPracticeResults: (skillId) => api.get(`/skills/${skillId}/my-practice`),
-getRecommendations: (skillId) => api.get(`/skills/${skillId}/recommendations`),
-createSkill: (data) => api.post('/skills/create', data),
+  // ─── Skill Growth ───
+  getSkillProgress: (skillId) => api.get(`/skills/${skillId}/progress`),
+  getProjects: (skillId) => api.get(`/skills/${skillId}/projects`),
+  assignProject: (projectId) => api.post('/projects/assign', { projectId }),
+  updateProjectAssignment: (assignmentId, data) => api.put(`/project-assignments/${assignmentId}`, data),
+  getUserProjects: (skillId) => api.get(`/skills/${skillId}/my-projects`),
+  getChallenges: (skillId) => api.get(`/skills/${skillId}/challenges`),
+  submitChallenge: (data) => api.post('/challenges/submit', data),
+  getUserChallengeSubmissions: (skillId) => api.get(`/skills/${skillId}/my-challenges`),
+  getPracticeActivities: (skillId) => api.get(`/skills/${skillId}/practice`),
+  submitPracticeResult: (data) => api.post('/practice/submit', data),
+  getUserPracticeResults: (skillId) => api.get(`/skills/${skillId}/my-practice`),
+  getRecommendations: (skillId) => api.get(`/skills/${skillId}/recommendations`),
+  createSkill: (data) => api.post('/skills/create', data),
 
-// ---- Rooms ----
-getInstitutionRooms: () => api.get('/institution/rooms'),
-createRoom: (data) => api.post('/institution/rooms', data),
-updateRoom: (id, data) => api.put(`/institution/rooms/${id}`, data),
-deleteRoom: (id) => api.delete(`/institution/rooms/${id}`),
+  // ---- Rooms ----
+  getInstitutionRooms: () => api.get('/institution/rooms'),
+  createRoom: (data) => api.post('/institution/rooms', data),
+  updateRoom: (id, data) => api.put(`/institution/rooms/${id}`, data),
+  deleteRoom: (id) => api.delete(`/institution/rooms/${id}`),
 
-// ---- Courses ----
-getInstitutionCourses: () => api.get('/institution/courses'),
-createCourse: (data) => api.post('/institution/courses', data),
-updateCourse: (id, data) => api.put(`/institution/courses/${id}`, data),
-deleteCourse: (id) => api.delete(`/institution/courses/${id}`),
+  // ---- Courses ----
+  getInstitutionCourses: () => api.get('/institution/courses'),
+  createCourse: (data) => api.post('/institution/courses', data),
+  updateCourse: (id, data) => api.put(`/institution/courses/${id}`, data),
+  deleteCourse: (id) => api.delete(`/institution/courses/${id}`),
 
-// ---- Teachers for assignment ----
-getInstitutionTeachers: () => api.get('/institution/teachers'),
+  // ---- Teachers for assignment ----
+  getInstitutionTeachers: () => api.get('/institution/teachers'),
 
-// ---- Timetable entries ----
-createTimetableEntry: (data) => api.post('/institution/timetable', data),
-updateTimetableEntry: (id, data) => api.put(`/institution/timetable/${id}`, data),
-deleteTimetableEntry: (id) => api.delete(`/institution/timetable/${id}`),
+  // ---- Timetable entries ----
+  createTimetableEntry: (data) => api.post('/institution/timetable', data),
+  updateTimetableEntry: (id, data) => api.put(`/institution/timetable/${id}`, data),
+  deleteTimetableEntry: (id) => api.delete(`/institution/timetable/${id}`),
 
-// Timetable endpoints
-getTimetableDay: (date) => api.get(`/timetable/my/day/${date}`),
-getTimetableWeek: (startDate) => api.get(`/timetable/my/week/${startDate}`),
-getTimetableMonth: (year, month) => api.get(`/timetable/my/month/${year}/${month}`),
+  // Timetable endpoints
+  getTimetableDay: (date) => api.get(`/timetable/my/day/${date}`),
+  getTimetableWeek: (startDate) => api.get(`/timetable/my/week/${startDate}`),
+  getTimetableMonth: (year, month) => api.get(`/timetable/my/month/${year}/${month}`),
 
-// Study Notes
-getStudyNotes: () => api.get('/study/notes'),
-createStudyNote: (data) => api.post('/study/notes', data),
-updateStudyNote: (id, data) => api.put(`/study/notes/${id}`, data),
-deleteStudyNote: (id) => api.delete(`/study/notes/${id}`),
-pinStudyNote: (id, data) => api.patch(`/study/notes/${id}/pin`, data),
+  // Study Notes
+  getStudyNotes: () => api.get('/study/notes'),
+  createStudyNote: (data) => api.post('/study/notes', data),
+  updateStudyNote: (id, data) => api.put(`/study/notes/${id}`, data),
+  deleteStudyNote: (id) => api.delete(`/study/notes/${id}`),
+  pinStudyNote: (id, data) => api.patch(`/study/notes/${id}/pin`, data),
 
-// Highlights
-getHighlights: () => api.get('/study/highlights'),
-createHighlight: (data) => api.post('/study/highlights', data),
+  // Highlights
+  getHighlights: () => api.get('/study/highlights'),
+  createHighlight: (data) => api.post('/study/highlights', data),
 
-// Bookmarks
-getBookmarks: () => api.get('/study/bookmarks'),
-createBookmark: (data) => api.post('/study/bookmarks', data),
-deleteBookmark: (id) => api.delete(`/study/bookmarks/${id}`),
+  // Bookmarks
+  getBookmarks: () => api.get('/study/bookmarks'),
+  createBookmark: (data) => api.post('/study/bookmarks', data),
+  deleteBookmark: (id) => api.delete(`/study/bookmarks/${id}`),
 
-// ─── Library ──────────────────────────────────────────────────────
-getLibraryCategories: () => api.get('/library/categories'),
-getLibraryBooks: (params) => api.get('/library/books', params),
-getLibraryBook: (id) => api.get(`/library/books/${id}`),
-getLibraryContinueReading: () => api.get('/library/continue'),
-updateLibraryProgress: (bookId, data) => api.put(`/library/books/${bookId}/progress`, data),
-getLibraryProgress: (bookId) => api.get(`/library/books/${bookId}/progress`),
-getLibraryBookmarks: (bookId) => api.get(`/library/books/${bookId}/bookmarks`),
-createLibraryBookmark: (bookId, data) => api.post(`/library/books/${bookId}/bookmarks`, data),
-deleteLibraryBookmark: (bookId, bookmarkId) => api.delete(`/library/books/${bookId}/bookmarks/${bookmarkId}`),
+  // ─── Library ──────────────────────────────────────────────────────
+  getLibraryCategories: () => api.get('/library/categories'),
+  getLibraryBooks: (params) => api.get('/library/books', params),
+  getLibraryBook: (id) => api.get(`/library/books/${id}`),
+  getLibraryContinueReading: () => api.get('/library/continue'),
+  updateLibraryProgress: (bookId, data) => api.put(`/library/books/${bookId}/progress`, data),
+  getLibraryProgress: (bookId) => api.get(`/library/books/${bookId}/progress`),
+  getLibraryBookmarks: (bookId) => api.get(`/library/books/${bookId}/bookmarks`),
+  createLibraryBookmark: (bookId, data) => api.post(`/library/books/${bookId}/bookmarks`, data),
+  deleteLibraryBookmark: (bookId, bookmarkId) => api.delete(`/library/books/${bookId}/bookmarks/${bookmarkId}`),
 
-// ─── Opportunities ──────────────────────────────────────────────────
-getOpportunitiesPersonalized: () => api.get('/opportunities/personalized'),
-getOpportunities: (params) => api.get('/opportunities', params),
-getOpportunity: (id) => api.get(`/opportunities/${id}`),
-applyOpportunity: (id) => api.post(`/opportunities/${id}/apply`),
-getMyApplications: () => api.get('/my-applications'),
+  // ─── Opportunities ──────────────────────────────────────────────────
+  getOpportunitiesPersonalized: () => api.get('/opportunities/personalized'),
+  getOpportunities: (params) => api.get('/opportunities', params),
+  getOpportunity: (id) => api.get(`/opportunities/${id}`),
+  applyOpportunity: (id) => api.post(`/opportunities/${id}/apply`),
+  getMyApplications: () => api.get('/my-applications'),
 
-getAllEvents: () => fetch(`${API_BASE}/events`, {
-  headers: authHeaders()
-}).then(handleResponse),
+  getAllEvents: () => fetch(`${API_BASE}/events`, {
+    headers: authHeaders()
+  }).then(handleResponse),
 
-getNotifications: () => fetch(`${API_BASE}/notifications`, {
-  headers: authHeaders()
-}).then(handleResponse),
+  getNotifications: () => fetch(`${API_BASE}/notifications`, {
+    headers: authHeaders()
+  }).then(handleResponse),
 
-aiTutorChat: (message, context) => fetch(`${API_BASE}/ai/tutor`, {
-  method: 'POST',
-  headers: authHeaders(),
-  body: JSON.stringify({ message, context }),
-}).then(handleResponse),
+  aiTutorChat: (message, context) => fetch(`${API_BASE}/ai/tutor`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ message, context }),
+  }).then(handleResponse),
 
-aiGenerateQuiz: (data) => fetch(`${API_BASE}/ai/quiz`, {
-  method: 'POST',
-  headers: authHeaders(),
-  body: JSON.stringify(data),
-}).then(handleResponse),
+  aiGenerateQuiz: (data) => fetch(`${API_BASE}/ai/quiz`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  }).then(handleResponse),
 
-aiGenerateOrbitContent: (data) => fetch(`${API_BASE}/ai/orbit/generate`, {
-  method: 'POST',
-  headers: authHeaders(),
-  body: JSON.stringify(data),
-}).then(handleResponse),
+  aiGenerateOrbitContent: (data) => fetch(`${API_BASE}/ai/orbit/generate`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  }).then(handleResponse),
 
-aiGetRecommendations: () => fetch(`${API_BASE}/ai/recommendations`, {
-  headers: authHeaders()
-}).then(handleResponse),
+  aiGetRecommendations: () => fetch(`${API_BASE}/ai/recommendations`, {
+    headers: authHeaders()
+  }).then(handleResponse),
 
-// frontend/src/services/api.js
+  // ─── Auth verification (no token needed) ──────────────────
+  verifyEmail: (email, code) => fetch(`${API_BASE}/auth/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  }).then(handleResponse),
 
-// ─── Replace these two methods ──────────────────────────────
-verifyEmail: (email, code) => fetch(`${API_BASE}/auth/verify-email`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },   // ✅ no Authorization
-  body: JSON.stringify({ email, code }),
-}).then(handleResponse),
+  resendVerification: (email) => fetch(`${API_BASE}/auth/resend-verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  }).then(handleResponse),
 
-resendVerification: (email) => fetch(`${API_BASE}/auth/resend-verification`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },   // ✅ no Authorization
-  body: JSON.stringify({ email }),
-}).then(handleResponse),
-
-createSkill: (data) => fetch(`${API_BASE}/skills/create`, {
-  method: 'POST',
-  headers: authHeaders(),
-  body: JSON.stringify(data),
-}).then(handleResponse),
-
-// Get count of completed orbit sessions
-getOrbitSessionCount: async () => {
-  const token = localStorage.getItem('token');
-  const res = await fetch('/api/orbit/sessions/count', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error('Request failed');
-  return res.json(); // { count: number }
-},
-
+  createSkill: (data) => fetch(`${API_BASE}/skills/create`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  }).then(handleResponse),
 };
