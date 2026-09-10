@@ -3,38 +3,40 @@ import { createContext, useContext, useState, useRef, useCallback } from 'react'
 
 const MoodContext = createContext(null);
 
-// ─── Mood rules ────────────────────────────────────────────────────
-// Maps events to moods. Add more as features grow.
+// ─── Event → Mood mapping (updated per architecture diagram) ─────
 const EVENT_TO_MOOD = {
-  'task-complete': 'happy',
-  'focus-complete': 'focused',
-  'orbit-start': 'excited',      // user clicked a suggestion / started orbit
-  'orbit-pass': 'happy',         // passed a challenge
-  'orbit-fail': 'neutral',       // failed → back to neutral
-  'progress-up': 'excited',      // progress % increased significantly
-  'level-up': 'happy',           // leveled up
-  'idle': 'neutral',             // default
+  // Learning events
+  'task-complete': 'happy',          // Task finished
+  'focus-complete': 'focused',       // Focus session done
+  'orbit-start': 'excited',          // Planet clicked / suggestion accepted
+  'orbit-pass': 'happy',             // Passed an orbit challenge
+  'orbit-fail': 'calm',              // ⬅️ CHANGED: fail → calm (diagram)
+  'progress-up': 'excited',          // Progress milestone
+  'level-up': 'celebrating',         // ⬅️ CHANGED: level up → celebrating
+  'weakness-detected': 'calm',       // ⬅️ NEW: <50% detected
+  'mentorship-linked': 'focused',    // ⬅️ NEW: mentorship matched
+  'mentorship-request': 'excited',   // ⬅️ NEW: sent/received request
+  'idle': 'neutral',
 };
 
-// How long each mood lasts before auto-reset to neutral (ms)
+// Auto‑reset durations (ms)
 const MOOD_DURATIONS = {
-  happy: 90 * 1000,       // 1.5 min
-  excited: 60 * 1000,     // 1 min
-  focused: 120 * 1000,    // 2 min
-  neutral: 0,             // no auto-reset needed
-  calm: 120 * 1000,
+  happy: 90 * 1000,
+  excited: 60 * 1000,
+  focused: 120 * 1000,
+  celebrating: 45 * 1000,
+  calm: 150 * 1000,      // Calm lingers longer (weakness state)
   thinking: 60 * 1000,
-  celebrating: 30 * 1000,
   sad: 90 * 1000,
+  neutral: 0,
 };
 
 export function MoodProvider({ children }) {
   const [mood, setMoodState] = useState('neutral');
+  const [context, setContext] = useState({ eventName: null, meta: {} });
   const resetTimerRef = useRef(null);
 
-  // Core setter with auto-reset
   const setMood = useCallback((newMood, customDuration) => {
-    // Clear any pending reset
     if (resetTimerRef.current) {
       clearTimeout(resetTimerRef.current);
       resetTimerRef.current = null;
@@ -42,43 +44,40 @@ export function MoodProvider({ children }) {
 
     setMoodState(newMood);
 
-    // Skip auto-reset for neutral
     if (newMood === 'neutral') return;
 
     const duration = customDuration ?? MOOD_DURATIONS[newMood] ?? 90000;
     resetTimerRef.current = setTimeout(() => {
       setMoodState('neutral');
+      setContext({ eventName: null, meta: {} });
       resetTimerRef.current = null;
     }, duration);
   }, []);
 
-  // Trigger by event name (used everywhere in the app)
-  const triggerMood = useCallback((eventName, overrides = {}) => {
-    const targetMood = overrides.mood || EVENT_TO_MOOD[eventName] || 'neutral';
-    setMood(targetMood, overrides.duration);
+  const triggerMood = useCallback((eventName, meta = {}) => {
+    const targetMood = meta.mood || EVENT_TO_MOOD[eventName] || 'neutral';
+    setContext({ eventName, meta });
+    setMood(targetMood, meta.duration);
   }, [setMood]);
 
-  // Reset to neutral immediately
   const resetMood = useCallback(() => {
     if (resetTimerRef.current) {
       clearTimeout(resetTimerRef.current);
       resetTimerRef.current = null;
     }
     setMoodState('neutral');
+    setContext({ eventName: null, meta: {} });
   }, []);
 
   return (
-    <MoodContext.Provider value={{ mood, setMood, triggerMood, resetMood }}>
+    <MoodContext.Provider value={{ mood, context, setMood, triggerMood, resetMood }}>
       {children}
     </MoodContext.Provider>
   );
 }
 
-// Hook
 export function useMood() {
   const ctx = useContext(MoodContext);
-  if (!ctx) {
-    throw new Error('useMood must be used within a <MoodProvider>');
-  }
+  if (!ctx) throw new Error('useMood must be used within a <MoodProvider>');
   return ctx;
 }

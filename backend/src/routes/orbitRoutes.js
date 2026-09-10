@@ -1,7 +1,7 @@
 // backend/src/routes/orbitRoutes.js
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
-import db from '../config/db.js';   // ← ADD THIS
+import db from '../config/db.js';
 import {
   startSession,
   endSession,
@@ -9,14 +9,16 @@ import {
   submitAnswer,
   getProgress,
   getWeaknesses,
+  getWeaknessSuggestions,   // ← NEW
   feedback
 } from '../controllers/orbitController.js';
 
 const router = express.Router();
 
+// All orbit routes require authentication
 router.use(authenticate);
 
-// ─── Count completed sessions ──────────────────────────────
+// ─── COUNT ENDPOINT ─────────────────────────────────────────────
 router.get('/sessions/count', async (req, res) => {
   try {
     const result = await db.query(
@@ -31,6 +33,9 @@ router.get('/sessions/count', async (req, res) => {
   }
 });
 
+// ─── WEAKNESS SUGGESTIONS ──────────────────────────────────────
+router.get('/weaknesses/suggestions', getWeaknessSuggestions);
+
 // Session management
 router.post('/session/start', startSession);
 router.post('/session/end', endSession);
@@ -39,17 +44,23 @@ router.post('/session/end', endSession);
 router.post('/generate', generateActivity);
 router.post('/submit', submitAnswer);
 
-// Progress
+// Progress & weaknesses
 router.get('/progress', getProgress);
 router.get('/weaknesses', getWeaknesses);
 
-// Legacy feedback
+// Legacy feedback endpoint
 router.post('/feedback', feedback);
 
-// Debug
+// Debug endpoint
 router.post('/session/end-debug', async (req, res) => {
   console.log('🔍 Debug endpoint called');
-  res.json({ success: true, message: 'Debug endpoint', received: req.body });
+  console.log('📥 Body:', req.body);
+  console.log('👤 User:', req.user);
+  res.json({
+    success: true,
+    message: 'Debug endpoint',
+    received: req.body
+  });
 });
 
 export default router;
