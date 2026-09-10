@@ -18,6 +18,7 @@ import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
 import { useTheme } from '../context/ThemeContext';
+import { useMood } from '../context/MoodContext';   // ← NEW
 
 import './DashboardPage.css';
 
@@ -133,6 +134,9 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
+  // ─── Global mood (from context) ─────────────────────────────────
+  const { mood: autoMood, triggerMood } = useMood();
+
   // ---- State ----
   const [stats, setStats] = useState({ totalXP: 0, todayXP: 0, streakDays: 0, rank: '#?', completed: 0 });
   const [tasks, setTasks] = useState([]);
@@ -148,7 +152,6 @@ export default function DashboardPage() {
   const [quizResult, setQuizResult] = useState(null);
 
   const [progressPercent, setProgressPercent] = useState(0);
-  const [autoMood, setAutoMood] = useState('neutral');
   const [moodPercent, setMoodPercent] = useState(0);
 
   const [focusRemaining, setFocusRemaining] = useState(4);
@@ -188,11 +191,8 @@ export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const dailyQuote = getDailyQuote();
 
-  const [avatarState, setAvatarState] = useState('idle');
-
-  // ---- Automatic mood based on orbit sessions ----
+  // ---- Track orbit session count (local, for potential UI display) ----
   const [orbitSessionCount, setOrbitSessionCount] = useState(0);
-  const moodTimeoutRef = useRef(null);
 
   // ---- Image map for avatar ----
   const avatarImageMap = {
@@ -204,19 +204,6 @@ export default function DashboardPage() {
     celebrating: '/celebrating.jpg',
     focused: '/focused.jpg',
     calm: '/calm.jpg',
-  };
-
-  // ---- Automatic mood management ----
-  const setMoodWithReset = (newMood) => {
-    if (moodTimeoutRef.current) {
-      clearTimeout(moodTimeoutRef.current);
-      moodTimeoutRef.current = null;
-    }
-    setAutoMood(newMood);
-    moodTimeoutRef.current = setTimeout(() => {
-      setAutoMood('neutral');
-      moodTimeoutRef.current = null;
-    }, 120000); // 2 minutes
   };
 
   // ---- Effects ----
@@ -282,7 +269,6 @@ export default function DashboardPage() {
       setTasks(tasksData || []);
       setStudyTime(statsData.studyTimeMinutes ?? 0);
       setProgressPercent(statsData.progressPercent ?? 0);
-      setAutoMood(userData.mood ?? 'neutral');
       setMoodPercent(userData.moodPercent ?? 0);
       setAcademicTimetable(timetableData || []);
       setAcademicAssignments(assignmentsData || []);
@@ -291,7 +277,7 @@ export default function DashboardPage() {
         setHasPremiumAccess(subscriptionData.isActive || subscriptionData.isInstitutional);
       }
 
-      // ---- Fetch orbit session count ----
+      // ---- Fetch orbit session count and auto-trigger excited if >= 4 ----
       try {
         let orbitData = null;
         if (api.getOrbitSessionCount) {
@@ -303,22 +289,12 @@ export default function DashboardPage() {
         const count = orbitData.count || 0;
         setOrbitSessionCount(count);
         if (count >= 4) {
-          setMoodWithReset('excited');
+          triggerMood('progress-up'); // → excited
         }
       } catch (e) {
         console.warn('Could not fetch orbit session count:', e);
         setOrbitSessionCount(0);
       }
-
-      const moodToState = {
-        happy: 'happy',
-        calm: 'idle',
-        stressed: 'sad',
-        tired: 'sad',
-        neutral: 'idle',
-      };
-      const newState = focusMode ? 'focused' : (moodToState[autoMood] || 'idle');
-      setAvatarState(newState);
     } catch (err) {
       console.error(err);
       showToast('Failed to load dashboard', 'error');
@@ -389,7 +365,7 @@ export default function DashboardPage() {
       await refreshUser();
 
       // ---- AUTO MOOD: focused ----
-      setMoodWithReset('focused');
+      triggerMood('focus-complete');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -438,7 +414,7 @@ export default function DashboardPage() {
       await refreshUser();
 
       // ---- AUTO MOOD: happy ----
-      setMoodWithReset('happy');
+      triggerMood('task-complete');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -595,7 +571,6 @@ export default function DashboardPage() {
         <div className="greeting-section">
           <div className="avatar-wrapper">
             <HolographicAvatar
-              mood={autoMood}
               size={56}
               animation="float"
               imageMap={avatarImageMap}

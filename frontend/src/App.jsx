@@ -35,6 +35,7 @@ import InstitutionDashboard from './pages/InstitutionDashboard';
 import SkillsPage from './pages/SkillsPage';
 import AchievementsPage from './pages/AchievementsPage';
 
+
 // ===== NotFound Component =====
 const NotFound = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">

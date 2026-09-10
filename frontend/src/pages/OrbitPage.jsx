@@ -1,9 +1,10 @@
 // frontend/src/pages/OrbitPage.jsx
-// ✅ COMPLETE - With Activity Selection + Universe Background
+// ✅ COMPLETE - With Activity Selection + Universe Background + Mood Integration
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import orbitApi from '../services/orbitApi';
 import OrbitActivities from '../components/orbit/OrbitActivities';
+import { useMood } from '../context/MoodContext';   // ← NEW
 import './OrbitPage.css';
 
 // ========== UNIVERSE BACKGROUND COMPONENTS ==========
@@ -95,6 +96,9 @@ const NebulaOverlay = () => (
 // ==================================================
 
 const OrbitPage = () => {
+  // ─── Mood trigger ─────────────────────────────────────────────
+  const { triggerMood } = useMood();
+
   // ✅ ALL YOUR EXISTING STATE
   const [selectedPlanet, setSelectedPlanet] = useState(null);
   const [selectedActivity, setSelectedActivity] = useState(null);
@@ -108,6 +112,9 @@ const OrbitPage = () => {
   const [showActivitySelection, setShowActivitySelection] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
   const [apiReady, setApiReady] = useState(false);
+
+  // ─── Session stats tracker (for mood triggers) ────────────────
+  const sessionStatsRef = useRef({ correct: 0, total: 0 });
 
   // Planets (unchanged)
   const planets = [
@@ -158,6 +165,9 @@ const OrbitPage = () => {
       return;
     }
 
+    // ─── Mood: user is about to start a challenge → excited ───
+    triggerMood('orbit-start');
+
     setSelectedPlanet(planet);
     setShowActivitySelection(true);
     setSelectedActivity(null);
@@ -167,7 +177,9 @@ const OrbitPage = () => {
     setError(null);
     setShowSummary(false);
     setUserAnswer('');
-  }, [apiReady]);
+    // Reset session stats
+    sessionStatsRef.current = { correct: 0, total: 0 };
+  }, [apiReady, triggerMood]);
 
   const handleActivitySelect = useCallback(async (activityType) => {
     if (!selectedPlanet) return;
@@ -263,9 +275,27 @@ const OrbitPage = () => {
       );
 
       console.log('📊 Submit result:', result);
-      
+
+      // ─── Track stats and trigger mood ─────────────────────────
+      sessionStatsRef.current.total += 1;
+
       if (result?.isCorrect !== undefined) {
-        alert(result.isCorrect ? '✅ Correct! Well done!' : '❌ Incorrect. Keep learning!');
+        if (result.isCorrect) {
+          sessionStatsRef.current.correct += 1;
+          // Correct answer → happy
+          triggerMood('orbit-pass');
+          alert('✅ Correct! Well done!');
+        } else {
+          // Wrong answer → neutral (concerned would be an option but context maps to neutral)
+          triggerMood('orbit-fail');
+          alert('❌ Incorrect. Keep learning!');
+        }
+      }
+
+      // ─── If user is on a streak (3+ correct in a row), trigger excited ───
+      if (sessionStatsRef.current.correct >= 3 && sessionStatsRef.current.total >= 3) {
+        // Celebrate progress
+        triggerMood('progress-up');  // → excited
       }
 
       await handleGenerateNext();
@@ -275,7 +305,7 @@ const OrbitPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [session, currentActivity, userAnswer, handleGenerateNext]);
+  }, [session, currentActivity, userAnswer, handleGenerateNext, triggerMood]);
 
   const handleEndSession = useCallback(async () => {
     if (!session) {
@@ -293,6 +323,14 @@ const OrbitPage = () => {
         8,
         120
       );
+
+      // ─── If accuracy is high, celebrate ───────────────────────
+      const { correct, total } = sessionStatsRef.current;
+      if (total > 0 && correct / total >= 0.7) {
+        // High accuracy → happy / excited
+        triggerMood('level-up');   // → happy
+      }
+
       setShowSummary(true);
       setSession(null);
       setCurrentActivity(null);
@@ -303,7 +341,7 @@ const OrbitPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [session, triggerMood]);
 
   const handleReset = useCallback(() => {
     setSelectedPlanet(null);
@@ -315,6 +353,8 @@ const OrbitPage = () => {
     setShowActivitySelection(false);
     setError(null);
     setUserAnswer('');
+    // Reset session stats
+    sessionStatsRef.current = { correct: 0, total: 0 };
   }, []);
 
   const renderActivityContent = (activity) => {
@@ -528,6 +568,14 @@ const OrbitPage = () => {
               <div className="stat-item">
                 <span className="stat-value">{selectedPlanet?.label}</span>
                 <span className="stat-label">Orbit</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-value">
+                  {sessionStatsRef.current.total > 0
+                    ? `${Math.round((sessionStatsRef.current.correct / sessionStatsRef.current.total) * 100)}%`
+                    : '—'}
+                </span>
+                <span className="stat-label">Accuracy</span>
               </div>
             </div>
             <button onClick={handleReset} className="btn-primary">
