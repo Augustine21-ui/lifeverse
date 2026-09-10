@@ -1,12 +1,8 @@
 // backend/src/controllers/orbitController.js
-// ✅ COMPLETE FIX - With db import at the top
+// ✅ COMPLETE - With weakness detection engine + correct answer evaluation
 
-// ============================================
-// ✅ FIX: Import database connection
-// ============================================
 import db from '../config/db.js';
 import * as orbitService from '../services/orbitService.js';
-// ✅ Import streak utility
 import { updateUserStreak } from '../utils/streakUtils.js';
 
 // ============================================================
@@ -16,37 +12,18 @@ import { updateUserStreak } from '../utils/streakUtils.js';
 export const startSession = async (req, res) => {
   try {
     console.log('🚀 startSession called');
-    console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
-    console.log('👤 User:', req.user?.id);
-
     const { subject, topic, orbitType, activityType } = req.body;
     const userId = req.user?.id;
 
     if (!userId) {
-      console.error('❌ No user ID found');
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
     }
-
     if (!subject) {
-      console.error('❌ Missing subject');
-      return res.status(400).json({
-        success: false,
-        message: 'subject is required'
-      });
+      return res.status(400).json({ success: false, message: 'subject is required' });
     }
-
     if (!topic) {
-      console.error('❌ Missing topic');
-      return res.status(400).json({
-        success: false,
-        message: 'topic is required'
-      });
+      return res.status(400).json({ success: false, message: 'topic is required' });
     }
-
-    console.log('📊 Creating session with:', { subject, topic, orbitType, activityType, userId });
 
     const sessionResult = await db.query(
       `INSERT INTO orbit_sessions 
@@ -59,14 +36,6 @@ export const startSession = async (req, res) => {
     const session = sessionResult.rows[0];
     console.log('✅ Session created:', session.id);
 
-    if (!session) {
-      console.error('❌ Failed to create session');
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to create session'
-      });
-    }
-
     const activityContent = {
       title: `Welcome to ${topic}`,
       description: `Start exploring ${topic} in the ${orbitType || 'exploration'} orbit!`,
@@ -78,131 +47,189 @@ export const startSession = async (req, res) => {
        (session_id, activity_type, content)
        VALUES ($1, $2, $3)
        RETURNING *`,
-      [session.id, 'introduction', activityContent]
+      [session.id, 'introduction', JSON.stringify(activityContent)]
     );
 
     const activity = activityResult.rows[0];
     console.log('✅ Activity created:', activity.id);
 
-    const responseData = {
+    return res.status(201).json({
       success: true,
-      session: session,
-      activity: activity,
+      session,
+      activity,
       message: `Started ${orbitType || 'exploration'} orbit on ${topic}`
-    };
-
-    console.log('📤 Sending response');
-    return res.status(201).json(responseData);
-
+    });
   } catch (error) {
     console.error('❌ startSession ERROR:', error);
-    console.error('❌ Error stack:', error.stack);
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Internal server error'
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// ─── END SESSION with WEAKNESS DETECTION ─────────────────────
 export const endSession = async (req, res) => {
   try {
-    console.log('🏁 endSession called');
-    console.log('📥 Request body:', req.body);
-    console.log('👤 User:', req.user);
-
     const { sessionId, score, totalQuestions, correctAnswers, timeSpent } = req.body;
     const userId = req.user.id;
 
     if (!sessionId) {
-      console.log('❌ Missing sessionId');
-      return res.status(400).json({
-        success: false,
-        message: 'sessionId is required'
-      });
+      return res.status(400).json({ error: 'Session ID is required' });
     }
 
-    console.log('📊 Session data:', { sessionId, score, totalQuestions, correctAnswers, timeSpent });
-
-    const sessionIdStr = String(sessionId);
-    const scoreNum = Number(score) || 0;
-    const totalQuestionsNum = Number(totalQuestions) || 0;
-    const correctAnswersNum = Number(correctAnswers) || 0;
-    const timeSpentNum = Number(timeSpent) || 0;
-
-    console.log('📊 Converted types:', {
-      sessionIdStr,
-      scoreNum,
-      totalQuestionsNum,
-      correctAnswersNum,
-      timeSpentNum
-    });
-
-    const sessionCheck = await db.query(
-      'SELECT * FROM orbit_sessions WHERE id = $1 AND user_id = $2',
-      [sessionIdStr, userId]
+    // 1. Fetch the session
+    const sessionResult = await db.query(
+      `SELECT * FROM orbit_sessions WHERE id = $1 AND user_id = $2`,
+      [sessionId, userId]
     );
 
-    console.log('📊 Session check result:', sessionCheck.rows);
-
-    if (sessionCheck.rows.length === 0) {
-      console.log('❌ Session not found');
-      return res.status(404).json({
-        success: false,
-        message: 'Session not found'
-      });
+    if (sessionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Session not found' });
     }
 
-    const session = sessionCheck.rows[0];
-    console.log('📊 Found session:', session);
+    const session = sessionResult.rows[0];
+    const topic = session.topic;
+    const subject = session.subject;
 
-    const xpEarned = Math.round(
-      (correctAnswersNum / Math.max(totalQuestionsNum, 1)) * 50 + 10
+    // 2. Fetch all activities for this session to compute accuracy
+    const activitiesResult = await db.query(
+      `SELECT id, topic, subject, is_correct, activity_type
+       FROM orbit_activities
+       WHERE session_id = $1`,
+      [sessionId]
     );
-    console.log('📊 XP earned:', xpEarned);
 
-    try {
-      const updateResult = await db.query(
-        `UPDATE orbit_sessions 
-         SET status = 'completed', 
-             completed_at = NOW() 
-         WHERE id = $1 
-         RETURNING *`,
-        [sessionIdStr]
-      );
-      console.log('📊 Update result:', updateResult.rows);
-    } catch (updateError) {
-      console.error('❌ Update failed:', updateError.message);
-      throw updateError;
-    }
+    const activities = activitiesResult.rows;
+    const totalActivities = activities.length;
+    const correctActivities = activities.filter(a => a.is_correct === true).length;
 
+    const accuracy = totalActivities > 0
+      ? (correctActivities / totalActivities)
+      : 0;
+
+    const accuracyPercent = Math.round(accuracy * 100);
+
+    // 3. Mark session completed
+    await db.query(
+      `UPDATE orbit_sessions
+       SET status = 'completed',
+           completed_at = NOW(),
+           score = COALESCE($1, score),
+           total_questions = COALESCE($2, total_questions),
+           correct_answers = COALESCE($3, correct_answers),
+           time_spent = COALESCE($4, time_spent),
+           xp_earned = COALESCE(xp_earned, 0)
+       WHERE id = $5`,
+      [score, totalQuestions, correctAnswers, timeSpent, sessionId]
+    );
+
+    // 4. Award XP + update streak
+    const xpEarned = Math.round((correctActivities / Math.max(totalActivities, 1)) * 50 + 10);
     try {
       await db.query(
-        'UPDATE users SET xp = xp + $1 WHERE id = $2',
+        `UPDATE users SET xp = COALESCE(xp, 0) + $1 WHERE id = $2`,
         [xpEarned, userId]
       );
-      console.log('📊 XP updated for user:', userId);
-
-      // ─── ✅ Update streak after awarding XP ──────────────────
       await updateUserStreak(userId);
-
-    } catch (xpError) {
-      console.error('❌ XP update failed:', xpError.message);
+    } catch (xpErr) {
+      console.warn('XP update failed:', xpErr.message);
     }
+
+    // 5. Update orbit_weaknesses table
+    let weaknessRow = null;
+    if (topic) {
+      const existingWeakness = await db.query(
+        `SELECT * FROM orbit_weaknesses
+         WHERE user_id = $1 AND subject = $2 AND topic = $3`,
+        [userId, subject, topic]
+      );
+
+      if (existingWeakness.rows.length > 0) {
+        const existing = existingWeakness.rows[0];
+        const newEncounteredCount = (existing.encountered_count || 0) + 1;
+        const newStrengthLevel = Math.round(
+          ((existing.strength_level || 50) * (newEncounteredCount - 1) + accuracyPercent) /
+          newEncounteredCount
+        );
+        const mastered = newStrengthLevel >= 80;
+
+        const updated = await db.query(
+          `UPDATE orbit_weaknesses
+           SET strength_level = $1,
+               last_encountered = NOW(),
+               encountered_count = $2,
+               mastered = $3,
+               difficulty = $4
+           WHERE id = $5
+           RETURNING *`,
+          [
+            newStrengthLevel,
+            newEncounteredCount,
+            mastered,
+            newStrengthLevel < 50 ? 'high' : newStrengthLevel < 80 ? 'medium' : 'low',
+            existing.id,
+          ]
+        );
+        weaknessRow = updated.rows[0];
+      } else {
+        const strengthLevel = accuracyPercent;
+        const inserted = await db.query(
+          `INSERT INTO orbit_weaknesses
+             (user_id, subject, topic, strength_level, last_encountered,
+              encountered_count, mastered, difficulty, concept)
+           VALUES ($1, $2, $3, $4, NOW(), 1, $5, $6, $7)
+           RETURNING *`,
+          [
+            userId,
+            subject,
+            topic,
+            strengthLevel,
+            strengthLevel >= 80,
+            strengthLevel < 50 ? 'high' : strengthLevel < 80 ? 'medium' : 'low',
+            topic,
+          ]
+        );
+        weaknessRow = inserted.rows[0];
+      }
+    }
+
+    // 6. Fetch all current weaknesses for suggestions
+    const allWeaknesses = await db.query(
+      `SELECT subject, topic, strength_level, mastered, difficulty
+       FROM orbit_weaknesses
+       WHERE user_id = $1 AND mastered = false
+       ORDER BY strength_level ASC
+       LIMIT 3`,
+      [userId]
+    );
+
+    // 7. Build weakness summary
+    const isWeak = accuracyPercent < 50;
+    const weaknessSummary = {
+      accuracyPercent,
+      totalActivities,
+      correctActivities,
+      isWeak,
+      topic,
+      subject,
+      suggestions: allWeaknesses.rows.map(w => ({
+        topic: w.topic,
+        subject: w.subject,
+        strengthLevel: w.strength_level,
+        difficulty: w.difficulty,
+        message: `Your ${w.topic} accuracy is at ${w.strength_level}%. Try another Orbit session on this topic to improve.`,
+      })),
+    };
 
     res.json({
       success: true,
-      session: session,
+      sessionId,
+      accuracyPercent,
       xpEarned,
-      message: 'Session ended successfully'
+      weaknessSummary,
+      currentWeakness: weaknessRow,
     });
-
-  } catch (error) {
-    console.error('❌ endSession ERROR:', error);
-    console.error('❌ Error stack:', error.stack);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+  } catch (err) {
+    console.error('❌ Error ending session:', err);
+    res.status(500).json({ error: err.message || 'Failed to end session' });
   }
 };
 
@@ -213,11 +240,9 @@ export const endSession = async (req, res) => {
 export const generateActivity = async (req, res) => {
   try {
     const { sessionId, activityType } = req.body;
-
     if (!sessionId) {
       return res.status(400).json({ error: 'Missing sessionId' });
     }
-
     const activity = await orbitService.generateActivity(sessionId, activityType);
     res.json({ activity });
   } catch (error) {
@@ -226,6 +251,7 @@ export const generateActivity = async (req, res) => {
   }
 };
 
+// ─── SUBMIT ANSWER with real correctness check ───────────────
 export const submitAnswer = async (req, res) => {
   try {
     const { activityId, userAnswer, timeTaken } = req.body;
@@ -233,76 +259,84 @@ export const submitAnswer = async (req, res) => {
     console.log('✅ submitAnswer called');
     console.log('📥 activityId:', activityId);
     console.log('📥 userAnswer:', userAnswer);
-    console.log('📥 timeTaken:', timeTaken);
 
     if (!activityId || userAnswer === undefined) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: 'Missing activityId or userAnswer' 
+        error: 'Missing activityId or userAnswer'
       });
     }
 
-    // ✅ FIX: Properly format userAnswer as JSON
-    let answerJson;
-    
-    if (typeof userAnswer === 'string') {
-      // If it's a string, try to parse it first
-      try {
-        answerJson = JSON.parse(userAnswer);
-      } catch (e) {
-        // If it's not valid JSON, wrap it as a string
-        answerJson = { value: userAnswer };
-      }
-    } else if (typeof userAnswer === 'object') {
-      // If it's already an object, use it directly
-      answerJson = userAnswer;
-    } else {
-      // For numbers, booleans, etc.
-      answerJson = { value: userAnswer };
+    // 1. Fetch the activity to get the correct answer from its content
+    const activityResult = await db.query(
+      `SELECT id, content, activity_type FROM orbit_activities WHERE id = $1`,
+      [activityId]
+    );
+
+    if (activityResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Activity not found' });
     }
 
-    console.log('📊 answerJson:', answerJson);
+    const activity = activityResult.rows[0];
 
-    // Update the activity with the answer
+    // 2. Parse content and determine correctness
+    let content = activity.content;
+    if (typeof content === 'string') {
+      try { content = JSON.parse(content); } catch (_) { content = {}; }
+    }
+
+    // Try to find a correct answer in the content
+    // Supports: content.correctAnswer, content.answer, content.questions[0].correctAnswer
+    let expectedAnswer = null;
+    if (content?.correctAnswer !== undefined) {
+      expectedAnswer = content.correctAnswer;
+    } else if (content?.answer !== undefined) {
+      expectedAnswer = content.answer;
+    } else if (Array.isArray(content?.questions) && content.questions[0]?.correctAnswer !== undefined) {
+      expectedAnswer = content.questions[0].correctAnswer;
+    }
+
+    // 3. Normalize and compare
+    let isCorrect;
+    if (expectedAnswer === null) {
+      // No expected answer stored → assume correct if user submitted anything
+      // (This keeps it compatible with AI-generated activities that don't have a fixed answer)
+      isCorrect = true;
+    } else {
+      const normalize = (v) => String(v).trim().toLowerCase();
+      isCorrect = normalize(userAnswer) === normalize(expectedAnswer);
+    }
+
+    // 4. Save the answer
+    const answerJson = typeof userAnswer === 'string'
+      ? { value: userAnswer }
+      : { value: userAnswer };
+
     const result = await db.query(
-      `UPDATE orbit_activities 
-       SET 
-         user_answer = $1,
-         is_correct = $2,
-         time_taken = $3
+      `UPDATE orbit_activities
+       SET user_answer = $1,
+           is_correct = $2,
+           time_taken = $3
        WHERE id = $4
        RETURNING *`,
       [
-        JSON.stringify(answerJson),  // ✅ Convert to JSON string
-        true,                        // Placeholder - you'll need to check correctness
+        JSON.stringify(answerJson),
+        isCorrect,
         timeTaken || 0,
         activityId
       ]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Activity not found'
-      });
-    }
-
-    console.log('✅ Answer submitted for activity:', activityId);
-
     return res.json({
       success: true,
       activity: result.rows[0],
-      isCorrect: true,
-      feedback: 'Great job!'
+      isCorrect,
+      feedback: isCorrect ? 'Great job!' : 'Keep learning — try again!',
+      expectedAnswer: expectedAnswer ?? null
     });
-
   } catch (error) {
     console.error('❌ submitAnswer ERROR:', error);
-    console.error('❌ Error stack:', error.stack);
-    return res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -312,14 +346,9 @@ export const submitAnswer = async (req, res) => {
 
 export const getProgress = async (req, res) => {
   try {
-    console.log('📈 getProgress called');
     const userId = req.user?.id;
-
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
     }
 
     const sessionsResult = await db.query(
@@ -345,11 +374,7 @@ export const getProgress = async (req, res) => {
 
     const weaknessesResult = await db.query(
       `SELECT 
-        subject,
-        topic,
-        concept,
-        difficulty,
-        encountered_count
+        subject, topic, concept, difficulty, encountered_count
        FROM orbit_weaknesses 
        WHERE user_id = $1 AND mastered = false
        ORDER BY encountered_count DESC
@@ -357,21 +382,16 @@ export const getProgress = async (req, res) => {
       [userId]
     );
 
-    const responseData = {
+    return res.json({
       success: true,
       progress: {
         sessions: sessionsResult.rows[0] || { total_sessions: 0, total_score: 0, avg_score: 0 },
         mastery: masteryResult.rows || [],
         weaknesses: weaknessesResult.rows || []
       }
-    };
-
-    console.log('📤 Sending progress response');
-    return res.json(responseData);
-
+    });
   } catch (error) {
     console.error('❌ getProgress ERROR:', error);
-    console.error('❌ Error stack:', error.stack);
     return res.json({
       success: true,
       progress: {
@@ -385,26 +405,15 @@ export const getProgress = async (req, res) => {
 
 export const getWeaknesses = async (req, res) => {
   try {
-    console.log('🔍 getWeaknesses called');
     const userId = req.user?.id;
-
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
     }
 
     const result = await db.query(
       `SELECT 
-        id,
-        subject,
-        topic,
-        concept,
-        difficulty,
-        encountered_count,
-        last_encountered,
-        mastered
+        id, subject, topic, concept, difficulty,
+        encountered_count, last_encountered, mastered
        FROM orbit_weaknesses 
        WHERE user_id = $1 AND mastered = false
        ORDER BY encountered_count DESC, last_encountered DESC
@@ -412,18 +421,46 @@ export const getWeaknesses = async (req, res) => {
       [userId]
     );
 
-    console.log(`📤 Found ${result.rows.length} weaknesses`);
-    return res.json({
-      success: true,
-      weaknesses: result.rows
-    });
-
+    return res.json({ success: true, weaknesses: result.rows });
   } catch (error) {
     console.error('❌ getWeaknesses ERROR:', error);
+    return res.json({ success: true, weaknesses: [] });
+  }
+};
+
+// ─── NEW: Weakness suggestions for the dashboard card ──────
+export const getWeaknessSuggestions = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    const result = await db.query(
+      `SELECT subject, topic, strength_level, difficulty
+       FROM orbit_weaknesses
+       WHERE user_id = $1 AND mastered = false
+       ORDER BY strength_level ASC
+       LIMIT 3`,
+      [userId]
+    );
+
+    const suggestions = result.rows.map(w => ({
+      topic: w.topic,
+      subject: w.subject,
+      strengthLevel: w.strength_level,
+      difficulty: w.difficulty,
+      message: `Weak in ${w.topic} (${w.strength_level}%). Try another Orbit session.`,
+    }));
+
     return res.json({
       success: true,
-      weaknesses: []
+      hasWeaknesses: suggestions.length > 0,
+      suggestions,
     });
+  } catch (error) {
+    console.error('Weakness suggestions error:', error);
+    return res.status(500).json({ error: 'Failed to fetch weakness suggestions' });
   }
 };
 
@@ -434,11 +471,9 @@ export const getWeaknesses = async (req, res) => {
 export const feedback = async (req, res) => {
   try {
     const { sessionId, activityId, answer, time } = req.body;
-
     if (!sessionId || !activityId || answer === undefined) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-
     const result = await orbitService.submitAnswer(activityId, answer, time || 0);
     res.json({ correct: result.isCorrect });
   } catch (error) {
