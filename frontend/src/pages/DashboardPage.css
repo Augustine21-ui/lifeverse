@@ -739,3 +739,115 @@
   font-size: 9px !important;
   letter-spacing: 0.2px !important;
 }
+
+/* ─── Orbit Stacked Card ─────────────────────────────────── */
+.orbit-stacked-card {
+  padding-bottom: 18px;
+}
+
+.orbit-stack-scroll {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 58, 237, 0.4) transparent;
+}
+
+.orbit-stack-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.orbit-stack-scroll::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.4);
+  border-radius: 4px;
+}
+
+.orbit-stack-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  color: inherit;
+  width: 100%;
+}
+
+.orbit-stack-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(124, 58, 237, 0.3);
+  transform: translateX(2px);
+}
+
+.orbit-stack-item.active {
+  background: rgba(124, 58, 237, 0.12);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+.orbit-stack-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.orbit-stack-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.orbit-stack-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbit-stack-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orbit-stack-arrow {
+  color: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.orbit-stack-item:hover .orbit-stack-arrow {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.orbit-stack-loading,
+.orbit-stack-empty {
+  padding: 20px 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .orbit-stack-scroll {
+    max-height: 180px;
+  }
+  .orbit-stack-title {
+    font-size: 12px;
+  }
+  .orbit-stack-subtitle {
+    font-size: 10px;
+  }
+}

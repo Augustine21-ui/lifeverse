@@ -9,16 +9,16 @@ import {
   submitAnswer,
   getProgress,
   getWeaknesses,
-  getWeaknessSuggestions,   // ← NEW
+  getWeaknessSuggestions,
+  getStackedSuggestions,   // ← NEW
   feedback
 } from '../controllers/orbitController.js';
 
 const router = express.Router();
 
-// All orbit routes require authentication
 router.use(authenticate);
 
-// ─── COUNT ENDPOINT ─────────────────────────────────────────────
+// ─── COUNT ────────────────────────────────────────────────
 router.get('/sessions/count', async (req, res) => {
   try {
     const result = await db.query(
@@ -33,7 +33,10 @@ router.get('/sessions/count', async (req, res) => {
   }
 });
 
-// ─── WEAKNESS SUGGESTIONS ──────────────────────────────────────
+// ─── STACKED SUGGESTIONS ─────────────────────────────────
+router.get('/stacked-suggestions', getStackedSuggestions);
+
+// ─── WEAKNESS SUGGESTIONS ────────────────────────────────
 router.get('/weaknesses/suggestions', getWeaknessSuggestions);
 
 // Session management
@@ -48,19 +51,12 @@ router.post('/submit', submitAnswer);
 router.get('/progress', getProgress);
 router.get('/weaknesses', getWeaknesses);
 
-// Legacy feedback endpoint
+// Legacy feedback
 router.post('/feedback', feedback);
 
-// Debug endpoint
+// Debug
 router.post('/session/end-debug', async (req, res) => {
-  console.log('🔍 Debug endpoint called');
-  console.log('📥 Body:', req.body);
-  console.log('👤 User:', req.user);
-  res.json({
-    success: true,
-    message: 'Debug endpoint',
-    received: req.body
-  });
+  res.json({ success: true, message: 'Debug endpoint', received: req.body });
 });
 
 export default router;

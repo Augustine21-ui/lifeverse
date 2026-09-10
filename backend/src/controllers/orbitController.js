@@ -481,3 +481,124 @@ export const feedback = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// ─── STACKED SUGGESTIONS (aggregates skills + goals + tasks) ──
+export const getStackedSuggestions = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
+    }
+
+    const suggestions = [];
+
+    // ─── 1. SKILL suggestions (from weaknesses, weakest first) ──
+    try {
+      const weakRes = await db.query(
+        `SELECT subject, topic, strength_level, difficulty
+         FROM orbit_weaknesses
+         WHERE user_id = $1 AND mastered = false
+         ORDER BY strength_level ASC
+         LIMIT 5`,
+        [userId]
+      );
+
+      for (const w of weakRes.rows) {
+        suggestions.push({
+          id: `skill-${w.subject}-${w.topic}`,
+          type: 'skill',
+          title: `Practice ${w.topic}`,
+          subtitle: `Weak area (${w.strength_level}%)`,
+          cta: 'Start Orbit',
+          action: 'orbit',
+          meta: {
+            topic: w.topic,
+            subject: w.subject,
+            strengthLevel: w.strength_level,
+            difficulty: w.difficulty,
+          },
+          priority: 1, // highest
+        });
+      }
+    } catch (e) {
+      console.warn('Skill suggestions failed:', e.message);
+    }
+
+    // ─── 2. GOAL suggestions (active goals with progress < 100) ──
+    try {
+      const goalsRes = await db.query(
+        `SELECT id, title, progress, xp_reward
+         FROM goals
+         WHERE user_id = $1
+           AND (completed IS NULL OR completed = false)
+           AND COALESCE(progress, 0) < 100
+         ORDER BY COALESCE(progress, 0) ASC
+         LIMIT 5`,
+        [userId]
+      );
+
+      for (const g of goalsRes.rows) {
+        suggestions.push({
+          id: `goal-${g.id}`,
+          type: 'goal',
+          title: g.title,
+          subtitle: `Goal progress: ${g.progress || 0}%`,
+          cta: 'Continue',
+          action: 'goal',
+          meta: {
+            goalId: g.id,
+            progress: g.progress || 0,
+            xpReward: g.xp_reward,
+          },
+          priority: 2,
+        });
+      }
+    } catch (e) {
+      console.warn('Goal suggestions failed:', e.message);
+    }
+
+    // ─── 3. TASK suggestions (today's incomplete tasks) ──────
+    try {
+      const tasksRes = await db.query(
+        `SELECT id, title, xp_reward
+         FROM tasks
+         WHERE user_id = $1
+           AND (is_completed IS NULL OR is_completed = false)
+           AND (due_date IS NULL OR due_date::date <= CURRENT_DATE)
+         ORDER BY COALESCE(due_date, NOW()) ASC
+         LIMIT 5`,
+        [userId]
+      );
+
+      for (const t of tasksRes.rows) {
+        suggestions.push({
+          id: `task-${t.id}`,
+          type: 'task',
+          title: t.title,
+          subtitle: `Task • ${t.xp_reward || 30} XP`,
+          cta: 'Complete',
+          action: 'task',
+          meta: {
+            taskId: t.id,
+            xpReward: t.xp_reward || 30,
+          },
+          priority: 3,
+        });
+      }
+    } catch (e) {
+      console.warn('Task suggestions failed:', e.message);
+    }
+
+    // Sort by priority (skill → goal → task)
+    suggestions.sort((a, b) => a.priority - b.priority);
+
+    return res.json({
+      success: true,
+      count: suggestions.length,
+      suggestions,
+    });
+  } catch (err) {
+    console.error('getStackedSuggestions error:', err);
+    res.status(500).json({ success: false, error: 'Failed to build suggestions' });
+  }
+};

@@ -912,4 +912,8 @@ export const api = {
     headers: authHeaders(),
     body: JSON.stringify(data),
   }).then(handleResponse),
+
+  getStackedSuggestions: () => fetch(`${API_BASE}/orbit/stacked-suggestions`, {
+  headers: authHeaders(),
+}).then(handleResponse),
 };

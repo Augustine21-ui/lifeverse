@@ -18,7 +18,8 @@ import FocusSession from '../components/FocusSession';
 import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
 import HolographicAvatar from '../components/HolographicAvatar';
 import { useTheme } from '../context/ThemeContext';
-import { useMood } from '../context/MoodContext';   // ← NEW
+import { useMood } from '../context/MoodContext';
+import OrbitStackedCard from '../components/orbit/OrbitStackedCard';
 
 import './DashboardPage.css';
 
@@ -133,8 +134,6 @@ export default function DashboardPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-
-  // ─── Global mood (from context) ─────────────────────────────────
   const { mood: autoMood, triggerMood } = useMood();
 
   // ---- State ----
@@ -159,6 +158,10 @@ export default function DashboardPage() {
   const [focusTopic, setFocusTopic] = useState('');
   const [focusMode, setFocusMode] = useState(false);
   const [focusCompleted, setFocusCompleted] = useState(false);
+
+  // ─── Stacked suggestions state ───────────────────────────
+  const [stackedSuggestions, setStackedSuggestions] = useState([]);
+  const [stackedLoading, setStackedLoading] = useState(true);
 
   const [feedPosts, setFeedPosts] = useState([]);
   const [feedLoading, setFeedLoading] = useState(true);
@@ -191,7 +194,6 @@ export default function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const dailyQuote = getDailyQuote();
 
-  // ---- Track orbit session count (local, for potential UI display) ----
   const [orbitSessionCount, setOrbitSessionCount] = useState(0);
 
   // ---- Image map for avatar ----
@@ -227,7 +229,7 @@ export default function DashboardPage() {
 
   // ---- Data loading ----
   useEffect(() => {
-    const interval = setInterval(() => loadFeed(true), 5000);
+    const interval = setInterval(() => loadFeed(true), 30000);  // 30s instead of 5s
     return () => clearInterval(interval);
   }, []);
 
@@ -277,23 +279,32 @@ export default function DashboardPage() {
         setHasPremiumAccess(subscriptionData.isActive || subscriptionData.isInstitutional);
       }
 
-      // ---- Fetch orbit session count and auto-trigger excited if >= 4 ----
+      // ─── Fetch orbit session count ─────────────────────────
       try {
         let orbitData = null;
         if (api.getOrbitSessionCount) {
           orbitData = await api.getOrbitSessionCount();
-        } else {
-          const sessions = await api.get('/orbit/sessions?status=completed');
-          orbitData = { count: sessions.length || 0 };
         }
-        const count = orbitData.count || 0;
+        const count = orbitData?.count || 0;
         setOrbitSessionCount(count);
         if (count >= 4) {
-          triggerMood('progress-up'); // → excited
+          triggerMood('progress-up');
         }
       } catch (e) {
-        console.warn('Could not fetch orbit session count:', e);
+        console.warn('Could not fetch orbit session count:', e.message);
         setOrbitSessionCount(0);
+      }
+
+      // ─── Fetch stacked suggestions ─────────────────────────
+      try {
+        setStackedLoading(true);
+        const stackedData = await api.getStackedSuggestions();
+        setStackedSuggestions(stackedData?.suggestions || []);
+      } catch (e) {
+        console.warn('Could not fetch stacked suggestions:', e.message);
+        setStackedSuggestions([]);
+      } finally {
+        setStackedLoading(false);
       }
     } catch (err) {
       console.error(err);
@@ -363,8 +374,6 @@ export default function DashboardPage() {
       setStudyTime(prev => prev + selectedDuration);
       await loadDashboard();
       await refreshUser();
-
-      // ---- AUTO MOOD: focused ----
       triggerMood('focus-complete');
     } catch (err) {
       showToast(err.message, 'error');
@@ -412,8 +421,6 @@ export default function DashboardPage() {
       showToast(`✅ Task completed! +${task.xp_reward || 30} XP`);
       await loadDashboard();
       await refreshUser();
-
-      // ---- AUTO MOOD: happy ----
       triggerMood('task-complete');
     } catch (err) {
       showToast(err.message, 'error');
@@ -731,13 +738,11 @@ export default function DashboardPage() {
             <GlanceTicker posts={feedPosts} loading={feedLoading} />
           </div>
 
-          {/* Orbit Card */}
-          <div className="card orbit-card">
-            <h3><Rocket size={18} className="text-purple-400" /> Orbit</h3>
-            <p className="text-sm text-white/60">AI‑powered interactive learning</p>
-            <p className="orbit-sub">Explore topics through Cortex, CluePath, Pathfinder &amp; Reflex.</p>
-            <Link to="/orbit" className="launch-orbit-btn">🚀 Launch Orbit</Link>
-          </div>
+          {/* ─── Orbit Stacked Card (replaces the static Orbit card) ─── */}
+          <OrbitStackedCard
+            suggestions={stackedSuggestions}
+            loading={stackedLoading}
+          />
         </div>
 
         {/* RIGHT COLUMN (1/3) */}
