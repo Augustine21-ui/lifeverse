@@ -910,4 +910,14 @@ createSkill: (data) => fetch(`${API_BASE}/skills/create`, {
   body: JSON.stringify(data),
 }).then(handleResponse),
 
+// Get count of completed orbit sessions
+getOrbitSessionCount: async () => {
+  const token = localStorage.getItem('token');
+  const res = await fetch('/api/orbit/sessions/count', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Request failed');
+  return res.json(); // { count: number }
+},
+
 };

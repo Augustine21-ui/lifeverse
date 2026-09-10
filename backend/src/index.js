@@ -4,9 +4,9 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-import compression from "compression"; // optional but recommended
+import compression from "compression";
 
-// ─── Security Middleware Imports ──────────────────────────────
+// ─── Security Middleware ──────────────────────────────────────
 import {
   generalLimiter,
   authLimiter,
@@ -23,10 +23,8 @@ import {
   preventParamPollution,
 } from "./middleware/sanitize.js";
 
-// ─── Load env ───────────────────────────────────────────────────
 dotenv.config();
 
-// ─── __dirname in ES Module ──────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -58,36 +56,21 @@ import db from "./config/db.js";
 
 console.log('🔵 Imports loaded');
 
-// ─── Create App ─────────────────────────────────────────────────
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ─── 1. Compression ───────────────────────────────────────────
+// ─── 1–11 Middleware stack ─────────────────────────────────────
 app.use(compression());
-
-// ─── 2. Security Headers (Helmet) ─────────────────────────────
 app.use(securityHeaders);
-
-// ─── 3. Request Logging ──────────────────────────────────────
 app.use(requestLogger);
-
-// ─── 4. IP Blocklist ──────────────────────────────────────────
 app.use(ipBlocklist);
-
-// ─── 5. Body Size Limiter ─────────────────────────────────────
 app.use(bodySizeLimiter);
-
-// ─── 6. Query String Sanitization ─────────────────────────────
 app.use(sanitizeQuery);
 app.use(preventParamPollution);
-
-// ─── 7. XSS Protection ────────────────────────────────────────
 app.use(xssProtection);
-
-// ─── 8. Global Rate Limiter (all routes) ─────────────────────
 app.use(generalLimiter);
 
-// ─── 9. CORS ───────────────────────────────────────────────────
+// ─── CORS ──────────────────────────────────────────────────────
 const allowedOrigins = [
   'https://lifeverse-ivory.vercel.app',
   'https://lifeverse-frontend.onrender.com',
@@ -109,21 +92,18 @@ app.use(cors({
   credentials: true,
 }));
 
-// ─── 10. Body Parsers ──────────────────────────────────────────
+// ─── Body parsers ─────────────────────────────────────────────
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ─── 11. Static files ──────────────────────────────────────────
+// ─── Static files ─────────────────────────────────────────────
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// ===== PUBLIC ROUTES (no authentication required) =====
-
-// Health check
+// ===== PUBLIC ROUTES =====
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Debug endpoints (public) – you may want to disable these in production
 app.get("/api/debug/tables", async (req, res) => {
   try {
     const result = await db.query(`
@@ -174,17 +154,14 @@ app.get("/api/debug/table/:name", async (req, res) => {
   }
 });
 
-// ===== API ROUTES – with specific rate limiters where needed =====
+// ===== API ROUTES =====
 
-// Auth routes – strict limiter
+// ─── Auth (strict limiter) ────────────────────────────────────
 app.use("/api/auth", authLimiter, authRoutes);
 
-// Password reset – even stricter (already applied inside authRoutes if you use the specific endpoints, but we can also apply it here)
-// But we'll keep it as above; the authLimiter applies to all auth endpoints.
-
-// Other routes – use the general limiter already applied globally, so no extra needed.
+// ─── All other routes ─────────────────────────────────────────
 app.use("/api", bridgeRoutes);
-app.use("/api", routes);
+app.use("/api", routes);              // ← if this also mounts orbit routes, remove them from routes/index.js
 app.use("/api", tutorRoutes);
 app.use("/api", quizRoutes);
 app.use("/api", taskRoutes);
@@ -193,7 +170,7 @@ app.use("/api", personalizeRoutes);
 app.use("/api", focusRoutes);
 app.use("/api", leaderboardRoutes);
 app.use("/api", studyGroupRoutes);
-app.use("/api/orbit", orbitRoutes);
+app.use("/api/orbit", orbitRoutes);   // ← dedicated orbit router
 app.use("/api/ai", aiRoutes);
 app.use("/api/study", studyRoutes);
 app.use("/api/subscription", subscriptionRoutes);
@@ -203,13 +180,13 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use('/api/institution', institutionRoutes);
 
-// ─── Global Error Handler ───────────────────────────────────────
+// ─── Global Error Handler ─────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error('❌ Error details:', err.message);
   res.status(err.status || 500).json({ error: err.message || "Internal server error" });
 });
 
-// ─── Start Server ───────────────────────────────────────────────
+// ─── Start Server ─────────────────────────────────────────────
 const startServer = async () => {
   try {
     console.log('🔵 Running migrations...');
