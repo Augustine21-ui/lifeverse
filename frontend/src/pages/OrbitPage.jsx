@@ -308,40 +308,64 @@ const OrbitPage = () => {
   }, [session, currentActivity, userAnswer, handleGenerateNext, triggerMood]);
 
   const handleEndSession = useCallback(async () => {
-    if (!session) {
-      setError('No active session to end.');
-      return;
-    }
+  if (!session) {
+    setError('No active session to end.');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      console.log(`🏁 Ending session...`);
-      await orbitApi.endSession(
-        session.id,
-        85,
-        10,
-        8,
-        120
-      );
+  setLoading(true);
+  try {
+    const { correct, total } = sessionStatsRef.current;
 
-      // ─── If accuracy is high, celebrate ───────────────────────
-      const { correct, total } = sessionStatsRef.current;
-      if (total > 0 && correct / total >= 0.7) {
-        // High accuracy → happy / excited
-        triggerMood('level-up');   // → happy
+    console.log(`🏁 Ending session... ${correct}/${total}`);
+
+    // 1. Call backend
+    const response = await orbitApi.endSession(
+      session.id,
+      total,        // score (backend recomputes)
+      total,        // totalQuestions
+      correct,      // correctAnswers
+      120           // timeSpent
+    );
+
+    console.log('📊 Session response:', response);
+
+    // 2. Trigger mood based on outcome
+    if (response.passed) {
+      if (response.levelUp) {
+        triggerMood('level-up', {
+          meta: {
+            oldLevel: response.oldLevel,
+            newLevel: response.newLevel,
+            xpEarned: response.xpEarned,
+          },
+        });
+      } else {
+        triggerMood('orbit-pass', {
+          meta: { xpEarned: response.xpEarned },
+        });
       }
-
-      setShowSummary(true);
-      setSession(null);
-      setCurrentActivity(null);
-      await fetchProgress();
-    } catch (err) {
-      console.error('❌ Error ending session:', err);
-      setError(err.message || 'Failed to end session');
-    } finally {
-      setLoading(false);
+    } else {
+      // Failed (<50%) → calm
+      triggerMood('orbit-fail', {
+        meta: {
+          accuracyPercent: response.accuracyPercent,
+          topic: session.topic,
+        },
+      });
     }
-  }, [session, triggerMood]);
+
+    setShowSummary(true);
+    setSession(null);
+    setCurrentActivity(null);
+    await fetchProgress();
+  } catch (err) {
+    console.error('❌ Error ending session:', err);
+    setError(err.message || 'Failed to end session');
+  } finally {
+    setLoading(false);
+  }
+}, [session, triggerMood]);
 
   const handleReset = useCallback(() => {
     setSelectedPlanet(null);
@@ -559,15 +583,17 @@ const OrbitPage = () => {
         {/* Summary */}
         {showSummary && (
           <div className="session-summary">
-            <h2>🎉 Session Complete!</h2>
+            <h2>
+              {sessionStatsRef.current.total > 0 &&
+              sessionStatsRef.current.correct / sessionStatsRef.current.total >= 0.5
+                ? '🎉 Session Passed!'
+                : '💪 Keep Going!'}
+            </h2>
+
             <div className="summary-stats">
               <div className="stat-item">
                 <span className="stat-value">{activities.length}</span>
                 <span className="stat-label">Activities</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-value">{selectedPlanet?.label}</span>
-                <span className="stat-label">Orbit</span>
               </div>
               <div className="stat-item">
                 <span className="stat-value">
@@ -577,12 +603,24 @@ const OrbitPage = () => {
                 </span>
                 <span className="stat-label">Accuracy</span>
               </div>
+              <div className="stat-item">
+                <span className="stat-value">+{activities.length * 5}</span>
+                <span className="stat-label">XP Earned</span>
+              </div>
             </div>
-            <button onClick={handleReset} className="btn-primary">
-              Start New Session
-            </button>
-          </div>
-        )}
+
+            {sessionStatsRef.current.total > 0 &&
+            sessionStatsRef.current.correct / sessionStatsRef.current.total < 0.5 && (
+              <p className="text-sm text-amber-400 mt-3 text-center">
+                Below 50% — a retry suggestion was added to your Orbit card.
+              </p>
+            )}
+
+    <button onClick={handleReset} className="btn-primary">
+      Start New Session
+    </button>
+  </div>
+)}
 
         {/* Loading */}
         {loading && (

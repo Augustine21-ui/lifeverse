@@ -1,9 +1,14 @@
 // backend/src/controllers/orbitController.js
-// ✅ COMPLETE - With weakness detection engine + correct answer evaluation
+// ✅ COMPLETE - Phase B: 5 XP/activity, 50% pass threshold, level-up detection
 
 import db from '../config/db.js';
 import * as orbitService from '../services/orbitService.js';
 import { updateUserStreak } from '../utils/streakUtils.js';
+
+// ─── Constants ────────────────────────────────────────────
+const XP_PER_ACTIVITY = 5;        // 5 XP per completed activity
+const PASS_THRESHOLD = 50;        // ≥50% accuracy = pass
+const XP_PER_LEVEL = 500;         // level = floor(xp/500) + 1
 
 // ============================================================
 // SESSION ENDPOINTS
@@ -65,7 +70,7 @@ export const startSession = async (req, res) => {
   }
 };
 
-// ─── END SESSION with WEAKNESS DETECTION ─────────────────────
+// ─── END SESSION ──────────────────────────────────────────
 export const endSession = async (req, res) => {
   try {
     const { sessionId, score, totalQuestions, correctAnswers, timeSpent } = req.body;
@@ -75,7 +80,7 @@ export const endSession = async (req, res) => {
       return res.status(400).json({ error: 'Session ID is required' });
     }
 
-    // 1. Fetch the session
+    // 1. Fetch session
     const sessionResult = await db.query(
       `SELECT * FROM orbit_sessions WHERE id = $1 AND user_id = $2`,
       [sessionId, userId]
@@ -89,7 +94,7 @@ export const endSession = async (req, res) => {
     const topic = session.topic;
     const subject = session.subject;
 
-    // 2. Fetch all activities for this session to compute accuracy
+    // 2. Fetch all activities
     const activitiesResult = await db.query(
       `SELECT id, topic, subject, is_correct, activity_type
        FROM orbit_activities
@@ -101,13 +106,16 @@ export const endSession = async (req, res) => {
     const totalActivities = activities.length;
     const correctActivities = activities.filter(a => a.is_correct === true).length;
 
-    const accuracy = totalActivities > 0
-      ? (correctActivities / totalActivities)
-      : 0;
-
+    const accuracy = totalActivities > 0 ? correctActivities / totalActivities : 0;
     const accuracyPercent = Math.round(accuracy * 100);
 
-    // 3. Mark session completed
+    // 3. PASS/FAIL (>= 50%)
+    const passed = accuracyPercent >= PASS_THRESHOLD;
+
+    // 4. XP: 5 per completed activity
+    const xpEarned = totalActivities * XP_PER_ACTIVITY;
+
+    // 5. Mark session completed
     await db.query(
       `UPDATE orbit_sessions
        SET status = 'completed',
@@ -116,40 +124,62 @@ export const endSession = async (req, res) => {
            total_questions = COALESCE($2, total_questions),
            correct_answers = COALESCE($3, correct_answers),
            time_spent = COALESCE($4, time_spent),
-           xp_earned = COALESCE(xp_earned, 0)
-       WHERE id = $5`,
-      [score, totalQuestions, correctAnswers, timeSpent, sessionId]
+           xp_earned = $5
+       WHERE id = $6`,
+      [
+        accuracyPercent,
+        totalActivities,
+        correctActivities,
+        timeSpent || 0,
+        xpEarned,
+        sessionId,
+      ]
     );
 
-    // 4. Award XP + update streak
-    const xpEarned = Math.round((correctActivities / Math.max(totalActivities, 1)) * 50 + 10);
+    // 6. Award XP + detect level-up
+    let oldLevel = 1;
+    let newLevel = 1;
+    let levelUp = false;
+    let totalXP = 0;
+
     try {
-      await db.query(
-        `UPDATE users SET xp = COALESCE(xp, 0) + $1 WHERE id = $2`,
-        [xpEarned, userId]
+      const before = await db.query(
+        `SELECT COALESCE(xp, 0) as xp, COALESCE(level, 1) as level FROM users WHERE id = $1`,
+        [userId]
       );
+      const currentXP = before.rows[0]?.xp || 0;
+      oldLevel = before.rows[0]?.level || 1;
+
+      totalXP = currentXP + xpEarned;
+      newLevel = Math.floor(totalXP / XP_PER_LEVEL) + 1;
+      levelUp = newLevel > oldLevel;
+
+      await db.query(
+        `UPDATE users SET xp = $1, level = $2 WHERE id = $3`,
+        [totalXP, newLevel, userId]
+      );
+
       await updateUserStreak(userId);
     } catch (xpErr) {
       console.warn('XP update failed:', xpErr.message);
     }
 
-    // 5. Update orbit_weaknesses table
+    // 7. Update orbit_weaknesses
     let weaknessRow = null;
     if (topic) {
-      const existingWeakness = await db.query(
+      const existing = await db.query(
         `SELECT * FROM orbit_weaknesses
          WHERE user_id = $1 AND subject = $2 AND topic = $3`,
         [userId, subject, topic]
       );
 
-      if (existingWeakness.rows.length > 0) {
-        const existing = existingWeakness.rows[0];
-        const newEncounteredCount = (existing.encountered_count || 0) + 1;
-        const newStrengthLevel = Math.round(
-          ((existing.strength_level || 50) * (newEncounteredCount - 1) + accuracyPercent) /
-          newEncounteredCount
+      if (existing.rows.length > 0) {
+        const e = existing.rows[0];
+        const newCount = (e.encountered_count || 0) + 1;
+        const newStrength = Math.round(
+          ((e.strength_level || 50) * (newCount - 1) + accuracyPercent) / newCount
         );
-        const mastered = newStrengthLevel >= 80;
+        const mastered = newStrength >= 80;
 
         const updated = await db.query(
           `UPDATE orbit_weaknesses
@@ -161,16 +191,15 @@ export const endSession = async (req, res) => {
            WHERE id = $5
            RETURNING *`,
           [
-            newStrengthLevel,
-            newEncounteredCount,
+            newStrength,
+            newCount,
             mastered,
-            newStrengthLevel < 50 ? 'high' : newStrengthLevel < 80 ? 'medium' : 'low',
-            existing.id,
+            newStrength < 50 ? 'high' : newStrength < 80 ? 'medium' : 'low',
+            e.id,
           ]
         );
         weaknessRow = updated.rows[0];
       } else {
-        const strengthLevel = accuracyPercent;
         const inserted = await db.query(
           `INSERT INTO orbit_weaknesses
              (user_id, subject, topic, strength_level, last_encountered,
@@ -181,9 +210,9 @@ export const endSession = async (req, res) => {
             userId,
             subject,
             topic,
-            strengthLevel,
-            strengthLevel >= 80,
-            strengthLevel < 50 ? 'high' : strengthLevel < 80 ? 'medium' : 'low',
+            accuracyPercent,
+            accuracyPercent >= 80,
+            accuracyPercent < 50 ? 'high' : accuracyPercent < 80 ? 'medium' : 'low',
             topic,
           ]
         );
@@ -191,7 +220,7 @@ export const endSession = async (req, res) => {
       }
     }
 
-    // 6. Fetch all current weaknesses for suggestions
+    // 8. Fetch remaining weaknesses (used by frontend on fail)
     const allWeaknesses = await db.query(
       `SELECT subject, topic, strength_level, mastered, difficulty
        FROM orbit_weaknesses
@@ -201,13 +230,12 @@ export const endSession = async (req, res) => {
       [userId]
     );
 
-    // 7. Build weakness summary
-    const isWeak = accuracyPercent < 50;
+    // 9. Build response
     const weaknessSummary = {
       accuracyPercent,
       totalActivities,
       correctActivities,
-      isWeak,
+      isWeak: !passed,
       topic,
       subject,
       suggestions: allWeaknesses.rows.map(w => ({
@@ -219,14 +247,38 @@ export const endSession = async (req, res) => {
       })),
     };
 
-    res.json({
+    const response = {
       success: true,
       sessionId,
+      // Outcome
+      passed,
       accuracyPercent,
+      totalActivities,
+      correctActivities,
+      passThreshold: PASS_THRESHOLD,
+      // XP & level
       xpEarned,
+      xpPerActivity: XP_PER_ACTIVITY,
+      totalXP,
+      oldLevel,
+      newLevel,
+      levelUp,
+      // Weakness
       weaknessSummary,
       currentWeakness: weaknessRow,
+    };
+
+    console.log('✅ Session ended:', {
+      sessionId,
+      passed,
+      accuracyPercent,
+      xpEarned,
+      levelUp,
+      oldLevel,
+      newLevel,
     });
+
+    res.json(response);
   } catch (err) {
     console.error('❌ Error ending session:', err);
     res.status(500).json({ error: err.message || 'Failed to end session' });
@@ -256,10 +308,6 @@ export const submitAnswer = async (req, res) => {
   try {
     const { activityId, userAnswer, timeTaken } = req.body;
 
-    console.log('✅ submitAnswer called');
-    console.log('📥 activityId:', activityId);
-    console.log('📥 userAnswer:', userAnswer);
-
     if (!activityId || userAnswer === undefined) {
       return res.status(400).json({
         success: false,
@@ -267,7 +315,7 @@ export const submitAnswer = async (req, res) => {
       });
     }
 
-    // 1. Fetch the activity to get the correct answer from its content
+    // 1. Fetch activity
     const activityResult = await db.query(
       `SELECT id, content, activity_type FROM orbit_activities WHERE id = $1`,
       [activityId]
@@ -279,14 +327,13 @@ export const submitAnswer = async (req, res) => {
 
     const activity = activityResult.rows[0];
 
-    // 2. Parse content and determine correctness
+    // 2. Parse content
     let content = activity.content;
     if (typeof content === 'string') {
       try { content = JSON.parse(content); } catch (_) { content = {}; }
     }
 
-    // Try to find a correct answer in the content
-    // Supports: content.correctAnswer, content.answer, content.questions[0].correctAnswer
+    // 3. Find expected answer
     let expectedAnswer = null;
     if (content?.correctAnswer !== undefined) {
       expectedAnswer = content.correctAnswer;
@@ -296,21 +343,17 @@ export const submitAnswer = async (req, res) => {
       expectedAnswer = content.questions[0].correctAnswer;
     }
 
-    // 3. Normalize and compare
+    // 4. Compare
     let isCorrect;
     if (expectedAnswer === null) {
-      // No expected answer stored → assume correct if user submitted anything
-      // (This keeps it compatible with AI-generated activities that don't have a fixed answer)
-      isCorrect = true;
+      isCorrect = true; // no expected answer → assume correct
     } else {
       const normalize = (v) => String(v).trim().toLowerCase();
       isCorrect = normalize(userAnswer) === normalize(expectedAnswer);
     }
 
-    // 4. Save the answer
-    const answerJson = typeof userAnswer === 'string'
-      ? { value: userAnswer }
-      : { value: userAnswer };
+    // 5. Save
+    const answerJson = { value: userAnswer };
 
     const result = await db.query(
       `UPDATE orbit_activities
@@ -319,12 +362,7 @@ export const submitAnswer = async (req, res) => {
            time_taken = $3
        WHERE id = $4
        RETURNING *`,
-      [
-        JSON.stringify(answerJson),
-        isCorrect,
-        timeTaken || 0,
-        activityId
-      ]
+      [JSON.stringify(answerJson), isCorrect, timeTaken || 0, activityId]
     );
 
     return res.json({
@@ -362,23 +400,17 @@ export const getProgress = async (req, res) => {
     );
 
     const masteryResult = await db.query(
-      `SELECT 
-        subject,
-        COUNT(*) as topic_count,
-        COALESCE(AVG(mastery_level), 0) as avg_mastery
-       FROM orbit_mastery 
-       WHERE user_id = $1
-       GROUP BY subject`,
+      `SELECT subject, COUNT(*) as topic_count,
+              COALESCE(AVG(mastery_level), 0) as avg_mastery
+       FROM orbit_mastery WHERE user_id = $1 GROUP BY subject`,
       [userId]
     );
 
     const weaknessesResult = await db.query(
-      `SELECT 
-        subject, topic, concept, difficulty, encountered_count
+      `SELECT subject, topic, concept, difficulty, encountered_count
        FROM orbit_weaknesses 
        WHERE user_id = $1 AND mastered = false
-       ORDER BY encountered_count DESC
-       LIMIT 10`,
+       ORDER BY encountered_count DESC LIMIT 10`,
       [userId]
     );
 
@@ -411,13 +443,11 @@ export const getWeaknesses = async (req, res) => {
     }
 
     const result = await db.query(
-      `SELECT 
-        id, subject, topic, concept, difficulty,
-        encountered_count, last_encountered, mastered
+      `SELECT id, subject, topic, concept, difficulty,
+              encountered_count, last_encountered, mastered
        FROM orbit_weaknesses 
        WHERE user_id = $1 AND mastered = false
-       ORDER BY encountered_count DESC, last_encountered DESC
-       LIMIT 20`,
+       ORDER BY encountered_count DESC, last_encountered DESC LIMIT 20`,
       [userId]
     );
 
@@ -428,7 +458,6 @@ export const getWeaknesses = async (req, res) => {
   }
 };
 
-// ─── NEW: Weakness suggestions for the dashboard card ──────
 export const getWeaknessSuggestions = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -440,8 +469,7 @@ export const getWeaknessSuggestions = async (req, res) => {
       `SELECT subject, topic, strength_level, difficulty
        FROM orbit_weaknesses
        WHERE user_id = $1 AND mastered = false
-       ORDER BY strength_level ASC
-       LIMIT 3`,
+       ORDER BY strength_level ASC LIMIT 3`,
       [userId]
     );
 
@@ -464,25 +492,7 @@ export const getWeaknessSuggestions = async (req, res) => {
   }
 };
 
-// ============================================================
-// FEEDBACK ENDPOINT (legacy support)
-// ============================================================
-
-export const feedback = async (req, res) => {
-  try {
-    const { sessionId, activityId, answer, time } = req.body;
-    if (!sessionId || !activityId || answer === undefined) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-    const result = await orbitService.submitAnswer(activityId, answer, time || 0);
-    res.json({ correct: result.isCorrect });
-  } catch (error) {
-    console.error('Feedback error:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// ─── STACKED SUGGESTIONS (aggregates skills + goals + tasks) ──
+// ─── STACKED SUGGESTIONS ──────────────────────────────────
 export const getStackedSuggestions = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -492,14 +502,13 @@ export const getStackedSuggestions = async (req, res) => {
 
     const suggestions = [];
 
-    // ─── 1. SKILL suggestions (from weaknesses, weakest first) ──
+    // 1. SKILL suggestions
     try {
       const weakRes = await db.query(
         `SELECT subject, topic, strength_level, difficulty
          FROM orbit_weaknesses
          WHERE user_id = $1 AND mastered = false
-         ORDER BY strength_level ASC
-         LIMIT 5`,
+         ORDER BY strength_level ASC LIMIT 5`,
         [userId]
       );
 
@@ -517,14 +526,14 @@ export const getStackedSuggestions = async (req, res) => {
             strengthLevel: w.strength_level,
             difficulty: w.difficulty,
           },
-          priority: 1, // highest
+          priority: 1,
         });
       }
     } catch (e) {
       console.warn('Skill suggestions failed:', e.message);
     }
 
-    // ─── 2. GOAL suggestions (active goals with progress < 100) ──
+    // 2. GOAL suggestions
     try {
       const goalsRes = await db.query(
         `SELECT id, title, progress, xp_reward
@@ -532,8 +541,7 @@ export const getStackedSuggestions = async (req, res) => {
          WHERE user_id = $1
            AND (completed IS NULL OR completed = false)
            AND COALESCE(progress, 0) < 100
-         ORDER BY COALESCE(progress, 0) ASC
-         LIMIT 5`,
+         ORDER BY COALESCE(progress, 0) ASC LIMIT 5`,
         [userId]
       );
 
@@ -545,11 +553,7 @@ export const getStackedSuggestions = async (req, res) => {
           subtitle: `Goal progress: ${g.progress || 0}%`,
           cta: 'Continue',
           action: 'goal',
-          meta: {
-            goalId: g.id,
-            progress: g.progress || 0,
-            xpReward: g.xp_reward,
-          },
+          meta: { goalId: g.id, progress: g.progress || 0, xpReward: g.xp_reward },
           priority: 2,
         });
       }
@@ -557,7 +561,7 @@ export const getStackedSuggestions = async (req, res) => {
       console.warn('Goal suggestions failed:', e.message);
     }
 
-    // ─── 3. TASK suggestions (today's incomplete tasks) ──────
+    // 3. TASK suggestions
     try {
       const tasksRes = await db.query(
         `SELECT id, title, xp_reward
@@ -565,8 +569,7 @@ export const getStackedSuggestions = async (req, res) => {
          WHERE user_id = $1
            AND (is_completed IS NULL OR is_completed = false)
            AND (due_date IS NULL OR due_date::date <= CURRENT_DATE)
-         ORDER BY COALESCE(due_date, NOW()) ASC
-         LIMIT 5`,
+         ORDER BY COALESCE(due_date, NOW()) ASC LIMIT 5`,
         [userId]
       );
 
@@ -578,10 +581,7 @@ export const getStackedSuggestions = async (req, res) => {
           subtitle: `Task • ${t.xp_reward || 30} XP`,
           cta: 'Complete',
           action: 'task',
-          meta: {
-            taskId: t.id,
-            xpReward: t.xp_reward || 30,
-          },
+          meta: { taskId: t.id, xpReward: t.xp_reward || 30 },
           priority: 3,
         });
       }
@@ -589,7 +589,6 @@ export const getStackedSuggestions = async (req, res) => {
       console.warn('Task suggestions failed:', e.message);
     }
 
-    // Sort by priority (skill → goal → task)
     suggestions.sort((a, b) => a.priority - b.priority);
 
     return res.json({
@@ -600,5 +599,23 @@ export const getStackedSuggestions = async (req, res) => {
   } catch (err) {
     console.error('getStackedSuggestions error:', err);
     res.status(500).json({ success: false, error: 'Failed to build suggestions' });
+  }
+};
+
+// ============================================================
+// FEEDBACK (legacy)
+// ============================================================
+
+export const feedback = async (req, res) => {
+  try {
+    const { sessionId, activityId, answer, time } = req.body;
+    if (!sessionId || !activityId || answer === undefined) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const result = await orbitService.submitAnswer(activityId, answer, time || 0);
+    res.json({ correct: result.isCorrect });
+  } catch (error) {
+    console.error('Feedback error:', error);
+    res.status(500).json({ error: error.message });
   }
 };

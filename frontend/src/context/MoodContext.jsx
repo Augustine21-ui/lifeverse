@@ -3,29 +3,31 @@ import { createContext, useContext, useState, useRef, useCallback } from 'react'
 
 const MoodContext = createContext(null);
 
-// ─── Event → Mood mapping (updated per architecture diagram) ─────
+// ─── Event → Mood mapping (per architecture diagram) ──────
 const EVENT_TO_MOOD = {
   // Learning events
-  'task-complete': 'happy',          // Task finished
-  'focus-complete': 'focused',       // Focus session done
-  'orbit-start': 'excited',          // Planet clicked / suggestion accepted
-  'orbit-pass': 'happy',             // Passed an orbit challenge
-  'orbit-fail': 'calm',              // ⬅️ CHANGED: fail → calm (diagram)
-  'progress-up': 'excited',          // Progress milestone
-  'level-up': 'celebrating',         // ⬅️ CHANGED: level up → celebrating
-  'weakness-detected': 'calm',       // ⬅️ NEW: <50% detected
-  'mentorship-linked': 'focused',    // ⬅️ NEW: mentorship matched
-  'mentorship-request': 'excited',   // ⬅️ NEW: sent/received request
+  'task-complete': 'happy',
+  'focus-complete': 'focused',
+  'orbit-start': 'excited',
+  'orbit-pass': 'happy',             // Passed but no level up
+  'orbit-fail': 'calm',              // Failed (<50%) → calm + retry
+  'level-up': 'celebrating',         // Passed + leveled up
+  'goal-complete': 'celebrating',    // Phase C
+  'goal-progress': 'celebrating',    // Phase C
+  'skill-complete': 'celebrating',   // Phase C
+  'weakness-detected': 'calm',
+  'mentorship-linked': 'focused',
+  'opportunity-approved': 'celebrating',
+  'progress-up': 'excited',
   'idle': 'neutral',
 };
 
-// Auto‑reset durations (ms)
 const MOOD_DURATIONS = {
-  happy: 90 * 1000,
-  excited: 60 * 1000,
-  focused: 120 * 1000,
-  celebrating: 45 * 1000,
-  calm: 150 * 1000,      // Calm lingers longer (weakness state)
+  happy: 90 * 1000,       // 1.5 min
+  excited: 60 * 1000,     // 1 min
+  focused: 120 * 1000,    // 2 min
+  celebrating: 45 * 1000, // 45 s
+  calm: 150 * 1000,       // 2.5 min (longer to encourage retry)
   thinking: 60 * 1000,
   sad: 90 * 1000,
   neutral: 0,
@@ -41,11 +43,8 @@ export function MoodProvider({ children }) {
       clearTimeout(resetTimerRef.current);
       resetTimerRef.current = null;
     }
-
     setMoodState(newMood);
-
     if (newMood === 'neutral') return;
-
     const duration = customDuration ?? MOOD_DURATIONS[newMood] ?? 90000;
     resetTimerRef.current = setTimeout(() => {
       setMoodState('neutral');
