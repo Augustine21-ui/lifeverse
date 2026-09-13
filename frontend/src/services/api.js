@@ -922,4 +922,14 @@ updateUserSkill: (data) => fetch(`${API_BASE}/user-skills`, {
   headers: authHeaders(),
   body: JSON.stringify(data),
 }).then(handleResponse),
+
+toggleMilestone: (goalId, milestoneId) => fetch(`${API_BASE}/goals/${goalId}/milestones/${milestoneId}/toggle`, {
+  method: 'PATCH',
+  headers: authHeaders(),
+}).then(handleResponse),
+
+completeGoal: (goalId) => fetch(`${API_BASE}/goals/${goalId}/complete`, {
+  method: 'POST',
+  headers: authHeaders(),
+}).then(handleResponse),
 };
