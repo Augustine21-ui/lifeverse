@@ -27,7 +27,7 @@ import { getOpportunities, applyOpportunity, getUserApplications } from '../oppo
 import { getBadges, getUserBadges } from '../controllers/badgesController.js';
 import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '../controllers/goalsController.js';
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
-import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../dashboardController.js';
+import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../controllers/dashboardController.js';
 import { recordMood } from '../moodController.js';
 import * as skillGrowth from '../controllers/skillGrowthController.js';
 import * as taskController from '../controllers/taskController.js';
