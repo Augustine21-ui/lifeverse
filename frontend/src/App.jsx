@@ -34,6 +34,7 @@ import SubscriptionPage from './pages/SubscriptionPage';
 import InstitutionDashboard from './pages/InstitutionDashboard';
 import SkillsPage from './pages/SkillsPage';
 import AchievementsPage from './pages/AchievementsPage';
+import SkillDetailPage from "./pages/SkillDetailPage";
 
 
 // ===== NotFound Component =====
@@ -122,6 +123,8 @@ export default function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="institution-dashboard" element={<InstitutionDashboard />} />
         <Route path="skills" element={<SkillsPage />} />
+        <Route path="skills" element={<SkillsPage />} />
+        <Route path="skill/:subjectId" element={<SkillDetailPage />} />   {/* 👈 ADD THIS */}
         <Route path="/academic-onboarding" element={<AcademicOnboarding />} />
         <Route path="/achievements" element={<AchievementsPage />} />
         <Route path="admin" element={
