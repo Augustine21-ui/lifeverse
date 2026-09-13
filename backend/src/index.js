@@ -27,7 +27,7 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
+import mentorshipRoutes from "./routes/mentorshipRoutes.js";
 // ─── Routes ───────────────────────────────────────────────────
 import authRoutes from "./routes/authRoutes.js";
 import bridgeRoutes from "./routes/bridgeRoutes.js";
@@ -179,6 +179,7 @@ app.use("/api/momentum", momentumRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use('/api/institution', institutionRoutes);
+app.use('/api/mentorship', mentorshipRoutes);
 
 // ─── Global Error Handler ─────────────────────────────────────
 app.use((err, req, res, next) => {
