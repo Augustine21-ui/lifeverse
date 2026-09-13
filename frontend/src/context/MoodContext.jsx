@@ -20,19 +20,19 @@ const EVENT_TO_MOOD = {
   'opportunity-approved': 'celebrating',
   'progress-up': 'excited',
   'idle': 'neutral',
+  'progress-visited': 'calm',
 };
 
 const MOOD_DURATIONS = {
-  happy: 90 * 1000,       // 1.5 min
-  excited: 60 * 1000,     // 1 min
-  focused: 120 * 1000,    // 2 min
-  celebrating: 45 * 1000, // 45 s
-  calm: 150 * 1000,       // 2.5 min (longer to encourage retry)
+  happy: 90 * 1000,
+  excited: 60 * 1000,
+  focused: 120 * 1000,
+  celebrating: 45 * 1000,
+  calm: 180 * 1000,   // 3 min – gives user time to see it
   thinking: 60 * 1000,
   sad: 90 * 1000,
   neutral: 0,
 };
-
 export function MoodProvider({ children }) {
   const [mood, setMoodState] = useState('neutral');
   const [context, setContext] = useState({ eventName: null, meta: {} });

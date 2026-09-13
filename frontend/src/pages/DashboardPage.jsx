@@ -151,6 +151,7 @@ export default function DashboardPage() {
   const [quizResult, setQuizResult] = useState(null);
 
   const [progressPercent, setProgressPercent] = useState(0);
+  const [progressBreakdown, setProgressBreakdown] = useState(null);   // 👈 NEW
   const [moodPercent, setMoodPercent] = useState(0);
 
   const [focusRemaining, setFocusRemaining] = useState(4);
@@ -196,6 +197,9 @@ export default function DashboardPage() {
 
   const [orbitSessionCount, setOrbitSessionCount] = useState(0);
 
+  // ─── Progress tracking ref (for calm mood trigger) ───────
+  const prevProgressRef = useRef(null);
+
   // ---- Image map for avatar ----
   const avatarImageMap = {
     happy: '/happy.jpg',
@@ -229,7 +233,7 @@ export default function DashboardPage() {
 
   // ---- Data loading ----
   useEffect(() => {
-    const interval = setInterval(() => loadFeed(true), 30000);  // 30s instead of 5s
+    const interval = setInterval(() => loadFeed(true), 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -270,7 +274,41 @@ export default function DashboardPage() {
 
       setTasks(tasksData || []);
       setStudyTime(statsData.studyTimeMinutes ?? 0);
-      setProgressPercent(statsData.progressPercent ?? 0);
+
+      // ─── PROGRESS + CALM MOOD DETECTION ────────────────────
+      const newProgress = Math.round(statsData.progressPercent ?? 0);
+      setProgressPercent(newProgress);
+      setProgressBreakdown(statsData.progressBreakdown ?? null);   // 👈 store breakdown
+
+      // Seed baseline on first-ever load
+      if (prevProgressRef.current === null) {
+        const stored = localStorage.getItem('lastProgressPercent');
+        if (stored !== null) {
+          prevProgressRef.current = parseInt(stored, 10);
+        } else {
+          prevProgressRef.current = newProgress;  // first load = baseline, no trigger
+        }
+      }
+
+      // If progress INCREASED since last load → calm mood
+      const lastSeen = prevProgressRef.current;
+      if (lastSeen !== null && newProgress > lastSeen) {
+        console.log(`📈 Progress increased: ${lastSeen}% → ${newProgress}% → calm mood`);
+        triggerMood('progress-visited', {
+          meta: {
+            previous: lastSeen,
+            current: newProgress,
+            delta: newProgress - lastSeen,
+            breakdown: statsData.progressBreakdown,
+          },
+        });
+      }
+
+      // Persist for next mount
+      prevProgressRef.current = newProgress;
+      localStorage.setItem('lastProgressPercent', String(newProgress));
+      // ────────────────────────────────────────────────────────
+
       setMoodPercent(userData.moodPercent ?? 0);
       setAcademicTimetable(timetableData || []);
       setAcademicAssignments(assignmentsData || []);
@@ -644,12 +682,23 @@ export default function DashboardPage() {
             <span className="stat-sub">{moodPercent}% Today</span>
           </div>
         </div>
-        <div className="stat-card progress">
+        <div
+          className="stat-card progress"
+          title={
+            progressBreakdown
+              ? `Orbit: ${progressBreakdown.orbit}% · Skills: ${progressBreakdown.skills}% · Goals: ${progressBreakdown.goals}% · Tasks: ${progressBreakdown.tasks}%`
+              : 'Complete tasks, goals, and orbit sessions to grow'
+          }
+        >
           <div className="stat-icon">🎯</div>
           <div className="stat-content">
             <span className="stat-label">Progress</span>
             <span className="stat-value">{Math.round(progressPercent)}%</span>
-            <span className="stat-sub">&nbsp;</span>
+            <span className="stat-sub">
+              {progressBreakdown
+                ? `${progressBreakdown.orbit}% · ${progressBreakdown.skills}% · ${progressBreakdown.goals}%`
+                : 'Grow your profile'}
+            </span>
           </div>
         </div>
       </div>
@@ -738,7 +787,7 @@ export default function DashboardPage() {
             <GlanceTicker posts={feedPosts} loading={feedLoading} />
           </div>
 
-          {/* ─── Orbit Stacked Card (replaces the static Orbit card) ─── */}
+          {/* Orbit Stacked Card */}
           <OrbitStackedCard
             suggestions={stackedSuggestions}
             loading={stackedLoading}

@@ -2,6 +2,203 @@
 import pool from '../config/db.js';
 import { updateUserStreak } from '../utils/streakUtils.js';
 
+// ============================================================
+// HELPER: Compute composite progress
+// Weights: Orbit 30% | Skills 30% | Goals 30% | Tasks 10%
+// ============================================================
+const computeProgress = async (userId) => {
+  try {
+    // ─── ORBIT: 10 completed sessions = 100% ───────────────
+    const ORBIT_TARGET = 10;
+    const orbitRes = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM orbit_sessions
+       WHERE user_id = $1 AND status = 'completed'`,
+      [userId]
+    );
+    const orbitCount = parseInt(orbitRes.rows[0]?.cnt || 0, 10);
+    const orbitProgress = Math.min((orbitCount / ORBIT_TARGET) * 100, 100);
+
+    // ─── SKILLS: average of user_skills.progress_percent ───
+    let skillsProgress = 0;
+    let skillCount = 0;
+    try {
+      const skillsRes = await pool.query(
+        `SELECT COALESCE(AVG(progress_percent), 0) AS avg_progress,
+                COUNT(*) AS cnt
+         FROM user_skills WHERE user_id = $1`,
+        [userId]
+      );
+      skillCount = parseInt(skillsRes.rows[0]?.cnt || 0, 10);
+      skillsProgress = skillCount > 0
+        ? parseFloat(skillsRes.rows[0].avg_progress || 0)
+        : 0;
+    } catch (e) {
+      console.warn('Skills progress query failed:', e.message);
+    }
+
+    // ─── GOALS: average of goals.progress ──────────────────
+    let goalsProgress = 0;
+    let goalsTotal = 0;
+    let goalsCompleted = 0;
+    try {
+      const goalsRes = await pool.query(
+        `SELECT COALESCE(AVG(progress), 0) AS avg_progress,
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE completed = true) AS completed
+         FROM goals WHERE user_id = $1`,
+        [userId]
+      );
+      goalsTotal = parseInt(goalsRes.rows[0]?.total || 0, 10);
+      goalsCompleted = parseInt(goalsRes.rows[0]?.completed || 0, 10);
+      goalsProgress = goalsTotal > 0
+        ? parseFloat(goalsRes.rows[0].avg_progress || 0)
+        : 0;
+    } catch (e) {
+      console.warn('Goals progress query failed:', e.message);
+    }
+
+    // ─── TASKS: completed / total ──────────────────────────
+    let tasksProgress = 0;
+    let tasksDone = 0;
+    let tasksTotal = 0;
+    try {
+      const tasksRes = await pool.query(
+        `SELECT COUNT(*) FILTER (WHERE is_completed = true) AS done,
+                COUNT(*) AS total
+         FROM tasks WHERE user_id = $1`,
+        [userId]
+      );
+      tasksTotal = parseInt(tasksRes.rows[0]?.total || 0, 10);
+      tasksDone = parseInt(tasksRes.rows[0]?.done || 0, 10);
+      tasksProgress = tasksTotal > 0 ? (tasksDone / tasksTotal) * 100 : 0;
+    } catch (e) {
+      console.warn('Tasks progress query failed:', e.message);
+    }
+
+    // ─── COMPOSITE ─────────────────────────────────────────
+    const composite = Math.round(
+      orbitProgress * 0.30 +
+      skillsProgress * 0.30 +
+      goalsProgress * 0.30 +
+      tasksProgress * 0.10
+    );
+
+    return {
+      progressPercent: Math.min(Math.max(composite, 0), 100),
+      breakdown: {
+        orbit: Math.round(orbitProgress),
+        skills: Math.round(skillsProgress),
+        goals: Math.round(goalsProgress),
+        tasks: Math.round(tasksProgress),
+        orbitCount,
+        skillCount,
+        goalsTotal,
+        goalsCompleted,
+        tasksDone,
+        tasksTotal,
+      },
+    };
+  } catch (err) {
+    console.error('computeProgress error:', err);
+    return {
+      progressPercent: 0,
+      breakdown: { orbit: 0, skills: 0, goals: 0, tasks: 0 },
+    };
+  }
+};
+
+// ============================================================
+// GET DASHBOARD STATS (used by frontend DashboardPage)
+// Endpoint: GET /api/dashboard/stats
+// ============================================================
+export const getDashboardStats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // 1. User info
+    const userRes = await pool.query(
+      `SELECT id, full_name, username, email, xp, level, streak_days,
+              avatar_url, mood, education_level, date_of_birth,
+              last_activity_date
+       FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userRes.rows[0];
+
+    // 2. Study time today
+    const studyRes = await pool.query(
+      `SELECT COALESCE(SUM(duration), 0) AS minutes
+       FROM focus_sessions
+       WHERE user_id = $1
+         AND completed = true
+         AND start_time::date = CURRENT_DATE`,
+      [userId]
+    );
+    const studyTimeMinutes = parseInt(studyRes.rows[0]?.minutes || 0, 10);
+
+    // 3. Composite progress
+    const { progressPercent, breakdown } = await computeProgress(userId);
+
+    // 4. Compute level progress
+    const xpProgress = (user.xp || 0) % 500;
+    const level = Math.floor((user.xp || 0) / 500) + 1;
+    const xpPercent = Math.round((xpProgress / 500) * 100);
+
+    // 5. Counts for quick stats
+    const countsRes = await pool.query(
+      `SELECT
+         (SELECT COUNT(*) FROM orbit_sessions WHERE user_id=$1 AND status='completed') AS orbit_count,
+         (SELECT COUNT(*) FROM tasks WHERE user_id=$1 AND is_completed=true) AS tasks_done,
+         (SELECT COUNT(*) FROM user_skills WHERE user_id=$1) AS skills_count,
+         (SELECT COUNT(*) FROM goals WHERE user_id=$1 AND completed=true) AS goals_completed
+      `,
+      [userId]
+    );
+    const counts = countsRes.rows[0] || {};
+
+    res.json({
+      user: {
+        id: user.id,
+        fullName: user.full_name,
+        username: user.username,
+        email: user.email,
+        xp: user.xp || 0,
+        level,
+        xpProgress,
+        xpPercent,
+        streakDays: user.streak_days || 0,
+        avatarUrl: user.avatar_url,
+        mood: user.mood || 'neutral',
+        educationLevel: user.education_level,
+        lastActivityDate: user.last_activity_date,
+      },
+      // Top-level keys the frontend reads
+      studyTimeMinutes,
+      progressPercent,          // 👈 composite %
+      progressBreakdown: breakdown,  // 👈 for tooltip/debug
+      totalXP: user.xp || 0,
+      level,
+      streakDays: user.streak_days || 0,
+      // Extra stats
+      orbitCount: parseInt(counts.orbit_count || 0, 10),
+      tasksDone: parseInt(counts.tasks_done || 0, 10),
+      skillsCount: parseInt(counts.skills_count || 0, 10),
+      goalsCompleted: parseInt(counts.goals_completed || 0, 10),
+    });
+  } catch (err) {
+    console.error('getDashboardStats error:', err);
+    res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+  }
+};
+
+// ============================================================
+// GET DASHBOARD (kept for backwards compatibility)
+// ============================================================
 export const getDashboard = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -23,7 +220,6 @@ export const getDashboard = async (req, res, next) => {
         FROM xp_history WHERE user_id=$1 AND created_at > NOW() - INTERVAL '7 days'
         GROUP BY DATE(created_at) ORDER BY date
       `, [userId]),
-      // ─── Count ALL completed activities (no date filter) ─────
       pool.query(`
         SELECT
           COALESCE((SELECT COUNT(*) FROM tasks WHERE user_id=$1 AND is_completed=true), 0) AS tasks_done,
@@ -40,11 +236,11 @@ export const getDashboard = async (req, res, next) => {
     const level = Math.floor(user.xp / 500) + 1;
 
     const activity = activityRes.rows[0];
-    const totalPoints = (activity.tasks_done * 1) + (activity.orbit_sessions * 1) +
-                        (activity.posts * 0.5) + (activity.skill_updates * 0.5);
-    const maxPoints = 10;
-    const progressPercent = Math.min(100, Math.round((totalPoints / maxPoints) * 100));
 
+    // ─── Use the new composite progress calculation ─────────
+    const { progressPercent, breakdown } = await computeProgress(userId);
+
+    // Mood logic (kept from your original)
     let mood = 'neutral';
     if (activity.tasks_done > 2 || activity.orbit_sessions > 1) mood = 'happy';
     else if (activity.orbit_sessions > 0 || activity.posts > 0) mood = 'calm';
@@ -62,15 +258,21 @@ export const getDashboard = async (req, res, next) => {
         mood: mood,
         lastActivityDate: user.last_activity_date || null,
       },
-      studyTimeMinutes: activity.study_minutes,   // ✅ key for frontend
-      progressPercent: progressPercent,           // ✅ key for frontend
+      studyTimeMinutes: activity.study_minutes,
+      progressPercent: progressPercent,        // 👈 now composite
+      progressBreakdown: breakdown,            // 👈 new
       goalsByCategory: goalsRes.rows,
       recentBadges: badgesRes.rows,
       xpHistory: xpHistRes.rows,
     });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 };
 
+// ============================================================
+// GET BADGES
+// ============================================================
 export const getBadges = async (req, res, next) => {
   try {
     const result = await pool.query(`
@@ -82,9 +284,14 @@ export const getBadges = async (req, res, next) => {
       ORDER BY b.category, b.requirement_value
     `, [req.user.id]);
     res.json({ badges: result.rows });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 };
 
+// ============================================================
+// GET LEADERBOARD (simple version)
+// ============================================================
 export const getLeaderboard = async (req, res, next) => {
   try {
     const result = await pool.query(`
@@ -94,10 +301,14 @@ export const getLeaderboard = async (req, res, next) => {
       ORDER BY u.xp DESC LIMIT 20
     `);
     res.json({ leaderboard: result.rows });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 };
 
-// ─── COMPLETE FOCUS SESSION ──────────────────────────────────────
+// ============================================================
+// COMPLETE FOCUS SESSION
+// ============================================================
 export const completeFocusSession = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -141,7 +352,9 @@ export const completeFocusSession = async (req, res) => {
   }
 };
 
-// ─── GET FOCUS REMAINING ─────────────────────────────────────────
+// ============================================================
+// GET FOCUS REMAINING
+// ============================================================
 export const getFocusRemaining = async (req, res) => {
   try {
     const userId = req.user.id;
