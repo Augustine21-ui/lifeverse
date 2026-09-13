@@ -33,8 +33,7 @@ import { getBadges, getUserBadges } from '../controllers/badgesController.js';
 import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '../controllers/goalsController.js';
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
 
-// ─── DASHBOARD – Only functions that exist in dashboardController.js ─
-// ─── DASHBOARD + TASKS – all from dashboardController.js ─
+// ─── DASHBOARD + TASKS – all from dashboardController.js ─────
 import {
   getDashboardStats,
   completeFocusSession,
@@ -46,19 +45,9 @@ import {
   deleteTask,
 } from '../controllers/dashboardController.js';
 
-// (No separate taskController import – remove that block entirely)
-
-// ─── TASKS – All task operations come from taskController.js ───
-import {
-  getTodayTasks,
-  completeTask,
-  createTask,
-  deleteTask,
-} from '../controllers/taskController.js';
-
 import { recordMood } from '../moodController.js';
 import * as skillGrowth from '../controllers/skillGrowthController.js';
-import * as taskController from '../controllers/taskController.js';
+import * as taskController from '../controllers/taskController.js';   // namespace import (safe)
 import * as skillsController from '../controllers/skillsController.js';
 import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
@@ -125,15 +114,22 @@ router.post('/challenges/submit', authenticate, submitChallenge);
 router.get('/my-challenges', authenticate, getUserChallenges);
 
 // =============================================================
-//  OPPORTUNITIES (Phase D) – deduplicated
+//  OPPORTUNITIES (Phase D) – deduplicated, ordered correctly
 // =============================================================
+// Specific routes first (avoid :id capture)
 router.get('/opportunities/personalized', authenticate, opportunityController.getPersonalized);
-router.get('/opportunities', authenticate, opportunityController.getOpportunities);
 router.get('/opportunities/applications/pending', authenticate, opportunityController.getPendingApplications);
 router.post('/opportunities/applications/:id/approve', authenticate, opportunityController.approveApplication);
 router.post('/opportunities/applications/:id/reject', authenticate, opportunityController.rejectApplication);
+
+// General list
+router.get('/opportunities', authenticate, opportunityController.getOpportunities);
+
+// Apply + specific opportunity (order matters)
 router.post('/opportunities/:id/apply', authenticate, opportunityController.applyOpportunity);
 router.get('/opportunities/:id', authenticate, opportunityController.getOpportunity);
+
+// User applications + org detail
 router.get('/my-applications', authenticate, opportunityController.getMyApplications);
 router.get('/organizations/:id', authenticate, opportunityController.getOrganization);
 
