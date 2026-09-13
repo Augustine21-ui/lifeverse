@@ -34,12 +34,19 @@ import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '.
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
 
 // ─── DASHBOARD – Only functions that exist in dashboardController.js ─
+// ─── DASHBOARD + TASKS – all from dashboardController.js ─
 import {
   getDashboardStats,
   completeFocusSession,
   getFocusRemaining,
   getTodayChallenges,
+  getTodayTasks,
+  completeTask,
+  createTask,
+  deleteTask,
 } from '../controllers/dashboardController.js';
+
+// (No separate taskController import – remove that block entirely)
 
 // ─── TASKS – All task operations come from taskController.js ───
 import {
