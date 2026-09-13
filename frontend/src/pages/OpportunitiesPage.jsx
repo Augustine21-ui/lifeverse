@@ -10,9 +10,14 @@ import {
   TrendingUp, Zap, Shield, Heart, Target, Layers, Bookmark,
   Loader2, AlertCircle, Check, PenTool, Eye, ThumbsUp
 } from 'lucide-react';
+import { useMood } from '../context/MoodContext';
+import { useToast } from '../context/ToastContext';
 
 export default function OpportunitiesPage() {
   const { user } = useAuth();
+  const { triggerMood } = useMood();       // 👈 Phase D
+  const { showToast } = useToast();         // 👈 Better than alert()
+
   const [activeTab, setActiveTab] = useState('for-you');
   const [opportunities, setOpportunities] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -29,6 +34,7 @@ export default function OpportunitiesPage() {
     skills: '',
     category: ''
   });
+
   const [showFilters, setShowFilters] = useState(false);
   const [showPartner, setShowPartner] = useState(false);
 
@@ -43,8 +49,7 @@ export default function OpportunitiesPage() {
   const educationLevels = ['high_school', 'undergraduate', 'graduate', 'postgraduate'];
   const opportunityTypes = ['job', 'internship', 'scholarship', 'challenge', 'mentorship', 'bootcamp', 'fellowship', 'certification', 'training', 'exchange'];
 
-  // ─── For presentation: set to true to always use mock data ────────
-  const USE_MOCK_ONLY = false; // set to true to skip API calls entirely
+  const USE_MOCK_ONLY = false;
 
   useEffect(() => {
     loadData();
@@ -54,21 +59,18 @@ export default function OpportunitiesPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // If we want to skip API and just use mock
       if (USE_MOCK_ONLY) {
         loadMockData();
         setLoading(false);
         return;
       }
 
-      // Attempt to fetch from API
       const [personalized, all, apps] = await Promise.all([
-        api.getOpportunitiesPersonalized(),
-        api.getOpportunities(),
-        api.getMyApplications()
+        api.getOpportunitiesPersonalized().catch(() => []),
+        api.getOpportunities().catch(() => []),
+        api.getMyApplications().catch(() => [])
       ]);
 
-      // If API returned data, use it; otherwise fallback to mock
       const hasData = (personalized && personalized.length > 0) || (all && all.length > 0);
       if (hasData) {
         setOpportunities(all || []);
@@ -80,16 +82,15 @@ export default function OpportunitiesPage() {
       }
     } catch (err) {
       console.error('Error loading opportunities:', err);
-      loadMockData(); // fallback on error
+      loadMockData();
     } finally {
       setLoading(false);
     }
   };
 
-  // ─── UPDATED Mock data with more opportunities ────────────────────
+  // ─── Mock data (unchanged) ────────────────────────────────────────
   const loadMockData = () => {
     const mockOpps = [
-      // ─── Jobs & Internships ──────────────────────────────────────
       {
         id: 1,
         title: 'Junior Web Developer Internship',
@@ -173,7 +174,6 @@ export default function OpportunitiesPage() {
         eligibility: ['University students', 'Kenya'],
         created_at: '2026-08-18'
       },
-      // ─── Scholarships & Learning ────────────────────────────────
       {
         id: 4,
         title: 'Future Innovators Scholarship',
@@ -255,7 +255,6 @@ export default function OpportunitiesPage() {
         eligibility: ['University women', 'Kenya'],
         created_at: '2026-08-19'
       },
-      // ─── Challenges ──────────────────────────────────────────────
       {
         id: 7,
         title: 'KEPSA Demo Challenge: Solve a Real Business Problem',
@@ -311,7 +310,6 @@ export default function OpportunitiesPage() {
         eligibility: ['Students', 'Kenya'],
         created_at: '2026-08-25'
       },
-      // ─── Mentorship ──────────────────────────────────────────────
       {
         id: 9,
         title: 'Women in Technology Mentorship',
@@ -372,35 +370,49 @@ export default function OpportunitiesPage() {
     setMyApplications([]);
   };
 
-  // ── Tab content filtering ──────────────────────────────────────────
   const getFilteredByType = useCallback((type) => {
     return opportunities.filter(o => o.type === type);
   }, [opportunities]);
 
-  // ── Application handler ────────────────────────────────────────────
+  // ── Application handler (Phase D: mood trigger) ────────────────────
   const handleApply = async (oppId) => {
     setApplying(true);
     try {
-      await api.applyOpportunity(oppId);
+      const res = await api.applyOpportunity(oppId);
+
+      // 👈 Phase D: read backend mood event and trigger
+      if (res?.moodEvent) {
+        triggerMood(res.moodEvent, {
+          meta: {
+            mentorAvailable: res.mentorAvailable,
+            matchScore: res.matchScore,
+          },
+        });
+      }
+
       // Refresh applications
       const apps = await api.getMyApplications();
       setMyApplications(apps || []);
       setShowDetail(false);
-      alert('Application submitted successfully!');
+
+      // Friendly toast instead of alert
+      if (res?.mentorAvailable) {
+        showToast('🎯 Application sent — a mentor is available to guide you!');
+      } else {
+        showToast('✅ Application submitted successfully!');
+      }
     } catch (err) {
-      alert('Failed to apply: ' + (err.error || err.message));
+      showToast('Failed to apply: ' + (err.error || err.message), 'error');
     } finally {
       setApplying(false);
     }
   };
 
-  // ── Get application status ────────────────────────────────────────
   const getApplicationStatus = (oppId) => {
     const app = myApplications.find(a => a.opportunity_id === oppId);
     return app ? app.status : null;
   };
 
-  // ── Get status badge color ────────────────────────────────────────
   const getStatusColor = (status) => {
     const colors = {
       'applied': 'bg-blue-500/20 text-blue-400',
@@ -408,12 +420,13 @@ export default function OpportunitiesPage() {
       'shortlisted': 'bg-purple-500/20 text-purple-400',
       'interview': 'bg-orange-500/20 text-orange-400',
       'accepted': 'bg-green-500/20 text-green-400',
+      'approved': 'bg-green-500/20 text-green-400',
+      'rejected': 'bg-red-500/20 text-red-400',
       'unsuccessful': 'bg-red-500/20 text-red-400'
     };
     return colors[status] || 'bg-gray-500/20 text-gray-400';
   };
 
-  // ── Tab navigation ─────────────────────────────────────────────────
   const tabs = [
     { id: 'for-you', label: 'For You', icon: Sparkles },
     { id: 'jobs', label: 'Jobs & Internships', icon: Briefcase },
@@ -422,7 +435,6 @@ export default function OpportunitiesPage() {
     { id: 'mentorship', label: 'Mentorship', icon: Users },
   ];
 
-  // ── Render: For You tab ────────────────────────────────────────────
   const renderForYou = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -451,7 +463,6 @@ export default function OpportunitiesPage() {
     </div>
   );
 
-  // ── Render: Jobs & Internships ─────────────────────────────────────
   const renderJobs = () => {
     const jobs = opportunities.filter(o => ['job', 'internship'].includes(o.type));
     const categories = ['Internships', 'Graduate Opportunities', 'Jobs', 'Part-time', 'Remote', 'Entry-level'];
@@ -491,7 +502,6 @@ export default function OpportunitiesPage() {
     );
   };
 
-  // ── Render: Scholarships & Learning ───────────────────────────────
   const renderScholarships = () => {
     const items = opportunities.filter(o => ['scholarship', 'fellowship', 'bootcamp', 'certification', 'training', 'exchange'].includes(o.type));
     const types = ['Scholarships', 'Fellowships', 'Bootcamps', 'Certifications', 'Training', 'Exchange'];
@@ -531,7 +541,6 @@ export default function OpportunitiesPage() {
     );
   };
 
-  // ── Render: Challenges ─────────────────────────────────────────────
   const renderChallenges = () => {
     const items = opportunities.filter(o => o.type === 'challenge');
     return (
@@ -563,7 +572,6 @@ export default function OpportunitiesPage() {
     );
   };
 
-  // ── Render: Mentorship ─────────────────────────────────────────────
   const renderMentorship = () => {
     const items = opportunities.filter(o => o.type === 'mentorship');
     return (
@@ -594,7 +602,6 @@ export default function OpportunitiesPage() {
     );
   };
 
-  // ── Detail Modal ──────────────────────────────────────────────────
   const renderDetailModal = () => {
     if (!selectedOpp) return null;
     const opp = selectedOpp;
@@ -604,7 +611,6 @@ export default function OpportunitiesPage() {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && setShowDetail(false)}>
         <div className="w-full max-w-3xl card p-6 max-h-[90vh] overflow-y-auto">
-          {/* Header */}
           <div className="flex justify-between items-start mb-4">
             <div>
               <div className="flex items-center gap-2">
@@ -631,7 +637,6 @@ export default function OpportunitiesPage() {
             <button onClick={() => setShowDetail(false)} className="text-white/40 hover:text-white"><X size={24} /></button>
           </div>
 
-          {/* Match Breakdown */}
           <div className="bg-white/5 p-4 rounded-lg mb-4">
             <h4 className="text-sm font-semibold text-white/60 mb-2">Why KUA matched you</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
@@ -645,13 +650,11 @@ export default function OpportunitiesPage() {
             </p>
           </div>
 
-          {/* Description */}
           <div className="mb-4">
             <h3 className="font-semibold mb-1">About</h3>
             <p className="text-sm text-white/70">{opp.description}</p>
           </div>
 
-          {/* What you'll gain */}
           {opp.what_you_gain && opp.what_you_gain.length > 0 && (
             <div className="mb-4">
               <h3 className="font-semibold mb-1">What you'll gain</h3>
@@ -663,7 +666,6 @@ export default function OpportunitiesPage() {
             </div>
           )}
 
-          {/* Requirements & Eligibility */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             {opp.requirements && opp.requirements.length > 0 && (
               <div>
@@ -683,14 +685,17 @@ export default function OpportunitiesPage() {
             )}
           </div>
 
-          {/* Application Status & Actions */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/10">
             {status ? (
               <div>
                 <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(status)}`}>
                   {status.replace('_', ' ').toUpperCase()}
                 </span>
-                <span className="text-xs text-white/40 ml-2">Applied on {new Date(opp.applied_at).toLocaleDateString()}</span>
+                {opp.applied_at && (
+                  <span className="text-xs text-white/40 ml-2">
+                    Applied on {new Date(opp.applied_at).toLocaleDateString()}
+                  </span>
+                )}
               </div>
             ) : (
               <button
@@ -708,7 +713,6 @@ export default function OpportunitiesPage() {
             )}
           </div>
 
-          {/* Demo label */}
           {opp.is_demo && (
             <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-yellow-400">
               <AlertCircle size={12} className="inline mr-1" />
@@ -720,7 +724,6 @@ export default function OpportunitiesPage() {
     );
   };
 
-  // ── Partner with KUA Modal ────────────────────────────────────────
   const renderPartnerModal = () => {
     if (!showPartner) return null;
     return (
@@ -748,14 +751,12 @@ export default function OpportunitiesPage() {
     );
   };
 
-  // ── Main render ───────────────────────────────────────────────────
   if (loading) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-400" size={40} /></div>;
   }
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
       <div className="flex justify-between items-start mb-2">
         <div>
           <h1 className="text-3xl font-bold">🚀 Opportunities</h1>
@@ -766,13 +767,11 @@ export default function OpportunitiesPage() {
         </button>
       </div>
 
-      {/* Prototype banner */}
       <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2 mb-4 text-xs text-yellow-400 flex items-center gap-2">
         <AlertCircle size={14} />
         <span>Prototype Preview — These opportunities demonstrate how KUA's opportunity ecosystem will work once verified organizations join the platform.</span>
       </div>
 
-      {/* Tabs */}
       <div className="flex flex-wrap gap-1 border-b border-white/10 mb-6">
         {tabs.map(tab => {
           const Icon = tab.icon;
@@ -793,7 +792,6 @@ export default function OpportunitiesPage() {
         })}
       </div>
 
-      {/* Content */}
       <div>
         {activeTab === 'for-you' && renderForYou()}
         {activeTab === 'jobs' && renderJobs()}
@@ -802,10 +800,7 @@ export default function OpportunitiesPage() {
         {activeTab === 'mentorship' && renderMentorship()}
       </div>
 
-      {/* Detail Modal */}
       {renderDetailModal()}
-
-      {/* Partner Modal */}
       {renderPartnerModal()}
     </div>
   );
@@ -886,6 +881,8 @@ function getStatusColor(status) {
     'shortlisted': 'bg-purple-500/20 text-purple-400',
     'interview': 'bg-orange-500/20 text-orange-400',
     'accepted': 'bg-green-500/20 text-green-400',
+    'approved': 'bg-green-500/20 text-green-400',
+    'rejected': 'bg-red-500/20 text-red-400',
     'unsuccessful': 'bg-red-500/20 text-red-400'
   };
   return colors[status] || 'bg-gray-500/20 text-gray-400';

@@ -932,4 +932,64 @@ completeGoal: (goalId) => fetch(`${API_BASE}/goals/${goalId}/complete`, {
   method: 'POST',
   headers: authHeaders(),
 }).then(handleResponse),
+
+// ─── Opportunities (Phase D) ──────────────────────────────
+getOpportunitiesPersonalized: () => fetch(`${API_BASE}/opportunities/personalized`, {
+  headers: authHeaders(),
+}).then(handleResponse),
+
+applyOpportunity: (id) => fetch(`${API_BASE}/opportunities/${id}/apply`, {
+  method: 'POST',
+  headers: authHeaders(),
+}).then(handleResponse),
+
+approveApplication: (id) => fetch(`${API_BASE}/opportunities/applications/${id}/approve`, {
+  method: 'POST',
+  headers: authHeaders(),
+}).then(handleResponse),
+
+rejectApplication: (id) => fetch(`${API_BASE}/opportunities/applications/${id}/reject`, {
+  method: 'POST',
+  headers: authHeaders(),
+}).then(handleResponse),
+
+// ─── Mentorship (Phase D) ────────────────────────────────
+listMentors: () => fetch(`${API_BASE}/mentorship/mentors`, {
+  headers: authHeaders(),
+}).then(handleResponse),
+
+requestMentorship: (mentorId, topic) => fetch(`${API_BASE}/mentorship/request`, {
+  method: 'POST',
+  headers: authHeaders(),
+  body: JSON.stringify({ mentorId, topic }),
+}).then(handleResponse),
+
+acceptMentorship: (linkId) => fetch(`${API_BASE}/mentorship/${linkId}/accept`, {
+  method: 'POST',
+  headers: authHeaders(),
+}).then(handleResponse),
+
+getMyMentorships: () => fetch(`${API_BASE}/mentorship/my`, {
+  headers: authHeaders(),
+}).then(handleResponse),
+
+registerAsMentor: (data) => fetch(`${API_BASE}/mentorship/mentors/register`, {
+  method: 'POST',
+  headers: authHeaders(),
+  body: JSON.stringify(data),
+}).then(handleResponse),
+// ─── Opportunities (Phase D) ──────────────────────────────
+getPendingApplications: () => fetch(`${API_BASE}/opportunities/applications/pending`, {
+  headers: authHeaders(),
+}).then(handleResponse),
+
+approveApplication: (id) => fetch(`${API_BASE}/opportunities/applications/${id}/approve`, {
+  method: 'POST',
+  headers: authHeaders(),
+}).then(handleResponse),
+
+rejectApplication: (id) => fetch(`${API_BASE}/opportunities/applications/${id}/reject`, {
+  method: 'POST',
+  headers: authHeaders(),
+}).then(handleResponse),
 };

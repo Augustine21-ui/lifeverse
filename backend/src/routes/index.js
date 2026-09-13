@@ -105,6 +105,14 @@ router.get('/opportunities/:id', authenticate, opportunityController.getOpportun
 router.post('/opportunities/:id/apply', authenticate, opportunityController.applyOpportunity);
 router.get('/my-applications', authenticate, opportunityController.getMyApplications);
 router.get('/organizations/:id', authenticate, opportunityController.getOrganization);
+router.get('/opportunities/personalized', authenticate, opportunityController.getPersonalized);
+router.get('/opportunities', authenticate, opportunityController.getOpportunities);
+router.get('/opportunities/:id', authenticate, opportunityController.getOpportunity);
+router.post('/opportunities/:id/apply', authenticate, opportunityController.applyOpportunity);
+router.post('/opportunities/applications/:id/approve', authenticate, opportunityController.approveApplication);
+router.post('/opportunities/applications/:id/reject', authenticate, opportunityController.rejectApplication);
+router.get('/my-applications', authenticate, opportunityController.getMyApplications);
+router.get('/organizations/:id', authenticate, opportunityController.getOrganization);
 
 // =============================================================
 //  FEED (global)
