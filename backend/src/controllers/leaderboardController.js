@@ -21,10 +21,11 @@ const calculateScores = async () => {
     JOIN likes l ON p.id = l.post_id
     GROUP BY p.user_id
   `;
+  // ✅ FIXED: single quotes for string literal 'approved'
   const challengesQuery = `
     SELECT user_id, COUNT(*) as challenges_completed
     FROM user_challenges
-    WHERE status = "approved"
+    WHERE status = 'approved'
     GROUP BY user_id
   `;
   const tasksQuery = `
@@ -50,9 +51,18 @@ const calculateScores = async () => {
     db.query(xpQuery),
     db.query(streakQuery),
     db.query(likesQuery),
-    db.query(challengesQuery),
-    db.query(tasksQuery),
-    db.query(communityQuery).catch(() => ({ rows: [] })),
+    db.query(challengesQuery).catch((err) => {
+      console.warn('Challenges leaderboard query failed:', err.message);
+      return { rows: [] };
+    }),
+    db.query(tasksQuery).catch((err) => {
+      console.warn('Tasks leaderboard query failed:', err.message);
+      return { rows: [] };
+    }),
+    db.query(communityQuery).catch((err) => {
+      console.warn('Community leaderboard query failed:', err.message);
+      return { rows: [] };
+    }),
   ]);
 
   const scores = {
@@ -87,7 +97,7 @@ export const refreshLeaderboards = async () => {
   }
 };
 
-// ✅ SINGLE DEFINITION - Get leaderboard
+// ✅ Get leaderboard
 export const getLeaderboard = async (req, res) => {
   const { type = "xp" } = req.query;
   const limit = parseInt(req.query.limit) || 50;
