@@ -916,4 +916,10 @@ export const api = {
   getStackedSuggestions: () => fetch(`${API_BASE}/orbit/stacked-suggestions`, {
   headers: authHeaders(),
 }).then(handleResponse),
+
+updateUserSkill: (data) => fetch(`${API_BASE}/user-skills`, {
+  method: 'PUT',
+  headers: authHeaders(),
+  body: JSON.stringify(data),
+}).then(handleResponse),
 };

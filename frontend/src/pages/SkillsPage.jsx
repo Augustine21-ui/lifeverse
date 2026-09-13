@@ -5,8 +5,11 @@ import { api } from '../services/api';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp, Target, Award, BarChart3,
-  Loader2, Plus, X, ChevronRight, Sparkles
+  Loader2, Plus, X, ChevronRight, Sparkles,
+  CheckCircle, Circle, Play
 } from 'lucide-react';
+import { useMood } from '../context/MoodContext';
+import { useToast } from '../context/ToastContext';
 
 // Predefined badge definitions (fallback if backend doesn't return all)
 const BADGE_DEFINITIONS = [
@@ -21,6 +24,9 @@ const BADGE_DEFINITIONS = [
 
 export default function SkillsPage() {
   const { user } = useAuth();
+  const { showToast } = useToast();
+  const { triggerMood } = useMood();   // 👈 Phase C
+
   const [summary, setSummary] = useState({ level: 1, xp: 0, goalsCount: 0, skillsCount: 0, achievementsCount: 0 });
   const [goals, setGoals] = useState([]);
   const [userSkills, setUserSkills] = useState([]);
@@ -46,6 +52,10 @@ export default function SkillsPage() {
   const [skillCategory, setSkillCategory] = useState('');
   const [submittingSkill, setSubmittingSkill] = useState(false);
 
+  // ─── Milestone toggle state ────────────────────────────────────
+  const [togglingMilestone, setTogglingMilestone] = useState(null);
+  const [expandedGoalId, setExpandedGoalId] = useState(null);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -64,7 +74,6 @@ export default function SkillsPage() {
       // ─── Deduplicate user skills by name ──────────────────────
       const rawSkills = Array.isArray(userSkillsRes) ? userSkillsRes : (userSkillsRes?.userSkills || userSkillsRes?.data || []);
       const uniqueSkills = rawSkills.reduce((acc, skill) => {
-        // Use skill.name or skill.skill_name
         const name = skill.name || skill.skill_name;
         if (!acc.some(s => (s.name || s.skill_name) === name)) {
           acc.push(skill);
@@ -72,7 +81,6 @@ export default function SkillsPage() {
         return acc;
       }, []);
 
-      // Build achievements list with earned status
       const earnedIds = (earnedBadgesRes || []).map(b => b.id);
       const achievementsData = BADGE_DEFINITIONS.map(b => ({
         ...b,
@@ -105,34 +113,116 @@ export default function SkillsPage() {
       await api.createGoal(payload);
       setShowGoalModal(false);
       setGoalForm({ title: '', description: '', category: 'academic', target_date: '', metadata: {} });
-      await loadData(); // refresh goals
+      await loadData();
+      showToast('Goal created!');
     } catch (err) {
-      alert('Failed to create goal: ' + (err.error || err.message));
+      showToast('Failed to create goal: ' + (err.error || err.message), 'error');
     } finally {
       setSubmittingGoal(false);
     }
   };
 
-  // ─── Skill creation ──────────────────────────────────────────
   const handleCreateSkill = async (e) => {
     e.preventDefault();
     if (!skillName.trim()) return;
     setSubmittingSkill(true);
     try {
-      // Use the API to create a skill (adjust endpoint if needed)
       await api.createSkill({ name: skillName.trim(), category: skillCategory.trim() || undefined });
       setShowSkillModal(false);
       setSkillName('');
       setSkillCategory('');
-      await loadData(); // refresh skills
+      await loadData();
+      showToast('Skill added!');
     } catch (err) {
-      alert('Failed to create skill: ' + (err.error || err.message));
+      showToast('Failed to create skill: ' + (err.error || err.message), 'error');
     } finally {
       setSubmittingSkill(false);
     }
   };
 
+  // ─── Phase C: Toggle milestone → mood ─────────────────────────
+  const handleToggleMilestone = async (goalId, milestoneId) => {
+    try {
+      setTogglingMilestone(milestoneId);
+      const res = await api.toggleMilestone(goalId, milestoneId);
+
+      // Trigger mood based on backend response
+      if (res?.moodEvent) {
+        triggerMood(res.moodEvent, {
+          meta: {
+            goalId,
+            progress: res.progress,
+            xpAwarded: res.xpAwarded,
+          },
+        });
+      }
+
+      if (res?.xpAwarded > 0) {
+        showToast(`🎉 Goal complete! +${res.xpAwarded} XP`);
+      } else if (res?.allComplete) {
+        showToast('🎉 All milestones complete!');
+      }
+
+      await loadData();
+    } catch (err) {
+      showToast(err.message || 'Failed to toggle milestone', 'error');
+    } finally {
+      setTogglingMilestone(null);
+    }
+  };
+
+  // ─── Phase C: Submit practice → mood ──────────────────────────
+  const handleSubmitPractice = async (skillId, activityId, score = 80) => {
+    try {
+      const res = await api.submitPracticeResult({
+        skillId,
+        activityId,
+        score,
+        timeSpent: 60,
+      });
+
+      if (res?.moodEvent) {
+        triggerMood(res.moodEvent, {
+          meta: {
+            skillId,
+            progressPercent: res.progressPercent,
+          },
+        });
+      }
+
+      showToast(`+${res?.xpAwarded || 5} XP • Progress: ${res?.progressPercent || 0}%`);
+      await loadData();
+    } catch (err) {
+      showToast(err.message || 'Failed to submit practice', 'error');
+    }
+  };
+
+  // ─── Phase C: Complete goal directly ──────────────────────────
+  const handleCompleteGoal = async (goalId) => {
+    try {
+      const res = await api.completeGoal(goalId);
+      if (res?.moodEvent) {
+        triggerMood(res.moodEvent);
+      }
+      if (res?.xpAwarded > 0) {
+        showToast(`🎉 Goal complete! +${res.xpAwarded} XP`);
+      }
+      await loadData();
+    } catch (err) {
+      showToast(err.message || 'Failed to complete goal', 'error');
+    }
+  };
+
   const safeSlice = (arr, start, end) => Array.isArray(arr) ? arr.slice(start, end) : [];
+
+  // ─── Parse milestones helper ──────────────────────────────────
+  const parseMilestones = (goal) => {
+    let m = goal.milestones;
+    if (typeof m === 'string') {
+      try { m = JSON.parse(m); } catch { m = []; }
+    }
+    return Array.isArray(m) ? m : [];
+  };
 
   if (loading) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-400" size={40} /></div>;
@@ -244,17 +334,31 @@ export default function SkillsPage() {
                       Progress: {Math.round(selectedSkill.progress_percent || 0)}%
                     </p>
                   </div>
-                  <Link
-                    to={`/skill/${selectedSkill.id || selectedSkill.skill_id}`}
-                    className="text-brand-400 hover:underline text-sm flex items-center gap-1"
-                  >
-                    View Full Dashboard <ChevronRight size={14} />
-                  </Link>
+                  <div className="flex gap-2">
+                    {/* 👈 Phase C: Practice button triggers mood */}
+                    <button
+                      onClick={() => handleSubmitPractice(
+                        selectedSkill.id || selectedSkill.skill_id,
+                        `practice-${Date.now()}`,
+                        80
+                      )}
+                      className="text-xs px-3 py-1.5 bg-brand-500/20 hover:bg-brand-500/30 text-brand-300 rounded-lg flex items-center gap-1 transition"
+                    >
+                      <Play size={12} /> Practice
+                    </button>
+                    <Link
+                      to={`/skill/${selectedSkill.id || selectedSkill.skill_id}`}
+                      className="text-brand-400 hover:underline text-sm flex items-center gap-1"
+                    >
+                      View Full <ChevronRight size={14} />
+                    </Link>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-2 text-xs text-white/40">
-                  <div>Projects: 0</div>
-                  <div>Challenges: 0</div>
-                  <div>Practice: 0%</div>
+                <div className="w-full h-1.5 bg-white/10 rounded-full mt-2">
+                  <div
+                    className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full transition-all"
+                    style={{ width: `${selectedSkill.progress_percent || 0}%` }}
+                  />
                 </div>
               </div>
             )}
@@ -278,28 +382,93 @@ export default function SkillsPage() {
               <p className="text-white/40">No goals yet. Create one to start your journey!</p>
             ) : (
               <div className="space-y-2">
-                {safeSlice(goals, 0, 3).map(goal => (
-                  <div key={goal.id} className="flex items-center justify-between p-2 bg-white/5 rounded-lg">
-                    <div>
-                      <p className="font-medium">{goal.title}</p>
-                      <div className="flex items-center gap-2 text-xs text-white/40">
-                        <span className={`px-1.5 py-0.5 rounded ${
-                          goal.category === 'academic' ? 'bg-blue-500/20 text-blue-400' :
-                          goal.category === 'skill' ? 'bg-green-500/20 text-green-400' :
-                          goal.category === 'career' ? 'bg-purple-500/20 text-purple-400' :
-                          'bg-orange-500/20 text-orange-400'
-                        }`}>
-                          {goal.category}
-                        </span>
-                        <span>Progress: {goal.progress || 0}%</span>
-                        {goal.target_date && <span>• Due: {new Date(goal.target_date).toLocaleDateString()}</span>}
+                {safeSlice(goals, 0, 5).map(goal => {
+                  const milestones = parseMilestones(goal);
+                  const isExpanded = expandedGoalId === goal.id;
+
+                  return (
+                    <div key={goal.id} className="p-3 bg-white/5 rounded-lg">
+                      <div
+                        className="flex items-center justify-between cursor-pointer"
+                        onClick={() => setExpandedGoalId(isExpanded ? null : goal.id)}
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium">{goal.title}</p>
+                          <div className="flex items-center gap-2 text-xs text-white/40 mt-1">
+                            <span className={`px-1.5 py-0.5 rounded ${
+                              goal.category === 'academic' ? 'bg-blue-500/20 text-blue-400' :
+                              goal.category === 'skill' ? 'bg-green-500/20 text-green-400' :
+                              goal.category === 'career' ? 'bg-purple-500/20 text-purple-400' :
+                              'bg-orange-500/20 text-orange-400'
+                            }`}>
+                              {goal.category}
+                            </span>
+                            <span>Progress: {goal.progress || 0}%</span>
+                            {goal.target_date && <span>• Due: {new Date(goal.target_date).toLocaleDateString()}</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded text-xs ${goal.completed ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                            {goal.completed ? '✅ Done' : 'Active'}
+                          </span>
+                          {!goal.completed && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCompleteGoal(goal.id);
+                              }}
+                              className="text-xs px-2 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded"
+                            >
+                              Complete
+                            </button>
+                          )}
+                          <ChevronRight size={16} className={`text-white/30 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                        </div>
                       </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full h-1 bg-white/10 rounded-full mt-2">
+                        <div
+                          className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full transition-all"
+                          style={{ width: `${goal.progress || 0}%` }}
+                        />
+                      </div>
+
+                      {/* Milestones (expandable) */}
+                      {isExpanded && milestones.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/10 space-y-1.5">
+                          <p className="text-xs text-white/40 mb-2">Milestones</p>
+                          {milestones.map((m, idx) => {
+                            const mid = m.id || idx;
+                            return (
+                              <button
+                                key={mid}
+                                onClick={() => handleToggleMilestone(goal.id, mid)}
+                                disabled={togglingMilestone === mid}
+                                className="w-full flex items-center gap-2 p-1.5 rounded hover:bg-white/5 transition text-left"
+                              >
+                                {m.completed ? (
+                                  <CheckCircle size={16} className="text-green-400 flex-shrink-0" />
+                                ) : (
+                                  <Circle size={16} className="text-white/30 flex-shrink-0" />
+                                )}
+                                <span className={`text-sm ${m.completed ? 'text-white/40 line-through' : 'text-white/80'}`}>
+                                  {m.title || m.name || `Milestone ${idx + 1}`}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {isExpanded && milestones.length === 0 && (
+                        <p className="text-xs text-white/30 mt-3 pt-3 border-t border-white/10">
+                          No milestones yet
+                        </p>
+                      )}
                     </div>
-                    <span className={`px-2 py-1 rounded text-xs ${goal.completed ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                      {goal.completed ? '✅ Done' : 'Active'}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -314,7 +483,7 @@ export default function SkillsPage() {
               <span className="text-sm text-white/40">{userSkills.length} skills</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {safeSlice(userSkills, 0, 4).map(skill => {
+              {safeSlice(userSkills, 0, 6).map(skill => {
                 const skillId = skill.id || skill.skill_id;
                 const skillName = skill.name || skill.skill_name;
                 return (
@@ -324,7 +493,10 @@ export default function SkillsPage() {
                       <span className="text-xs text-white/40">{skill.level || 'Beginner'}</span>
                     </div>
                     <div className="w-full h-1.5 bg-white/10 rounded-full mt-1">
-                      <div className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full" style={{ width: `${skill.progress_percent || 0}%` }} />
+                      <div
+                        className="h-full bg-gradient-to-r from-brand-500 to-violet-500 rounded-full"
+                        style={{ width: `${skill.progress_percent || 0}%` }}
+                      />
                     </div>
                   </div>
                 );
@@ -458,36 +630,6 @@ export default function SkillsPage() {
                   onChange={(e) => setGoalForm({...goalForm, target_date: e.target.value})}
                 />
               </div>
-              {goalForm.category === 'personal' && (
-                <div>
-                  <label className="text-sm text-white/60">Sessions Target (e.g., 30)</label>
-                  <input
-                    type="number"
-                    className="input w-full"
-                    placeholder="30"
-                    value={goalForm.metadata.sessions_target || ''}
-                    onChange={(e) => setGoalForm({
-                      ...goalForm,
-                      metadata: { ...goalForm.metadata, sessions_target: parseInt(e.target.value) || 30 }
-                    })}
-                  />
-                </div>
-              )}
-              {goalForm.category === 'skill' && (
-                <div>
-                  <label className="text-sm text-white/60">Skill Name (if different from title)</label>
-                  <input
-                    type="text"
-                    className="input w-full"
-                    placeholder="React Development"
-                    value={goalForm.metadata.skill_name || ''}
-                    onChange={(e) => setGoalForm({
-                      ...goalForm,
-                      metadata: { ...goalForm.metadata, skill_name: e.target.value }
-                    })}
-                  />
-                </div>
-              )}
               <button type="submit" disabled={submittingGoal} className="btn-primary w-full">
                 {submittingGoal ? 'Creating...' : 'Create Goal'}
               </button>

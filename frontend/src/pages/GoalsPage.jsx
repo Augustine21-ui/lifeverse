@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Target, CheckCircle2, Circle, Trash2, Calendar, ChevronDown, ChevronUp, Zap, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
 import PageBackground from '../components/PageBackground';
+import { useMood } from '../context/MoodContext';
 
 const CATEGORIES = ['study', 'fitness', 'personal', 'creative', 'social'];
 const CAT_COLORS = {
@@ -16,13 +17,45 @@ const CAT_COLORS = {
 function GoalCard({ goal, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const progress = Math.min(100, Math.round((goal.current_value / goal.target_value) * 100));
+  const { triggerMood } = useMood();
 
-  const handleToggleMilestone = async (milestoneId) => {
-    try {
-      await api.toggleMilestone(goal.id, milestoneId);
-      onUpdate();
-    } catch (err) { console.error(err); }
-  };
+  const handleToggleMilestone = async (goalId, milestoneId) => {
+  try {
+    const res = await api.toggleMilestone(goalId, milestoneId);
+
+    // Trigger mood based on backend response
+    if (res?.moodEvent) {
+      triggerMood(res.moodEvent, {
+        meta: {
+          goalId,
+          progress: res.progress,
+          xpAwarded: res.xpAwarded,
+        },
+      });
+    }
+
+    if (res?.xpAwarded > 0) {
+      showToast(`🎉 Goal complete! +${res.xpAwarded} XP`);
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
+
+// In your completeGoal handler:
+const handleCompleteGoal = async (goalId) => {
+  try {
+    const res = await api.completeGoal(goalId);
+    if (res?.moodEvent) {
+      triggerMood(res.moodEvent);
+    }
+    if (res?.xpAwarded > 0) {
+      showToast(`🎉 Goal complete! +${res.xpAwarded} XP`);
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
 
   const milestones = goal.milestones || [];
 
