@@ -25,7 +25,7 @@ const BADGE_DEFINITIONS = [
 export default function SkillsPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { triggerMood } = useMood();   // 👈 Phase C
+  const { triggerMood } = useMood();
 
   const [summary, setSummary] = useState({ level: 1, xp: 0, goalsCount: 0, skillsCount: 0, achievementsCount: 0 });
   const [goals, setGoals] = useState([]);
@@ -146,7 +146,6 @@ export default function SkillsPage() {
       setTogglingMilestone(milestoneId);
       const res = await api.toggleMilestone(goalId, milestoneId);
 
-      // Trigger mood based on backend response
       if (res?.moodEvent) {
         triggerMood(res.moodEvent, {
           meta: {
@@ -172,25 +171,30 @@ export default function SkillsPage() {
   };
 
   // ─── Phase C: Submit practice → mood ──────────────────────────
-  const handleSubmitPractice = async (skillId, activityId, score = 80) => {
+  const handleSubmitPractice = async (skillId, score = 80) => {
     try {
+      const numericSkillId = parseInt(skillId, 10);
+      if (isNaN(numericSkillId)) {
+        showToast('Invalid skill ID', 'error');
+        return;
+      }
+
       const res = await api.submitPracticeResult({
-        skillId,
-        activityId,
-        score,
+        skillId: numericSkillId,
+        score: Number(score) || 80,   // ensure numeric
         timeSpent: 60,
       });
 
       if (res?.moodEvent) {
         triggerMood(res.moodEvent, {
           meta: {
-            skillId,
+            skillId: numericSkillId,
             progressPercent: res.progressPercent,
           },
         });
       }
 
-      showToast(`+${res?.xpAwarded || 5} XP • Progress: ${res?.progressPercent || 0}%`);
+      showToast(`+5 XP • Progress: ${res?.progressPercent || 0}%`);
       await loadData();
     } catch (err) {
       showToast(err.message || 'Failed to submit practice', 'error');
@@ -215,7 +219,6 @@ export default function SkillsPage() {
 
   const safeSlice = (arr, start, end) => Array.isArray(arr) ? arr.slice(start, end) : [];
 
-  // ─── Parse milestones helper ──────────────────────────────────
   const parseMilestones = (goal) => {
     let m = goal.milestones;
     if (typeof m === 'string') {
@@ -335,11 +338,10 @@ export default function SkillsPage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    {/* 👈 Phase C: Practice button triggers mood */}
+                    {/* ✅ FIXED: only pass skillId + score, no fake activityId */}
                     <button
                       onClick={() => handleSubmitPractice(
                         selectedSkill.id || selectedSkill.skill_id,
-                        `practice-${Date.now()}`,
                         80
                       )}
                       className="text-xs px-3 py-1.5 bg-brand-500/20 hover:bg-brand-500/30 text-brand-300 rounded-lg flex items-center gap-1 transition"

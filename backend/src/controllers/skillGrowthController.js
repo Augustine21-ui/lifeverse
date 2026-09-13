@@ -131,28 +131,45 @@ export const getSkillsSummary = async (req, res) => {
 };
 
 // ─── Submit practice result (+ mood trigger) ──────────────
+// ─── Submit practice result (+ mood trigger) ──────────────
 export const submitPracticeResult = async (req, res) => {
   try {
     const userId = req.user?.id;
     const { skillId, activityId, score, timeSpent } = req.body;
 
-    if (!skillId || !activityId) {
-      return res.status(400).json({ error: 'skillId and activityId are required' });
+    if (!skillId) {
+      return res.status(400).json({ error: 'skillId is required' });
     }
 
-    // Save result
-    const inserted = await db.query(
-      `INSERT INTO practice_results
-         (user_id, activity_id, score, time_spent, completed_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       RETURNING *`,
-      [userId, activityId, score || 0, timeSpent || 0]
-    );
+    // Validate skillId is an integer
+    const skillIdInt = parseInt(skillId, 10);
+    if (isNaN(skillIdInt)) {
+      return res.status(400).json({ error: 'skillId must be a valid number' });
+    }
 
-    // Update skill progress (add 5% per practice)
+    // ─── Optional: only insert into practice_results if activityId is a valid integer
+    let practiceResult = null;
+    const activityIdInt = activityId ? parseInt(activityId, 10) : null;
+
+    if (activityIdInt && !isNaN(activityIdInt)) {
+      try {
+        const inserted = await db.query(
+          `INSERT INTO practice_results
+             (user_id, activity_id, score, time_spent, completed_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           RETURNING *`,
+          [userId, activityIdInt, score || 0, timeSpent || 0]
+        );
+        practiceResult = inserted.rows[0];
+      } catch (e) {
+        console.warn('Could not save practice_result row:', e.message);
+      }
+    }
+
+    // ─── Update user_skills progress (+5% per practice) ──────
     const existing = await db.query(
       `SELECT * FROM user_skills WHERE user_id = $1 AND skill_id = $2`,
-      [userId, skillId]
+      [userId, skillIdInt]
     );
 
     let moodEvent = null;
@@ -166,9 +183,11 @@ export const submitPracticeResult = async (req, res) => {
 
       await db.query(
         `UPDATE user_skills
-         SET progress_percent = $1, updated_at = NOW()
-         WHERE user_id = $2 AND skill_id = $3`,
-        [newProgress, userId, skillId]
+         SET progress_percent = $1,
+             competency_score = COALESCE(competency_score, 0) + $2,
+             updated_at = NOW()
+         WHERE user_id = $3 AND skill_id = $4`,
+        [newProgress, Math.round((score || 0) / 10), userId, skillIdInt]
       );
 
       if (isComplete && !wasComplete) moodEvent = 'skill-complete';
@@ -177,16 +196,17 @@ export const submitPracticeResult = async (req, res) => {
       newProgress = 5;
       await db.query(
         `INSERT INTO user_skills
-           (user_id, skill_id, progress_percent, level, created_at, updated_at)
-         VALUES ($1, $2, $3, 'beginner', NOW(), NOW())`,
-        [userId, skillId, newProgress]
+           (user_id, skill_id, progress_percent, level, competency_score, created_at, updated_at)
+         VALUES ($1, $2, $3, 'beginner', $4, NOW(), NOW())`,
+        [userId, skillIdInt, newProgress, Math.round((score || 0) / 10)]
       );
       moodEvent = 'skill-progress';
     }
 
     res.json({
       success: true,
-      result: inserted.rows[0],
+      result: practiceResult,
+      skillId: skillIdInt,
       progressPercent: newProgress,
       moodEvent,
     });
@@ -195,7 +215,6 @@ export const submitPracticeResult = async (req, res) => {
     res.status(500).json({ error: 'Failed to submit practice result' });
   }
 };
-
 // ─── Submit challenge + mood ───────────────────────────────
 export const submitChallenge = async (req, res) => {
   try {
