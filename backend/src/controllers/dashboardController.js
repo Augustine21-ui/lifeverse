@@ -177,14 +177,12 @@ export const getDashboardStats = async (req, res) => {
         educationLevel: user.education_level,
         lastActivityDate: user.last_activity_date,
       },
-      // Top-level keys the frontend reads
       studyTimeMinutes,
-      progressPercent,          // 👈 composite %
-      progressBreakdown: breakdown,  // 👈 for tooltip/debug
+      progressPercent,
+      progressBreakdown: breakdown,
       totalXP: user.xp || 0,
       level,
       streakDays: user.streak_days || 0,
-      // Extra stats
       orbitCount: parseInt(counts.orbit_count || 0, 10),
       tasksDone: parseInt(counts.tasks_done || 0, 10),
       skillsCount: parseInt(counts.skills_count || 0, 10),
@@ -197,7 +195,7 @@ export const getDashboardStats = async (req, res) => {
 };
 
 // ============================================================
-// GET DASHBOARD (kept for backwards compatibility)
+// GET DASHBOARD (backwards compatibility)
 // ============================================================
 export const getDashboard = async (req, res, next) => {
   try {
@@ -236,11 +234,8 @@ export const getDashboard = async (req, res, next) => {
     const level = Math.floor(user.xp / 500) + 1;
 
     const activity = activityRes.rows[0];
-
-    // ─── Use the new composite progress calculation ─────────
     const { progressPercent, breakdown } = await computeProgress(userId);
 
-    // Mood logic (kept from your original)
     let mood = 'neutral';
     if (activity.tasks_done > 2 || activity.orbit_sessions > 1) mood = 'happy';
     else if (activity.orbit_sessions > 0 || activity.posts > 0) mood = 'calm';
@@ -259,8 +254,8 @@ export const getDashboard = async (req, res, next) => {
         lastActivityDate: user.last_activity_date || null,
       },
       studyTimeMinutes: activity.study_minutes,
-      progressPercent: progressPercent,        // 👈 now composite
-      progressBreakdown: breakdown,            // 👈 new
+      progressPercent: progressPercent,
+      progressBreakdown: breakdown,
       goalsByCategory: goalsRes.rows,
       recentBadges: badgesRes.rows,
       xpHistory: xpHistRes.rows,
@@ -369,5 +364,148 @@ export const getFocusRemaining = async (req, res) => {
   } catch (err) {
     console.error('Get focus remaining error:', err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+// ============================================================
+// ✅ TASK FUNCTIONS (fixes ESM import error in routes/index.js)
+// ============================================================
+
+// ─── GET TODAY'S TASKS ───────────────────────────────────────
+export const getTodayTasks = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await pool.query(
+      `SELECT id, title, xp_reward, is_completed, due_date, priority, created_at, completed_at
+       FROM tasks
+       WHERE user_id = $1
+         AND (due_date IS NULL OR due_date::date <= CURRENT_DATE)
+       ORDER BY is_completed ASC, priority DESC NULLS LAST, created_at DESC`,
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('getTodayTasks error:', err);
+    res.status(500).json({ error: 'Failed to fetch tasks' });
+  }
+};
+
+// ─── COMPLETE TASK ───────────────────────────────────────────
+export const completeTask = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const taskRes = await pool.query(
+      `SELECT * FROM tasks WHERE id = $1 AND user_id = $2`,
+      [id, userId]
+    );
+
+    if (taskRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const task = taskRes.rows[0];
+    const alreadyDone = task.is_completed;
+    const xp = task.xp_reward || 30;
+
+    if (!alreadyDone) {
+      await pool.query(
+        `UPDATE users SET xp = COALESCE(xp, 0) + $1 WHERE id = $2`,
+        [xp, userId]
+      );
+      await pool.query(
+        `UPDATE users SET level = FLOOR(COALESCE(xp,0) / 500) + 1 WHERE id = $1`,
+        [userId]
+      );
+      await updateUserStreak(userId);
+    }
+
+    const result = await pool.query(
+      `UPDATE tasks
+       SET is_completed = TRUE, completed_at = NOW()
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      task: result.rows[0],
+      xpAwarded: alreadyDone ? 0 : xp,
+    });
+  } catch (err) {
+    console.error('completeTask error:', err);
+    res.status(500).json({ error: 'Failed to complete task' });
+  }
+};
+
+// ─── CREATE TASK ─────────────────────────────────────────────
+export const createTask = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { title, xp_reward, due_date, priority } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO tasks 
+         (user_id, title, xp_reward, due_date, priority, is_completed, created_at)
+       VALUES ($1, $2, $3, $4, $5, false, NOW())
+       RETURNING *`,
+      [userId, title, xp_reward || 30, due_date || null, priority || null]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('createTask error:', err);
+    res.status(500).json({ error: 'Failed to create task' });
+  }
+};
+
+// ─── DELETE TASK ─────────────────────────────────────────────
+export const deleteTask = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `DELETE FROM tasks WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [id, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    res.json({ success: true, deletedId: result.rows[0].id });
+  } catch (err) {
+    console.error('deleteTask error:', err);
+    res.status(500).json({ error: 'Failed to delete task' });
+  }
+};
+
+// ─── GET TODAY'S CHALLENGES ─────────────────────────────────
+export const getTodayChallenges = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await pool.query(
+      `SELECT c.id, c.title, c.description, c.xp_reward, c.difficulty,
+              uc.status AS user_status, uc.completed_at
+       FROM challenges c
+       LEFT JOIN user_challenges uc
+         ON uc.challenge_id = c.id AND uc.user_id = $1
+       WHERE c.expires_at IS NULL OR c.expires_at > NOW()
+       ORDER BY c.xp_reward DESC NULLS LAST
+       LIMIT 10`,
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('getTodayChallenges error:', err);
+    // Graceful fallback – return empty array instead of error
+    res.json([]);
   }
 };

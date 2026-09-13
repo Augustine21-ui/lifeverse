@@ -1,13 +1,13 @@
 // backend/src/routes/index.js
 import express from 'express';
-import { authenticate } from '../auth.js'; // ONLY middleware
+import { authenticate } from '../auth.js';
 
-// ─── ALL AUTH FUNCTIONS from authController.js ────────────────
-import { 
-  register, 
-  login, 
-  getMe, 
-  forgotPassword, 
+// ─── AUTH CONTROLLER ──────────────────────────────────────────
+import {
+  register,
+  login,
+  getMe,
+  forgotPassword,
   resetPassword,
   googleAuth,
   verifyEmail,
@@ -18,16 +18,37 @@ import {
 import { getChallenges, submitChallenge, getUserChallenges } from '../challengeController.js';
 import { getChildren, getChildProgress } from '../parentController.js';
 import { getStudents, getStudentProgressForTeacher, getClassSummary } from '../teacherController.js';
-import { sendMessage, getMessages, getMessagesByConversation, getPeerContacts, getOrCreatePeerConversation } from '../bridgeMessageController.js';
+import {
+  sendMessage,
+  getMessages,
+  getMessagesByConversation,
+  getPeerContacts,
+  getOrCreatePeerConversation
+} from '../bridgeMessageController.js';
 import * as timetableController from '../controllers/timetableController.js';
 import * as libraryController from '../controllers/libraryController.js';
 import { getResources } from '../resourcesController.js';
 import * as opportunityController from '../controllers/opportunityController.js';
-import { getOpportunities, applyOpportunity, getUserApplications } from '../opportunityController.js';
 import { getBadges, getUserBadges } from '../controllers/badgesController.js';
 import { getGoals, createGoal, updateGoal, deleteGoal, toggleMilestone } from '../controllers/goalsController.js';
 import { createPost, getPosts, likePost, getComments, addComment, deletePost } from '../feedController.js';
-import { getDashboardStats, getTodayTasks, completeTask, completeFocusSession, getFocusRemaining, getTodayChallenges, createTask, deleteTask } from '../controllers/dashboardController.js';
+
+// ─── DASHBOARD – Only functions that exist in dashboardController.js ─
+import {
+  getDashboardStats,
+  completeFocusSession,
+  getFocusRemaining,
+  getTodayChallenges,
+} from '../controllers/dashboardController.js';
+
+// ─── TASKS – All task operations come from taskController.js ───
+import {
+  getTodayTasks,
+  completeTask,
+  createTask,
+  deleteTask,
+} from '../controllers/taskController.js';
+
 import { recordMood } from '../moodController.js';
 import * as skillGrowth from '../controllers/skillGrowthController.js';
 import * as taskController from '../controllers/taskController.js';
@@ -36,27 +57,27 @@ import * as goalsController from '../controllers/goalsController.js';
 import * as studyController from '../controllers/studyController.js';
 
 // ─── AI CONTROLLER ──────────────────────────────────────────────
-import { 
+import {
   explain,
-  tutorChat, 
-  generateQuiz, 
-  generateOrbitContent, 
-  getPersonalizedRecommendations 
+  tutorChat,
+  generateQuiz,
+  generateOrbitContent,
+  getPersonalizedRecommendations
 } from '../controllers/aiController.js';
 
 // ─── MOMENTUM CONTROLLER ──────────────────────────────────────
-import { 
-  getCommunities, 
-  getCommunity, 
-  createCommunity, 
-  joinCommunity, 
-  leaveCommunity, 
-  getCommunityPosts, 
+import {
+  getCommunities,
+  getCommunity,
+  createCommunity,
+  joinCommunity,
+  leaveCommunity,
+  getCommunityPosts,
   createPost as createCommunityPost,
-  toggleLike, 
-  getComments as getPostComments, 
-  addComment as addPostComment, 
-  getCommunityEvents, 
+  toggleLike,
+  getComments as getPostComments,
+  addComment as addPostComment,
+  getCommunityEvents,
   rsvpEvent,
   getNotifications
 } from '../controllers/momentumController.js';
@@ -80,14 +101,14 @@ router.post('/auth/resend-verification', resendVerificationCode);
 // =============================================================
 router.get('/dashboard/stats', authenticate, getDashboardStats);
 router.get('/tasks', authenticate, getTodayTasks);
-router.patch('/tasks/:id/complete', authenticate, taskController.completeTask);
-router.put('/tasks/:id/complete', authenticate, taskController.completeTask);
+router.post('/tasks', authenticate, createTask);
+router.patch('/tasks/:id/complete', authenticate, completeTask);
+router.put('/tasks/:id/complete', authenticate, completeTask);
+router.delete('/tasks/:id', authenticate, deleteTask);
 router.post('/focus/session', authenticate, completeFocusSession);
 router.get('/focus/remaining', authenticate, getFocusRemaining);
 router.get('/today-challenges', authenticate, getTodayChallenges);
 router.post('/mood', authenticate, recordMood);
-router.post('/tasks', authenticate, createTask);
-router.delete('/tasks/:id', authenticate, deleteTask);
 
 // =============================================================
 //  CHALLENGES
@@ -97,20 +118,15 @@ router.post('/challenges/submit', authenticate, submitChallenge);
 router.get('/my-challenges', authenticate, getUserChallenges);
 
 // =============================================================
-//  OPPORTUNITIES
+//  OPPORTUNITIES (Phase D) – deduplicated
 // =============================================================
 router.get('/opportunities/personalized', authenticate, opportunityController.getPersonalized);
 router.get('/opportunities', authenticate, opportunityController.getOpportunities);
-router.get('/opportunities/:id', authenticate, opportunityController.getOpportunity);
-router.post('/opportunities/:id/apply', authenticate, opportunityController.applyOpportunity);
-router.get('/my-applications', authenticate, opportunityController.getMyApplications);
-router.get('/organizations/:id', authenticate, opportunityController.getOrganization);
-router.get('/opportunities/personalized', authenticate, opportunityController.getPersonalized);
-router.get('/opportunities', authenticate, opportunityController.getOpportunities);
-router.get('/opportunities/:id', authenticate, opportunityController.getOpportunity);
-router.post('/opportunities/:id/apply', authenticate, opportunityController.applyOpportunity);
+router.get('/opportunities/applications/pending', authenticate, opportunityController.getPendingApplications);
 router.post('/opportunities/applications/:id/approve', authenticate, opportunityController.approveApplication);
 router.post('/opportunities/applications/:id/reject', authenticate, opportunityController.rejectApplication);
+router.post('/opportunities/:id/apply', authenticate, opportunityController.applyOpportunity);
+router.get('/opportunities/:id', authenticate, opportunityController.getOpportunity);
 router.get('/my-applications', authenticate, opportunityController.getMyApplications);
 router.get('/organizations/:id', authenticate, opportunityController.getOrganization);
 
@@ -183,7 +199,6 @@ router.post('/projects/assign', authenticate, skillGrowth.assignProject);
 router.put('/project-assignments/:assignmentId', authenticate, skillGrowth.updateProjectContribution);
 router.get('/skills/:skillId/my-projects', authenticate, skillGrowth.getUserProjects);
 router.get('/skills/:skillId/challenges', authenticate, skillGrowth.getChallenges);
-router.post('/challenges/submit', authenticate, skillGrowth.submitChallenge);
 router.get('/skills/:skillId/my-challenges', authenticate, skillGrowth.getUserChallengeSubmissions);
 router.get('/skills/:skillId/practice', authenticate, skillGrowth.getPracticeActivities);
 router.post('/practice/submit', authenticate, skillGrowth.submitPracticeResult);
