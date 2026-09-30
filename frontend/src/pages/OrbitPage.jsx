@@ -1,10 +1,9 @@
 // frontend/src/pages/OrbitPage.jsx
-// ✅ COMPLETE - With Activity Selection + Universe Background + Mood Integration
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import orbitApi from '../services/orbitApi';
 import OrbitActivities from '../components/orbit/OrbitActivities';
-import { useMood } from '../context/MoodContext';   // ← NEW
+import { useMood } from '../context/MoodContext';
+import ErrorBoundary from '../components/ErrorBoundary';
 import './OrbitPage.css';
 
 // ========== UNIVERSE BACKGROUND COMPONENTS ==========
@@ -53,7 +52,6 @@ const Starfield = () => {
         ctx.fill();
       });
 
-      // Shooting stars (rare)
       if (Math.random() < 0.001) {
         const s = stars[Math.floor(Math.random() * stars.length)];
         ctx.beginPath();
@@ -96,10 +94,8 @@ const NebulaOverlay = () => (
 // ==================================================
 
 const OrbitPage = () => {
-  // ─── Mood trigger ─────────────────────────────────────────────
   const { triggerMood } = useMood();
 
-  // ✅ ALL YOUR EXISTING STATE
   const [selectedPlanet, setSelectedPlanet] = useState(null);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [session, setSession] = useState(null);
@@ -112,11 +108,10 @@ const OrbitPage = () => {
   const [showActivitySelection, setShowActivitySelection] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
   const [apiReady, setApiReady] = useState(false);
+  const [lastAnswerCorrect, setLastAnswerCorrect] = useState(null);
 
-  // ─── Session stats tracker (for mood triggers) ────────────────
   const sessionStatsRef = useRef({ correct: 0, total: 0 });
 
-  // Planets (unchanged)
   const planets = [
     { id: 'cortex', label: 'Cortex', subtitle: 'Knowledge & Memory', color: '#6C63FF', icon: '🧠', bg: 'rgba(108, 99, 255, 0.1)' },
     { id: 'cluepath', label: 'CluePath', subtitle: 'Story & Problem Solving', color: '#FF6B6B', icon: '🕵️', bg: 'rgba(255, 107, 107, 0.1)' },
@@ -124,13 +119,12 @@ const OrbitPage = () => {
     { id: 'reflex', label: 'Reflex', subtitle: 'Educational Arcade', color: '#FFE66D', icon: '⚡', bg: 'rgba(255, 230, 109, 0.1)' },
   ];
 
-  // ✅ ALL YOUR EXISTING FUNCTIONS (unchanged)
   useEffect(() => {
     const checkApi = async () => {
       try {
         const hasStartSession = typeof orbitApi?.startSession === 'function';
         const hasGetProgress = typeof orbitApi?.getProgress === 'function';
-        
+
         if (hasStartSession && hasGetProgress) {
           setApiReady(true);
           console.log('✅ Orbit API is ready!');
@@ -144,15 +138,13 @@ const OrbitPage = () => {
         setError('Failed to initialize Orbit API');
       }
     };
-    
+
     checkApi();
   }, []);
 
   const fetchProgress = async () => {
     try {
-      console.log('📈 Fetching progress...');
       const data = await orbitApi.getProgress();
-      console.log('📊 Progress data:', data);
       setProgress(data?.progress || null);
     } catch (err) {
       console.warn('⚠️ Could not load progress:', err.message);
@@ -165,7 +157,6 @@ const OrbitPage = () => {
       return;
     }
 
-    // ─── Mood: user is about to start a challenge → excited ───
     triggerMood('orbit-start');
 
     setSelectedPlanet(planet);
@@ -177,7 +168,7 @@ const OrbitPage = () => {
     setError(null);
     setShowSummary(false);
     setUserAnswer('');
-    // Reset session stats
+    setLastAnswerCorrect(null);
     sessionStatsRef.current = { correct: 0, total: 0 };
   }, [apiReady, triggerMood]);
 
@@ -190,23 +181,19 @@ const OrbitPage = () => {
     setError(null);
 
     try {
-      console.log(`🚀 Starting ${selectedPlanet.label} with ${activityType}...`);
       const result = await orbitApi.startSession(
         selectedPlanet.id,
         `Exploring ${selectedPlanet.label}`,
         selectedPlanet.id,
         activityType
       );
-      
-      console.log('✅ Session started:', result);
-      
+
       if (result?.session) {
         setSession(result.session);
       } else {
-        console.warn('⚠️ No session returned');
         setError('Failed to create session');
       }
-      
+
       if (result?.activity) {
         setActivities([result.activity]);
         setCurrentActivity(result.activity);
@@ -222,7 +209,6 @@ const OrbitPage = () => {
 
   const handleGenerateNext = useCallback(async () => {
     if (!session) {
-      console.warn('⚠️ No active session');
       setError('No active session. Start a new session first.');
       return;
     }
@@ -231,13 +217,13 @@ const OrbitPage = () => {
     setError(null);
 
     try {
-      console.log(`🎯 Generating next activity...`);
       const result = await orbitApi.generateActivity(session.id, selectedActivity || 'quiz');
-      
+
       if (result?.activity) {
         setActivities(prev => [...prev, result.activity]);
         setCurrentActivity(result.activity);
         setUserAnswer('');
+        setLastAnswerCorrect(null);
       }
     } catch (err) {
       console.error('❌ Error generating activity:', err);
@@ -252,7 +238,7 @@ const OrbitPage = () => {
       setError('No active session. Start a new session first.');
       return;
     }
-    
+
     if (!currentActivity) {
       setError('No active activity to answer.');
       return;
@@ -267,105 +253,88 @@ const OrbitPage = () => {
     setError(null);
 
     try {
-      console.log(`✅ Submitting answer...`);
       const result = await orbitApi.submitAnswer(
         currentActivity.id,
         userAnswer,
         10
       );
 
-      console.log('📊 Submit result:', result);
-
-      // ─── Track stats and trigger mood ─────────────────────────
       sessionStatsRef.current.total += 1;
 
       if (result?.isCorrect !== undefined) {
         if (result.isCorrect) {
           sessionStatsRef.current.correct += 1;
-          // Correct answer → happy
+          setLastAnswerCorrect(true);
           triggerMood('orbit-pass');
-          alert('✅ Correct! Well done!');
         } else {
-          // Wrong answer → neutral (concerned would be an option but context maps to neutral)
+          setLastAnswerCorrect(false);
           triggerMood('orbit-fail');
-          alert('❌ Incorrect. Keep learning!');
         }
       }
 
-      // ─── If user is on a streak (3+ correct in a row), trigger excited ───
-      if (sessionStatsRef.current.correct >= 3 && sessionStatsRef.current.total >= 3) {
-        // Celebrate progress
-        triggerMood('progress-up');  // → excited
-      }
-
-      await handleGenerateNext();
+      // Delay before generating next so user sees feedback
+      setTimeout(async () => {
+        await handleGenerateNext();
+      }, 800);
     } catch (err) {
       console.error('❌ Error submitting answer:', err);
       setError(err.message || 'Failed to submit answer');
-    } finally {
       setLoading(false);
     }
   }, [session, currentActivity, userAnswer, handleGenerateNext, triggerMood]);
 
   const handleEndSession = useCallback(async () => {
-  if (!session) {
-    setError('No active session to end.');
-    return;
-  }
-
-  setLoading(true);
-  try {
-    const { correct, total } = sessionStatsRef.current;
-
-    console.log(`🏁 Ending session... ${correct}/${total}`);
-
-    // 1. Call backend
-    const response = await orbitApi.endSession(
-      session.id,
-      total,        // score (backend recomputes)
-      total,        // totalQuestions
-      correct,      // correctAnswers
-      120           // timeSpent
-    );
-
-    console.log('📊 Session response:', response);
-
-    // 2. Trigger mood based on outcome
-    if (response.passed) {
-      if (response.levelUp) {
-        triggerMood('level-up', {
-          meta: {
-            oldLevel: response.oldLevel,
-            newLevel: response.newLevel,
-            xpEarned: response.xpEarned,
-          },
-        });
-      } else {
-        triggerMood('orbit-pass', {
-          meta: { xpEarned: response.xpEarned },
-        });
-      }
-    } else {
-      // Failed (<50%) → calm
-      triggerMood('orbit-fail', {
-        meta: {
-          accuracyPercent: response.accuracyPercent,
-          topic: session.topic,
-        },
-      });
+    if (!session) {
+      setError('No active session to end.');
+      return;
     }
 
-    setShowSummary(true);
-    setSession(null);
-    setCurrentActivity(null);
-    await fetchProgress();
-  } catch (err) {
-    console.error('❌ Error ending session:', err);
-    setError(err.message || 'Failed to end session');
-  } finally {
-    setLoading(false);
-  }
-}, [session, triggerMood]);
+    setLoading(true);
+    try {
+      const { correct, total } = sessionStatsRef.current;
+
+      const response = await orbitApi.endSession(
+        session.id,
+        total,
+        total,
+        correct,
+        120
+      );
+
+      if (response.passed) {
+        if (response.levelUp) {
+          triggerMood('level-up', {
+            meta: {
+              oldLevel: response.oldLevel,
+              newLevel: response.newLevel,
+              xpEarned: response.xpEarned,
+            },
+          });
+        } else {
+          triggerMood('orbit-pass', {
+            meta: { xpEarned: response.xpEarned },
+          });
+        }
+      } else {
+        triggerMood('orbit-fail', {
+          meta: {
+            accuracyPercent: response.accuracyPercent,
+            topic: session.topic,
+          },
+        });
+      }
+
+      setShowSummary(true);
+      setSession(null);
+      setCurrentActivity(null);
+      await fetchProgress();
+    } catch (err) {
+      console.error('❌ Error ending session:', err);
+      setError(err.message || 'Failed to end session');
+    } finally {
+      setLoading(false);
+    }
+  }, [session, triggerMood]);
 
   const handleReset = useCallback(() => {
     setSelectedPlanet(null);
@@ -377,7 +346,7 @@ const OrbitPage = () => {
     setShowActivitySelection(false);
     setError(null);
     setUserAnswer('');
-    // Reset session stats
+    setLastAnswerCorrect(null);
     sessionStatsRef.current = { correct: 0, total: 0 };
   }, []);
 
@@ -434,235 +403,238 @@ const OrbitPage = () => {
     );
   };
 
-  // ========== RENDER ==========
   return (
-    <div className="orbit-page relative min-h-screen bg-transparent">
-      {/* 🌌 Universe Background */}
-      <Starfield />
-      <NebulaOverlay />
+    <ErrorBoundary
+      title="Orbit failed to load"
+      message="The learning universe couldn't render. Try again."
+    >
+      <div className="orbit-page relative min-h-screen bg-transparent">
+        <Starfield />
+        <NebulaOverlay />
 
-      {/* Content – with z-index to sit above background */}
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="orbit-header">
-          <h1>🚀 Orbit Learning</h1>
-          {progress && (
-            <div className="progress-stats">
-              <span>📚 {progress.sessions?.total_sessions || 0} sessions</span>
-              <span>⭐ {progress.sessions?.total_score || 0} XP</span>
-              <span>🏆 {progress.mastery?.length || 0} topics</span>
+        <div className="relative z-10">
+          <header className="orbit-header">
+            <h1>🚀 Orbit Learning</h1>
+            {progress && (
+              <div className="progress-stats">
+                <span>📚 {progress.sessions?.total_sessions || 0} sessions</span>
+                <span>⭐ {progress.sessions?.total_score || 0} XP</span>
+                <span>🏆 {progress.mastery?.length || 0} topics</span>
+              </div>
+            )}
+          </header>
+
+          <div className="solar-system">
+            <div className="orbit-rings">
+              <div className="ring ring-1"></div>
+              <div className="ring ring-2"></div>
+              <div className="ring ring-3"></div>
+            </div>
+
+            <div className="life-core">
+              <span className="core-icon">☀️</span>
+              <span className="core-label">Life Core</span>
+              {session && <span className="core-status">Active</span>}
+            </div>
+
+            <div className="planets-container">
+              {planets.map((planet) => (
+                <button
+                  key={planet.id}
+                  className={`planet ${selectedPlanet?.id === planet.id ? 'active' : ''} 
+                             ${session || showActivitySelection ? 'disabled' : ''}`}
+                  style={{
+                    '--planet-color': planet.color,
+                    '--planet-bg': planet.bg,
+                  }}
+                  onClick={() => handlePlanetClick(planet)}
+                  disabled={loading || !!session || !apiReady || showActivitySelection}
+                >
+                  <div className="planet-glow"></div>
+                  <span className="planet-icon">{planet.icon}</span>
+                  <span className="planet-label">{planet.label}</span>
+                  <span className="planet-subtitle">{planet.subtitle}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {showActivitySelection && selectedPlanet && !session && (
+            <div className="activity-selection-container">
+              <button
+                className="back-btn"
+                onClick={() => {
+                  setShowActivitySelection(false);
+                  setSelectedPlanet(null);
+                }}
+              >
+                ← Back to Planets
+              </button>
+              <div className="orbit-activities-wrapper">
+                <div className="orbit-activities-header">
+                  <div className="orbit-activities-title">
+                    <span className="orbit-icon">{selectedPlanet.icon}</span>
+                    <div>
+                      <h3>{selectedPlanet.label}</h3>
+                      <p>{selectedPlanet.subtitle}</p>
+                    </div>
+                  </div>
+                </div>
+                <OrbitActivities
+                  orbitType={selectedPlanet.id}
+                  onSelectActivity={handleActivitySelect}
+                />
+              </div>
             </div>
           )}
-        </header>
 
-        {/* Solar System */}
-        <div className="solar-system">
-          <div className="orbit-rings">
-            <div className="ring ring-1"></div>
-            <div className="ring ring-2"></div>
-            <div className="ring ring-3"></div>
-          </div>
-
-          <div className="life-core">
-            <span className="core-icon">☀️</span>
-            <span className="core-label">Life Core</span>
-            {session && <span className="core-status">Active</span>}
-          </div>
-
-          <div className="planets-container">
-            {planets.map((planet) => (
-              <button
-                key={planet.id}
-                className={`planet ${selectedPlanet?.id === planet.id ? 'active' : ''} 
-                           ${session || showActivitySelection ? 'disabled' : ''}`}
-                style={{ 
-                  '--planet-color': planet.color,
-                  '--planet-bg': planet.bg,
-                }}
-                onClick={() => handlePlanetClick(planet)}
-                disabled={loading || !!session || !apiReady || showActivitySelection}
-              >
-                <div className="planet-glow"></div>
-                <span className="planet-icon">{planet.icon}</span>
-                <span className="planet-label">{planet.label}</span>
-                <span className="planet-subtitle">{planet.subtitle}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Activity Selection */}
-        {showActivitySelection && selectedPlanet && !session && (
-          <div className="activity-selection-container">
-            <button 
-              className="back-btn"
-              onClick={() => {
-                setShowActivitySelection(false);
-                setSelectedPlanet(null);
-              }}
-            >
-              ← Back to Planets
-            </button>
-            <div className="orbit-activities-wrapper">
-              <div className="orbit-activities-header">
-                <div className="orbit-activities-title">
-                  <span className="orbit-icon">{selectedPlanet.icon}</span>
-                  <div>
-                    <h3>{selectedPlanet.label}</h3>
-                    <p>{selectedPlanet.subtitle}</p>
+          {session && !showSummary && (
+            <div className="session-container">
+              <div className="session-content">
+                <div className="session-header">
+                  <div className="session-info">
+                    <h2>{selectedPlanet?.label} - {selectedPlanet?.subtitle}</h2>
+                    <span className="session-status">Active</span>
+                    {selectedActivity && (
+                      <span className="activity-type-badge">
+                        {selectedActivity.replace('_', ' ').toUpperCase()}
+                      </span>
+                    )}
                   </div>
+                  <button onClick={handleEndSession} className="btn-danger" disabled={loading}>
+                    End Session
+                  </button>
                 </div>
-              </div>
-              <OrbitActivities
-                orbitType={selectedPlanet.id}
-                onSelectActivity={handleActivitySelect}
-              />
-            </div>
-          </div>
-        )}
 
-        {/* Session Content */}
-        {session && !showSummary && (
-          <div className="session-container">
-            <div className="session-content">
-              <div className="session-header">
-                <div className="session-info">
-                  <h2>{selectedPlanet?.label} - {selectedPlanet?.subtitle}</h2>
-                  <span className="session-status">Active</span>
-                  {selectedActivity && (
-                    <span className="activity-type-badge">
-                      {selectedActivity.replace('_', ' ').toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <button onClick={handleEndSession} className="btn-danger" disabled={loading}>
-                  End Session
+                {currentActivity && (
+                  <div className="activity-container">
+                    <div className="activity-card">
+                      <div className="activity-badge">
+                        {currentActivity.activity_type || 'Activity'}
+                      </div>
+                      {renderActivityContent(currentActivity)}
+                    </div>
+
+                    <div className="answer-section">
+                      <textarea
+                        value={userAnswer}
+                        onChange={(e) => setUserAnswer(e.target.value)}
+                        placeholder="Type your answer here..."
+                        className="answer-input"
+                        rows={3}
+                        disabled={loading}
+                      />
+
+                      {/* Inline feedback instead of alert() */}
+                      {lastAnswerCorrect === true && (
+                        <p className="text-sm text-green-400 mt-1">✅ Correct!</p>
+                      )}
+                      {lastAnswerCorrect === false && (
+                        <p className="text-sm text-red-400 mt-1">❌ Not quite — generating next…</p>
+                      )}
+
+                      <button
+                        onClick={handleSubmitAnswer}
+                        className="btn-primary"
+                        disabled={loading || !userAnswer.trim()}
+                      >
+                        {loading ? 'Submitting...' : 'Submit Answer →'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleGenerateNext}
+                  className="btn-secondary"
+                  disabled={loading}
+                >
+                  {loading ? 'Loading...' : 'Generate Next Activity →'}
                 </button>
               </div>
+            </div>
+          )}
 
-              {currentActivity && (
-                <div className="activity-container">
-                  <div className="activity-card">
-                    <div className="activity-badge">
-                      {currentActivity.activity_type || 'Activity'}
-                    </div>
-                    {renderActivityContent(currentActivity)}
-                  </div>
+          {showSummary && (
+            <div className="session-summary">
+              <h2>
+                {sessionStatsRef.current.total > 0 &&
+                sessionStatsRef.current.correct / sessionStatsRef.current.total >= 0.5
+                  ? '🎉 Session Passed!'
+                  : '💪 Keep Going!'}
+              </h2>
 
-                  <div className="answer-section">
-                    <textarea
-                      value={userAnswer}
-                      onChange={(e) => setUserAnswer(e.target.value)}
-                      placeholder="Type your answer here..."
-                      className="answer-input"
-                      rows={3}
-                      disabled={loading}
-                    />
-                    <button 
-                      onClick={handleSubmitAnswer}
-                      className="btn-primary"
-                      disabled={loading || !userAnswer.trim()}
-                    >
-                      {loading ? 'Submitting...' : 'Submit Answer →'}
-                    </button>
-                  </div>
+              <div className="summary-stats">
+                <div className="stat-item">
+                  <span className="stat-value">{activities.length}</span>
+                  <span className="stat-label">Activities</span>
                 </div>
+                <div className="stat-item">
+                  <span className="stat-value">
+                    {sessionStatsRef.current.total > 0
+                      ? `${Math.round((sessionStatsRef.current.correct / sessionStatsRef.current.total) * 100)}%`
+                      : '—'}
+                  </span>
+                  <span className="stat-label">Accuracy</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-value">+{activities.length * 5}</span>
+                  <span className="stat-label">XP Earned</span>
+                </div>
+              </div>
+
+              {sessionStatsRef.current.total > 0 &&
+              sessionStatsRef.current.correct / sessionStatsRef.current.total < 0.5 && (
+                <p className="text-sm text-amber-400 mt-3 text-center">
+                  Below 50% — a retry suggestion was added to your Orbit card.
+                </p>
               )}
 
-              <button 
-                onClick={handleGenerateNext}
-                className="btn-secondary"
-                disabled={loading}
-              >
-                {loading ? 'Loading...' : 'Generate Next Activity →'}
+              <button onClick={handleReset} className="btn-primary">
+                Start New Session
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Summary */}
-        {showSummary && (
-          <div className="session-summary">
-            <h2>
-              {sessionStatsRef.current.total > 0 &&
-              sessionStatsRef.current.correct / sessionStatsRef.current.total >= 0.5
-                ? '🎉 Session Passed!'
-                : '💪 Keep Going!'}
-            </h2>
+          {loading && (
+            <div className="loading-overlay">
+              <div className="spinner"></div>
+              <p>Loading...</p>
+            </div>
+          )}
 
-            <div className="summary-stats">
-              <div className="stat-item">
-                <span className="stat-value">{activities.length}</span>
-                <span className="stat-label">Activities</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-value">
-                  {sessionStatsRef.current.total > 0
-                    ? `${Math.round((sessionStatsRef.current.correct / sessionStatsRef.current.total) * 100)}%`
-                    : '—'}
-                </span>
-                <span className="stat-label">Accuracy</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-value">+{activities.length * 5}</span>
-                <span className="stat-label">XP Earned</span>
+          {error && (
+            <div className="error-container">
+              <div className="error-message">
+                <span className="error-icon">⚠️</span>
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="error-dismiss">✕</button>
               </div>
             </div>
+          )}
 
-            {sessionStatsRef.current.total > 0 &&
-            sessionStatsRef.current.correct / sessionStatsRef.current.total < 0.5 && (
-              <p className="text-sm text-amber-400 mt-3 text-center">
-                Below 50% — a retry suggestion was added to your Orbit card.
-              </p>
-            )}
-
-    <button onClick={handleReset} className="btn-primary">
-      Start New Session
-    </button>
-  </div>
-)}
-
-        {/* Loading */}
-        {loading && (
-          <div className="loading-overlay">
-            <div className="spinner"></div>
-            <p>Loading...</p>
-          </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="error-container">
-            <div className="error-message">
-              <span className="error-icon">⚠️</span>
-              <span>{error}</span>
-              <button onClick={() => setError(null)} className="error-dismiss">✕</button>
-            </div>
-          </div>
-        )}
-
-        {/* Welcome */}
-        {!session && !showActivitySelection && !showSummary && !loading && !error && apiReady && (
-          <div className="welcome-section">
-            <p className="welcome-text">🌍 Click a planet to start your orbit journey!</p>
-            <div className="feature-grid">
-              <div className="feature-item">
-                <span>🧠</span>
-                <p>AI-Powered Learning</p>
-              </div>
-              <div className="feature-item">
-                <span>🎮</span>
-                <p>Gamified Experience</p>
-              </div>
-              <div className="feature-item">
-                <span>📊</span>
-                <p>Track Your Progress</p>
+          {!session && !showActivitySelection && !showSummary && !loading && !error && apiReady && (
+            <div className="welcome-section">
+              <p className="welcome-text">🌍 Click a planet to start your orbit journey!</p>
+              <div className="feature-grid">
+                <div className="feature-item">
+                  <span>🧠</span>
+                  <p>AI-Powered Learning</p>
+                </div>
+                <div className="feature-item">
+                  <span>🎮</span>
+                  <p>Gamified Experience</p>
+                </div>
+                <div className="feature-item">
+                  <span>📊</span>
+                  <p>Track Your Progress</p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 

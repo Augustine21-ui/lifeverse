@@ -1,5 +1,6 @@
+// frontend/src/pages/LoginPage.jsx
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Zap, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import GoogleSignInButton from '../components/GoogleSignInButton';
@@ -10,6 +11,8 @@ export default function LoginPage() {
   const { login } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessionExpired = searchParams.get('expired') === '1';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,12 +43,10 @@ export default function LoginPage() {
         navigate('/dashboard');
       }
     } catch (err) {
-      // Check if the error indicates unverified email
       if (err.message && err.message.toLowerCase().includes('verify your email')) {
-        // Show verification UI
         setRegisteredEmail(email);
         setShowVerification(true);
-        setError(''); // Clear the error, we'll show verification prompt
+        setError('');
         showToast('A new verification code has been sent to your email.', 'info');
       } else {
         setError(err.message);
@@ -55,7 +56,6 @@ export default function LoginPage() {
     }
   };
 
-  // ─── Verify code ──────────────────────────────────────────────
   const handleVerify = async () => {
     if (!verificationCode || verificationCode.length !== 6) {
       showToast('Please enter the 6-digit code.', 'error');
@@ -65,11 +65,9 @@ export default function LoginPage() {
     setError('');
     try {
       const data = await api.verifyEmail(registeredEmail, verificationCode);
-      // data contains token and user
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       showToast('Email verified! Welcome to KUA 🎉', 'success');
-      // Redirect to dashboard (or where appropriate)
       if (data.user?.role === 'admin') {
         navigate('/admin');
       } else if (data.user?.role === 'teacher') {
@@ -87,7 +85,6 @@ export default function LoginPage() {
     }
   };
 
-  // ─── Resend code ──────────────────────────────────────────────
   const handleResendCode = async () => {
     setResending(true);
     setError('');
@@ -102,7 +99,6 @@ export default function LoginPage() {
     }
   };
 
-  // ─── If verification is required, show verification UI ──────
   if (showVerification) {
     return (
       <div
@@ -169,14 +165,13 @@ export default function LoginPage() {
     );
   }
 
-  // ─── Otherwise, show the login form ──────────────────────────
   return (
     <div
       className="relative min-h-screen bg-cover bg-center bg-fixed flex items-center justify-center py-12"
       style={{ backgroundImage: "url('/dashboard-bg.jpg.jpg')" }}
     >
       <div className="absolute inset-0 bg-black/60 z-0"></div>
-      
+
       <div className="relative z-10 w-full max-w-md p-4">
         <div className="card glass-strong p-8">
           <div className="flex items-center gap-2 justify-center mb-6">
@@ -188,6 +183,13 @@ export default function LoginPage() {
 
           <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Welcome back</h2>
           <p style={{ color: 'var(--text-muted)' }} className="mb-6">Continue your learning journey</p>
+
+          {/* ✅ Session expired banner */}
+          {sessionExpired && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-sm mb-4">
+              <AlertCircle size={16} /> Your session expired. Please log in again.
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm mb-4">

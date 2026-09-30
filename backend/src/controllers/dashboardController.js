@@ -2,6 +2,14 @@
 import pool from '../config/db.js';
 import { updateUserStreak } from '../utils/streakUtils.js';
 
+// ─── User timezone helper (Africa/Nairobi = EAT, UTC+3) ──
+const USER_TIMEZONE = 'Africa/Nairobi';
+
+// SQL snippet: true if column value is "today" in the user's timezone
+const isTodayInUserTZ = (column) =>
+  `(${column} AT TIME ZONE 'UTC' AT TIME ZONE '${USER_TIMEZONE}')::date =
+   (NOW() AT TIME ZONE '${USER_TIMEZONE}')::date`;
+
 // ============================================================
 // HELPER: Compute composite progress
 // Weights: Orbit 30% | Skills 30% | Goals 30% | Tasks 10%
@@ -88,8 +96,9 @@ const computeProgress = async (userId) => {
 };
 
 // ============================================================
-// ✅ NEW HELPER: Aggregate study time from all study sources
+// HELPER: Aggregate study time from all study sources
 // Sources: focus_sessions, orbit_sessions, practice_results, library
+// Uses user timezone (Africa/Nairobi) for "today"
 // ============================================================
 const computeStudyTime = async (userId) => {
   const result = { focus: 0, orbit: 0, practice: 0, library: 0 };
@@ -101,7 +110,7 @@ const computeStudyTime = async (userId) => {
        FROM focus_sessions
        WHERE user_id = $1
          AND completed = true
-         AND COALESCE(completed_at, start_time)::date = CURRENT_DATE`,
+         AND ${isTodayInUserTZ('COALESCE(completed_at, start_time)')}`,
       [userId]
     );
     result.focus = parseInt(r.rows[0]?.minutes || 0, 10);
@@ -114,7 +123,7 @@ const computeStudyTime = async (userId) => {
        FROM orbit_sessions
        WHERE user_id = $1
          AND status = 'completed'
-         AND completed_at::date = CURRENT_DATE`,
+         AND ${isTodayInUserTZ('completed_at')}`,
       [userId]
     );
     result.orbit = Math.round(parseInt(r.rows[0]?.seconds || 0, 10) / 60);
@@ -126,7 +135,7 @@ const computeStudyTime = async (userId) => {
       `SELECT COALESCE(SUM(time_spent), 0) AS seconds
        FROM practice_results
        WHERE user_id = $1
-         AND completed_at::date = CURRENT_DATE`,
+         AND ${isTodayInUserTZ('completed_at')}`,
       [userId]
     );
     result.practice = Math.round(parseInt(r.rows[0]?.seconds || 0, 10) / 60);
@@ -138,7 +147,7 @@ const computeStudyTime = async (userId) => {
       `SELECT COALESCE(SUM(LEAST(current_page, total_pages)), 0) AS pages
        FROM library_read_progress
        WHERE user_id = $1
-         AND last_read_at::date = CURRENT_DATE`,
+         AND ${isTodayInUserTZ('last_read_at')}`,
       [userId]
     );
     result.library = parseInt(r.rows[0]?.pages || 0, 10);
@@ -169,19 +178,15 @@ export const getDashboardStats = async (req, res) => {
 
     const user = userRes.rows[0];
 
-    // ✅ Study time from ALL sources
     const { totalMinutes: studyTimeMinutes, breakdown: studyTimeBreakdown } =
       await computeStudyTime(userId);
 
-    // Composite progress
     const { progressPercent, breakdown } = await computeProgress(userId);
 
-    // Level progress
     const xpProgress = (user.xp || 0) % 500;
     const level = Math.floor((user.xp || 0) / 500) + 1;
     const xpPercent = Math.round((xpProgress / 500) * 100);
 
-    // Counts
     const countsRes = await pool.query(
       `SELECT
          (SELECT COUNT(*) FROM orbit_sessions WHERE user_id=$1 AND status='completed') AS orbit_count,
@@ -209,8 +214,8 @@ export const getDashboardStats = async (req, res) => {
         educationLevel: user.education_level,
         lastActivityDate: user.last_activity_date,
       },
-      studyTimeMinutes,          // ✅ aggregated
-      studyTimeBreakdown,        // ✅ { focus, orbit, practice, library }
+      studyTimeMinutes,
+      studyTimeBreakdown,
       progressPercent,
       progressBreakdown: breakdown,
       totalXP: user.xp || 0,
@@ -325,7 +330,7 @@ export const getLeaderboard = async (req, res, next) => {
 };
 
 // ============================================================
-// COMPLETE FOCUS SESSION
+// COMPLETE FOCUS SESSION (timezone-aware)
 // ============================================================
 export const completeFocusSession = async (req, res) => {
   try {
@@ -353,7 +358,7 @@ export const completeFocusSession = async (req, res) => {
     const remainingRes = await pool.query(
       `SELECT 4 - COUNT(*) AS remaining
        FROM focus_sessions
-       WHERE user_id = $1 AND DATE(start_time) = CURRENT_DATE AND completed = true`,
+       WHERE user_id = $1 AND ${isTodayInUserTZ('start_time')} AND completed = true`,
       [userId]
     );
     const remaining = parseInt(remainingRes.rows[0].remaining, 10) || 0;
@@ -371,7 +376,7 @@ export const completeFocusSession = async (req, res) => {
 };
 
 // ============================================================
-// GET FOCUS REMAINING
+// GET FOCUS REMAINING (timezone-aware)
 // ============================================================
 export const getFocusRemaining = async (req, res) => {
   try {
@@ -379,7 +384,7 @@ export const getFocusRemaining = async (req, res) => {
     const result = await pool.query(
       `SELECT 4 - COUNT(*) AS remaining
        FROM focus_sessions
-       WHERE user_id = $1 AND DATE(start_time) = CURRENT_DATE AND completed = true`,
+       WHERE user_id = $1 AND ${isTodayInUserTZ('start_time')} AND completed = true`,
       [userId]
     );
     const remaining = parseInt(result.rows[0].remaining, 10) || 0;

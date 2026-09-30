@@ -20,6 +20,8 @@ import HolographicAvatar from '../components/HolographicAvatar';
 import { useTheme } from '../context/ThemeContext';
 import { useMood } from '../context/MoodContext';
 import OrbitStackedCard from '../components/orbit/OrbitStackedCard';
+import ErrorBoundary from '../components/ErrorBoundary';
+import { SkeletonDashboard } from '../components/Skeleton';
 
 import './DashboardPage.css';
 
@@ -160,7 +162,6 @@ export default function DashboardPage() {
   const [focusMode, setFocusMode] = useState(false);
   const [focusCompleted, setFocusCompleted] = useState(false);
 
-  // ─── Stacked suggestions state ───────────────────────────
   const [stackedSuggestions, setStackedSuggestions] = useState([]);
   const [stackedLoading, setStackedLoading] = useState(true);
 
@@ -184,7 +185,7 @@ export default function DashboardPage() {
   const [academicAssignments, setAcademicAssignments] = useState([]);
 
   const [studyTime, setStudyTime] = useState(0);
-  const [studyTimeBreakdown, setStudyTimeBreakdown] = useState(null);   // 👈 NEW
+  const [studyTimeBreakdown, setStudyTimeBreakdown] = useState(null);
   const [brainDump, setBrainDump] = useState(() => localStorage.getItem('brainDump') || '');
   const [showBrainDump, setShowBrainDump] = useState(false);
   const [quickAddType, setQuickAddType] = useState('task');
@@ -198,7 +199,6 @@ export default function DashboardPage() {
 
   const [orbitSessionCount, setOrbitSessionCount] = useState(0);
 
-  // ─── Progress tracking ref (for calm mood trigger) ───────
   const prevProgressRef = useRef(null);
 
   // ---- Image map for avatar ----
@@ -232,10 +232,38 @@ export default function DashboardPage() {
     minute: '2-digit',
   });
 
-  // ---- Data loading ----
+  // ✅ FIX: Feed polling every 90s + pause when tab hidden
   useEffect(() => {
-    const interval = setInterval(() => loadFeed(true), 30000);
-    return () => clearInterval(interval);
+    let interval = null;
+
+    const startPolling = () => {
+      if (interval) return;
+      interval = setInterval(() => loadFeed(true), 90000);
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        loadFeed(true);
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -275,14 +303,13 @@ export default function DashboardPage() {
 
       setTasks(tasksData || []);
       setStudyTime(statsData.studyTimeMinutes ?? 0);
-      setStudyTimeBreakdown(statsData.studyTimeBreakdown ?? null);   // 👈 NEW
+      setStudyTimeBreakdown(statsData.studyTimeBreakdown ?? null);
 
       // ─── PROGRESS + CALM MOOD DETECTION ────────────────────
       const newProgress = Math.round(statsData.progressPercent ?? 0);
       setProgressPercent(newProgress);
       setProgressBreakdown(statsData.progressBreakdown ?? null);
 
-      // Seed baseline on first-ever load
       if (prevProgressRef.current === null) {
         const stored = localStorage.getItem('lastProgressPercent');
         if (stored !== null) {
@@ -292,7 +319,6 @@ export default function DashboardPage() {
         }
       }
 
-      // If progress INCREASED since last load → calm mood
       const lastSeen = prevProgressRef.current;
       if (lastSeen !== null && newProgress > lastSeen) {
         console.log(`📈 Progress increased: ${lastSeen}% → ${newProgress}% → calm mood`);
@@ -306,10 +332,8 @@ export default function DashboardPage() {
         });
       }
 
-      // Persist for next mount
       prevProgressRef.current = newProgress;
       localStorage.setItem('lastProgressPercent', String(newProgress));
-      // ────────────────────────────────────────────────────────
 
       setMoodPercent(userData.moodPercent ?? 0);
       setAcademicTimetable(timetableData || []);
@@ -319,7 +343,6 @@ export default function DashboardPage() {
         setHasPremiumAccess(subscriptionData.isActive || subscriptionData.isInstitutional);
       }
 
-      // ─── Fetch orbit session count ─────────────────────────
       try {
         let orbitData = null;
         if (api.getOrbitSessionCount) {
@@ -335,7 +358,6 @@ export default function DashboardPage() {
         setOrbitSessionCount(0);
       }
 
-      // ─── Fetch stacked suggestions ─────────────────────────
       try {
         setStackedLoading(true);
         const stackedData = await api.getStackedSuggestions();
@@ -552,8 +574,9 @@ export default function DashboardPage() {
     );
   }
 
+  // ✅ FIX: Use SkeletonDashboard instead of plain text
   if (loading) {
-    return <div className="p-6 text-white text-center">Loading dashboard...</div>;
+    return <SkeletonDashboard />;
   }
 
   // ---- Subscription Banner ----
@@ -661,7 +684,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ✅ Study card with breakdown tooltip */}
         <div
           className="stat-card study"
           title={
@@ -722,186 +744,193 @@ export default function DashboardPage() {
       </div>
 
       {/* ----- MAIN TWO-COLUMN GRID ----- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT COLUMN (2/3) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Focus Session Card */}
-          <div className="card">
-            <h3><Clock size={18} className="text-cyan-400" /> Focus Session</h3>
-            <div className="focus-duration-buttons">
-              {[10, 25, 45].map((mins) => (
-                <button
-                  key={mins}
-                  onClick={() => selectDuration(mins)}
-                  className={selectedDuration === mins ? 'active' : ''}
-                >
-                  {mins}m
-                </button>
-              ))}
-            </div>
-            <div className="focus-input-group">
-              <input
-                type="text"
-                className="focus-input"
-                placeholder="What to focus on?"
-                value={focusTopic}
-                onChange={(e) => setFocusTopic(e.target.value)}
-              />
-              <button
-                className="start-focus-btn"
-                onClick={startFocusSession}
-                disabled={!focusTopic.trim() || focusRemaining <= 0}
-              >
-                <Play size={16} className="inline mr-1" /> Start
-              </button>
-            </div>
-            <div className="sessions-left">
-              {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
-            </div>
-          </div>
-
-          {/* Today's Tasks */}
-          <div className="card">
-            <h3><CheckCircle size={18} className="text-green-400" /> Today's Tasks</h3>
-            <div className="task-input-group">
-              <input
-                type="text"
-                placeholder="Add a task..."
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-              />
-              <input
-                type="number"
-                placeholder="XP"
-                value={newTaskXp}
-                onChange={(e) => setNewTaskXp(parseInt(e.target.value) || 0)}
-              />
-              <button onClick={handleAddTask} disabled={actionLoading || !newTaskTitle.trim()}>
-                <Plus size={18} />
-              </button>
-            </div>
-            {tasks.length === 0 ? (
-              <p className="text-sm text-white/40 text-center py-4">✨ No tasks for today</p>
-            ) : (
-              <div className="space-y-1 max-h-48 overflow-y-auto">
-                {tasks.slice(0, 5).map((task) => (
-                  <div key={task.id} className="task-item">
-                    <input
-                      type="checkbox"
-                      checked={task.is_completed}
-                      onChange={() => !task.is_completed && handleTaskComplete(task)}
-                    />
-                    <span className={`task-title ${task.is_completed ? 'done' : ''}`}>{task.title}</span>
-                    <span className="task-xp">{task.xp_reward} XP</span>
-                  </div>
+      <ErrorBoundary
+        title="Dashboard section failed to load"
+        message="Your stats, tasks, and suggestions couldn't render. Try again."
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* LEFT COLUMN (2/3) */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Focus Session Card */}
+            <div className="card">
+              <h3><Clock size={18} className="text-cyan-400" /> Focus Session</h3>
+              <div className="focus-duration-buttons">
+                {[10, 25, 45].map((mins) => (
+                  <button
+                    key={mins}
+                    onClick={() => selectDuration(mins)}
+                    className={selectedDuration === mins ? 'active' : ''}
+                  >
+                    {mins}m
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* Social Buzz */}
-          <div className="card">
-            <h3><Users size={18} className="text-brand-400" /> Social Buzz</h3>
-            <GlanceTicker posts={feedPosts} loading={feedLoading} />
-          </div>
-
-          {/* Orbit Stacked Card */}
-          <OrbitStackedCard
-            suggestions={stackedSuggestions}
-            loading={stackedLoading}
-          />
-        </div>
-
-        {/* RIGHT COLUMN (1/3) */}
-        <div className="space-y-6">
-          {/* Smart Suggestions */}
-          <div className="card">
-            <h3><Brain size={18} className="text-amber-400" /> Smart Suggestions</h3>
-            <div className="space-y-2">
-              <div className="suggestion-item">
-                <span className="suggestion-dot">•</span>
-                <span>You haven't studied today. Start a focus session.</span>
-              </div>
-              <div className="suggestion-item">
-                <span className="suggestion-dot">•</span>
-                <span>Algebra seems weak – try Orbit Cortex.</span>
-              </div>
-              <div className="suggestion-item">
-                <span className="suggestion-dot">•</span>
-                <span>2 tasks are overdue. Complete them now.</span>
-              </div>
-            </div>
-            <button className="mt-4 text-sm text-brand-400 hover:underline">Refresh</button>
-          </div>
-
-          {/* Your Path */}
-          <div className="card">
-            <h3><Target size={18} className="text-purple-400" /> Your Path</h3>
-            <div className="flex justify-between text-sm">
-              <span className="text-white/60">Career Readiness</span>
-              <span className="text-white font-semibold">{Math.round(progressPercent)}%</span>
-            </div>
-            <div className="progress-bar-container">
-              <div className="progress-bar-track">
-                <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
-              </div>
-            </div>
-            <p className="text-xs text-white/40 mt-2">
-              {stats.totalXP > 500 ? '🌟 You\'re on track!' : 'Complete tasks & challenges to grow.'}
-            </p>
-          </div>
-
-          {/* Up Next */}
-          <div className="card">
-            <h3><Calendar size={18} className="text-violet-400" /> Up Next</h3>
-            {todayEntries.length === 0 ? (
-              <p className="text-sm text-white/40">No classes scheduled</p>
-            ) : (
-              <div className="space-y-1">
-                {todayEntries.slice(0, 3).map((entry, idx) => (
-                  <div key={idx} className="upcoming-item">
-                    <span className="upcoming-time">{entry.start_time?.slice(0,5) || '—'}</span>
-                    <span className="upcoming-subject">{entry.subject_name || entry.title || 'Class'}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <Link to="/studysphere" className="mt-3 text-sm text-brand-400 hover:underline inline-block">
-              View full timetable →
-            </Link>
-          </div>
-
-          {/* Quick Capture */}
-          <div className="card">
-            <div className="flex justify-between items-center">
-              <h3><PenTool size={18} className="text-green-400" /> Quick Capture</h3>
-              <button onClick={() => setShowBrainDump(!showBrainDump)} className="text-white/40 hover:text-white">
-                {showBrainDump ? <X size={18} /> : <Plus size={18} />}
-              </button>
-            </div>
-            {showBrainDump ? (
-              <div className="mt-3">
-                <textarea
-                  className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-3 h-24 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
-                  placeholder="Write your thoughts..."
-                  value={brainDump}
-                  onChange={(e) => setBrainDump(e.target.value)}
+              <div className="focus-input-group">
+                <input
+                  type="text"
+                  className="focus-input"
+                  placeholder="What to focus on?"
+                  value={focusTopic}
+                  onChange={(e) => setFocusTopic(e.target.value)}
                 />
-                <div className="flex gap-2 mt-3">
-                  <button onClick={saveBrainDump} className="flex-1 py-2 bg-brand-500 text-white text-sm font-medium rounded-xl hover:opacity-90 transition">
-                    Save
-                  </button>
-                  <button onClick={() => setShowBrainDump(false)} className="flex-1 py-2 bg-white/10 text-white text-sm font-medium rounded-xl hover:bg-white/20 transition">
-                    Cancel
-                  </button>
+                <button
+                  className="start-focus-btn"
+                  onClick={startFocusSession}
+                  disabled={!focusTopic.trim() || focusRemaining <= 0}
+                >
+                  <Play size={16} className="inline mr-1" /> Start
+                </button>
+              </div>
+              <div className="sessions-left">
+                {focusRemaining > 0 ? `${focusRemaining} sessions left today` : 'Daily limit reached'}
+              </div>
+            </div>
+
+            {/* Today's Tasks */}
+            <div className="card">
+              <h3><CheckCircle size={18} className="text-green-400" /> Today's Tasks</h3>
+              <div className="task-input-group">
+                <input
+                  type="text"
+                  placeholder="Add a task..."
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                />
+                <input
+                  type="number"
+                  placeholder="XP"
+                  value={newTaskXp}
+                  onChange={(e) => setNewTaskXp(parseInt(e.target.value) || 0)}
+                />
+                <button onClick={handleAddTask} disabled={actionLoading || !newTaskTitle.trim()}>
+                  <Plus size={18} />
+                </button>
+              </div>
+              {tasks.length === 0 ? (
+                <p className="text-sm text-white/40 text-center py-4">✨ No tasks for today</p>
+              ) : (
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {tasks.slice(0, 5).map((task) => (
+                    <div key={task.id} className="task-item">
+                      <input
+                        type="checkbox"
+                        checked={task.is_completed}
+                        onChange={() => !task.is_completed && handleTaskComplete(task)}
+                      />
+                      <span className={`task-title ${task.is_completed ? 'done' : ''}`}>{task.title}</span>
+                      <span className="task-xp">{task.xp_reward} XP</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Social Buzz */}
+            <div className="card">
+              <h3><Users size={18} className="text-brand-400" /> Social Buzz</h3>
+              <GlanceTicker posts={feedPosts} loading={feedLoading} />
+            </div>
+
+            {/* Orbit Stacked Card */}
+            <ErrorBoundary title="Orbit suggestions unavailable">
+              <OrbitStackedCard
+                suggestions={stackedSuggestions}
+                loading={stackedLoading}
+              />
+            </ErrorBoundary>
+          </div>
+
+          {/* RIGHT COLUMN (1/3) */}
+          <div className="space-y-6">
+            {/* Smart Suggestions */}
+            <div className="card">
+              <h3><Brain size={18} className="text-amber-400" /> Smart Suggestions</h3>
+              <div className="space-y-2">
+                <div className="suggestion-item">
+                  <span className="suggestion-dot">•</span>
+                  <span>You haven't studied today. Start a focus session.</span>
+                </div>
+                <div className="suggestion-item">
+                  <span className="suggestion-dot">•</span>
+                  <span>Algebra seems weak – try Orbit Cortex.</span>
+                </div>
+                <div className="suggestion-item">
+                  <span className="suggestion-dot">•</span>
+                  <span>2 tasks are overdue. Complete them now.</span>
                 </div>
               </div>
-            ) : (
-              <p className="text-sm text-white/40 mt-1">{brainDump ? brainDump.split('\n').slice(-1)[0] : 'No notes yet.'}</p>
-            )}
+              <button className="mt-4 text-sm text-brand-400 hover:underline">Refresh</button>
+            </div>
+
+            {/* Your Path */}
+            <div className="card">
+              <h3><Target size={18} className="text-purple-400" /> Your Path</h3>
+              <div className="flex justify-between text-sm">
+                <span className="text-white/60">Career Readiness</span>
+                <span className="text-white font-semibold">{Math.round(progressPercent)}%</span>
+              </div>
+              <div className="progress-bar-container">
+                <div className="progress-bar-track">
+                  <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
+                </div>
+              </div>
+              <p className="text-xs text-white/40 mt-2">
+                {stats.totalXP > 500 ? '🌟 You\'re on track!' : 'Complete tasks & challenges to grow.'}
+              </p>
+            </div>
+
+            {/* Up Next */}
+            <div className="card">
+              <h3><Calendar size={18} className="text-violet-400" /> Up Next</h3>
+              {todayEntries.length === 0 ? (
+                <p className="text-sm text-white/40">No classes scheduled</p>
+              ) : (
+                <div className="space-y-1">
+                  {todayEntries.slice(0, 3).map((entry, idx) => (
+                    <div key={idx} className="upcoming-item">
+                      <span className="upcoming-time">{entry.start_time?.slice(0,5) || '—'}</span>
+                      <span className="upcoming-subject">{entry.subject_name || entry.title || 'Class'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Link to="/studysphere" className="mt-3 text-sm text-brand-400 hover:underline inline-block">
+                View full timetable →
+              </Link>
+            </div>
+
+            {/* Quick Capture */}
+            <div className="card">
+              <div className="flex justify-between items-center">
+                <h3><PenTool size={18} className="text-green-400" /> Quick Capture</h3>
+                <button onClick={() => setShowBrainDump(!showBrainDump)} className="text-white/40 hover:text-white">
+                  {showBrainDump ? <X size={18} /> : <Plus size={18} />}
+                </button>
+              </div>
+              {showBrainDump ? (
+                <div className="mt-3">
+                  <textarea
+                    className="w-full bg-white/10 text-white text-sm rounded-xl px-4 py-3 h-24 placeholder-white/30 outline-none border border-white/10 focus:border-brand-500/50 transition"
+                    placeholder="Write your thoughts..."
+                    value={brainDump}
+                    onChange={(e) => setBrainDump(e.target.value)}
+                  />
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={saveBrainDump} className="flex-1 py-2 bg-brand-500 text-white text-sm font-medium rounded-xl hover:opacity-90 transition">
+                      Save
+                    </button>
+                    <button onClick={() => setShowBrainDump(false)} className="flex-1 py-2 bg-white/10 text-white text-sm font-medium rounded-xl hover:bg-white/20 transition">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-white/40 mt-1">{brainDump ? brainDump.split('\n').slice(-1)[0] : 'No notes yet.'}</p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </ErrorBoundary>
 
       {/* ----- MOBILE NAV ----- */}
       <MobileNav active="home" navigate={navigate} />

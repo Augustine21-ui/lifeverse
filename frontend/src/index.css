@@ -379,5 +379,21 @@ body {
   animation: scan 3s linear infinite;
 }
 
+/* ─── Skeleton shimmer animation ─────────────────────────── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+.skeleton-pulse {
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-pulse {
+    animation: none;
+  }
+}
+
 /* Override for existing pulse if needed – we keep both */
 /* The avatar uses inline style for pulse, but this class can be used elsewhere */
