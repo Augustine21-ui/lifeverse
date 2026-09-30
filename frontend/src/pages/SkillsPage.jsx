@@ -93,9 +93,22 @@ export default function SkillsPage() {
         return 0;
       };
 
+      // ✅ FIX: derive level from XP (spec: level = floor(xp / 500) + 1).
+      // The /skills-summary endpoint returns a stale level (always 1), so we
+      // compute it locally from the authoritative XP source.
+      const resolvedXp = pick(
+        user?.xp,                                   // sidebar source, most authoritative
+        s.xp, s.totalXP, s.total_xp,
+        summaryRes?.xp, summaryRes?.totalXP,
+        0
+      );
+      const derivedLevel = resolvedXp > 0 ? Math.floor(resolvedXp / 500) + 1 : 1;
+      const endpointLevel = pick(s.level, s.userLevel, summaryRes?.level, user?.level, 0);
+      const resolvedLevel = Math.max(derivedLevel, endpointLevel) || 1;
+
       setSummary({
-        level:             pick(s.level, s.userLevel, summaryRes?.level, user?.level, 1) || 1,
-        xp:                pick(s.xp, s.totalXP, s.total_xp, summaryRes?.xp, summaryRes?.totalXP, user?.xp, 0),
+        level:             resolvedLevel,
+        xp:                resolvedXp,
         goalsCount:        pick(s.goalsCount, s.goals, summaryRes?.goalsCount, liveGoals.length),
         skillsCount:       pick(s.skillsCount, s.skills, summaryRes?.skillsCount, uniqueSkills.length),
         achievementsCount: pick(s.achievementsCount, s.achievements, summaryRes?.achievementsCount, liveEarned),
