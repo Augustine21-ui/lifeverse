@@ -1,4 +1,278 @@
 /* ============================================================ */
+/* ===== SKILLS PAGE — BASE STYLES ============================ */
+/* ============================================================ */
+
+.skills-page {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.skills-page h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+}
+
+p.skills-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+/* ─── Summary Cards (5-up grid) ──────────────────────────── */
+.skills-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.skills-summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 12px;
+  text-align: center;
+  box-shadow: var(--card-shadow);
+  transition: border-color 0.2s ease;
+}
+
+.skills-summary-card:hover {
+  border-color: var(--accent);
+}
+
+.skills-summary-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.skills-summary-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+/* ─── Section Titles (inside .card) ──────────────────────── */
+.skills-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 14px 0;
+}
+
+.skills-section-title.mb-0 {
+  margin-bottom: 0;
+}
+
+/* ─── Skill chips + progress ─────────────────────────────── */
+.skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.skill-chip:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.skill-chip.active {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.skill-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.skill-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #c084fc);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+/* ─── Goals ──────────────────────────────────────────────── */
+.goal-card {
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+  transition: border-color 0.2s ease;
+}
+
+.goal-card:hover {
+  border-color: rgba(139, 92, 246, 0.35);
+}
+
+.goal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+}
+
+.goal-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+/* ─── Achievements / Badges ──────────────────────────────── */
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.badge-card {
+  padding: 14px 10px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.badge-card.earned {
+  border-color: rgba(139, 92, 246, 0.45);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.10), rgba(99, 102, 241, 0.05));
+}
+
+.badge-card.locked {
+  opacity: 0.45;
+  filter: grayscale(0.8);
+}
+
+.badge-card .badge-icon {
+  font-size: 30px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.badge-card .badge-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 2px 0;
+}
+
+.badge-card .badge-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin: 0;
+}
+
+/* ─── Rankings ───────────────────────────────────────────── */
+.rankings-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.rank-card {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.rank-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rank-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+/* ─── Smart Suggestions (used on Dashboard, kept here for cohesion) ─── */
+.suggestion-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item .suggestion-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.suggestion-action {
+  color: #a78bfa;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.suggestion-action:hover {
+  text-decoration: underline;
+}
+
+.suggestion-empty {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 13px;
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* ─── Responsive: tablet (default 5-up is fine, tighten at 1024) ─── */
+@media (max-width: 1024px) {
+  .skills-summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .achievements-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ============================================================ */
 /* ===== DAY 2 – MOBILE POLISH ================================ */
 /* ============================================================ */
 
@@ -90,131 +364,28 @@
 
 /* ─── Orbit Page Mobile ──────────────────────────────────── */
 @media (max-width: 640px) {
-  .orbit-header h1 {
-    font-size: 20px !important;
-  }
-
-  .orbit-header .progress-stats {
-    font-size: 11px !important;
-    flex-wrap: wrap;
-    gap: 6px !important;
-  }
-
-  .solar-system {
-    min-height: 300px !important;
-    padding: 12px !important;
-  }
-
-  .planets-container {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 12px !important;
-  }
-
-  .planet {
-    padding: 12px 8px !important;
-  }
-
-  .planet .planet-icon {
-    font-size: 24px !important;
-  }
-
-  .planet .planet-label {
-    font-size: 13px !important;
-  }
-
-  .planet .planet-subtitle {
-    font-size: 10px !important;
-  }
-
-  .session-content {
-    padding: 12px !important;
-  }
-
-  .session-header h2 {
-    font-size: 16px !important;
-  }
-
-  .activity-card {
-    padding: 12px !important;
-  }
-
-  .answer-input {
-    font-size: 13px !important;
-  }
-
-  .session-summary h2 {
-    font-size: 20px !important;
-  }
-
-  .summary-stats {
-    gap: 12px !important;
-  }
-
-  .summary-stats .stat-value {
-    font-size: 22px !important;
-  }
-
-  .welcome-text {
-    font-size: 14px !important;
-    padding: 0 12px;
-  }
-
-  .feature-grid {
-    grid-template-columns: 1fr !important;
-    gap: 8px !important;
-  }
-}
-
-/* ─── Smart Suggestions (dynamic) ────────────────────────── */
-.suggestion-item {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 8px 0;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.5;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-}
-
-.suggestion-item:last-child {
-  border-bottom: none;
-}
-
-.suggestion-item .suggestion-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.suggestion-action {
-  color: #a78bfa;
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
-  margin-left: 4px;
-}
-
-.suggestion-action:hover {
-  text-decoration: underline;
-}
-
-.suggestion-empty {
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 13px;
-  text-align: center;
-  padding: 12px 0;
+  .orbit-header h1 { font-size: 20px !important; }
+  .orbit-header .progress-stats { font-size: 11px !important; flex-wrap: wrap; gap: 6px !important; }
+  .solar-system { min-height: 300px !important; padding: 12px !important; }
+  .planets-container { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+  .planet { padding: 12px 8px !important; }
+  .planet .planet-icon { font-size: 24px !important; }
+  .planet .planet-label { font-size: 13px !important; }
+  .planet .planet-subtitle { font-size: 10px !important; }
+  .session-content { padding: 12px !important; }
+  .session-header h2 { font-size: 16px !important; }
+  .activity-card { padding: 12px !important; }
+  .answer-input { font-size: 13px !important; }
+  .session-summary h2 { font-size: 20px !important; }
+  .summary-stats { gap: 12px !important; }
+  .summary-stats .stat-value { font-size: 22px !important; }
+  .welcome-text { font-size: 14px !important; padding: 0 12px; }
+  .feature-grid { grid-template-columns: 1fr !important; gap: 8px !important; }
 }
 
 /* ─── Global mobile typography ───────────────────────────── */
 @media (max-width: 640px) {
-  .card h3 {
-    font-size: 14px !important;
-  }
-
+  .card h3 { font-size: 14px !important; }
   .btn-primary,
-  .btn-secondary {
-    font-size: 13px !important;
-    padding: 8px 14px !important;
-  }
+  .btn-secondary { font-size: 13px !important; padding: 8px 14px !important; }
 }
