@@ -8,7 +8,6 @@ import { updateUserStreak } from '../utils/streakUtils.js';
 // ============================================================
 const computeProgress = async (userId) => {
   try {
-    // ─── ORBIT: 10 completed sessions = 100% ───────────────
     const ORBIT_TARGET = 10;
     const orbitRes = await pool.query(
       `SELECT COUNT(*) AS cnt FROM orbit_sessions
@@ -18,7 +17,6 @@ const computeProgress = async (userId) => {
     const orbitCount = parseInt(orbitRes.rows[0]?.cnt || 0, 10);
     const orbitProgress = Math.min((orbitCount / ORBIT_TARGET) * 100, 100);
 
-    // ─── SKILLS: average of user_skills.progress_percent ───
     let skillsProgress = 0;
     let skillCount = 0;
     try {
@@ -29,14 +27,9 @@ const computeProgress = async (userId) => {
         [userId]
       );
       skillCount = parseInt(skillsRes.rows[0]?.cnt || 0, 10);
-      skillsProgress = skillCount > 0
-        ? parseFloat(skillsRes.rows[0].avg_progress || 0)
-        : 0;
-    } catch (e) {
-      console.warn('Skills progress query failed:', e.message);
-    }
+      skillsProgress = skillCount > 0 ? parseFloat(skillsRes.rows[0].avg_progress || 0) : 0;
+    } catch (e) { console.warn('Skills progress query failed:', e.message); }
 
-    // ─── GOALS: average of goals.progress ──────────────────
     let goalsProgress = 0;
     let goalsTotal = 0;
     let goalsCompleted = 0;
@@ -50,14 +43,9 @@ const computeProgress = async (userId) => {
       );
       goalsTotal = parseInt(goalsRes.rows[0]?.total || 0, 10);
       goalsCompleted = parseInt(goalsRes.rows[0]?.completed || 0, 10);
-      goalsProgress = goalsTotal > 0
-        ? parseFloat(goalsRes.rows[0].avg_progress || 0)
-        : 0;
-    } catch (e) {
-      console.warn('Goals progress query failed:', e.message);
-    }
+      goalsProgress = goalsTotal > 0 ? parseFloat(goalsRes.rows[0].avg_progress || 0) : 0;
+    } catch (e) { console.warn('Goals progress query failed:', e.message); }
 
-    // ─── TASKS: completed / total ──────────────────────────
     let tasksProgress = 0;
     let tasksDone = 0;
     let tasksTotal = 0;
@@ -71,11 +59,8 @@ const computeProgress = async (userId) => {
       tasksTotal = parseInt(tasksRes.rows[0]?.total || 0, 10);
       tasksDone = parseInt(tasksRes.rows[0]?.done || 0, 10);
       tasksProgress = tasksTotal > 0 ? (tasksDone / tasksTotal) * 100 : 0;
-    } catch (e) {
-      console.warn('Tasks progress query failed:', e.message);
-    }
+    } catch (e) { console.warn('Tasks progress query failed:', e.message); }
 
-    // ─── COMPOSITE ─────────────────────────────────────────
     const composite = Math.round(
       orbitProgress * 0.30 +
       skillsProgress * 0.30 +
@@ -90,12 +75,7 @@ const computeProgress = async (userId) => {
         skills: Math.round(skillsProgress),
         goals: Math.round(goalsProgress),
         tasks: Math.round(tasksProgress),
-        orbitCount,
-        skillCount,
-        goalsTotal,
-        goalsCompleted,
-        tasksDone,
-        tasksTotal,
+        orbitCount, skillCount, goalsTotal, goalsCompleted, tasksDone, tasksTotal,
       },
     };
   } catch (err) {
@@ -108,14 +88,73 @@ const computeProgress = async (userId) => {
 };
 
 // ============================================================
-// GET DASHBOARD STATS (used by frontend DashboardPage)
-// Endpoint: GET /api/dashboard/stats
+// ✅ NEW HELPER: Aggregate study time from all study sources
+// Sources: focus_sessions, orbit_sessions, practice_results, library
+// ============================================================
+const computeStudyTime = async (userId) => {
+  const result = { focus: 0, orbit: 0, practice: 0, library: 0 };
+
+  // 1. Focus sessions (minutes)
+  try {
+    const r = await pool.query(
+      `SELECT COALESCE(SUM(duration), 0) AS minutes
+       FROM focus_sessions
+       WHERE user_id = $1
+         AND completed = true
+         AND COALESCE(completed_at, start_time)::date = CURRENT_DATE`,
+      [userId]
+    );
+    result.focus = parseInt(r.rows[0]?.minutes || 0, 10);
+  } catch (e) { console.warn('Focus study time failed:', e.message); }
+
+  // 2. Orbit sessions (time_spent in seconds)
+  try {
+    const r = await pool.query(
+      `SELECT COALESCE(SUM(time_spent), 0) AS seconds
+       FROM orbit_sessions
+       WHERE user_id = $1
+         AND status = 'completed'
+         AND completed_at::date = CURRENT_DATE`,
+      [userId]
+    );
+    result.orbit = Math.round(parseInt(r.rows[0]?.seconds || 0, 10) / 60);
+  } catch (e) { console.warn('Orbit study time failed:', e.message); }
+
+  // 3. Practice results (time_spent in seconds)
+  try {
+    const r = await pool.query(
+      `SELECT COALESCE(SUM(time_spent), 0) AS seconds
+       FROM practice_results
+       WHERE user_id = $1
+         AND completed_at::date = CURRENT_DATE`,
+      [userId]
+    );
+    result.practice = Math.round(parseInt(r.rows[0]?.seconds || 0, 10) / 60);
+  } catch (e) { console.warn('Practice study time failed:', e.message); }
+
+  // 4. Library reading (~1 minute per page read today)
+  try {
+    const r = await pool.query(
+      `SELECT COALESCE(SUM(LEAST(current_page, total_pages)), 0) AS pages
+       FROM library_read_progress
+       WHERE user_id = $1
+         AND last_read_at::date = CURRENT_DATE`,
+      [userId]
+    );
+    result.library = parseInt(r.rows[0]?.pages || 0, 10);
+  } catch (e) { console.warn('Library study time failed:', e.message); }
+
+  const totalMinutes = result.focus + result.orbit + result.practice + result.library;
+  return { totalMinutes, breakdown: result };
+};
+
+// ============================================================
+// GET DASHBOARD STATS
 // ============================================================
 export const getDashboardStats = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // 1. User info
     const userRes = await pool.query(
       `SELECT id, full_name, username, email, xp, level, streak_days,
               avatar_url, mood, education_level, date_of_birth,
@@ -130,26 +169,19 @@ export const getDashboardStats = async (req, res) => {
 
     const user = userRes.rows[0];
 
-    // 2. Study time today
-    const studyRes = await pool.query(
-      `SELECT COALESCE(SUM(duration), 0) AS minutes
-       FROM focus_sessions
-       WHERE user_id = $1
-         AND completed = true
-         AND start_time::date = CURRENT_DATE`,
-      [userId]
-    );
-    const studyTimeMinutes = parseInt(studyRes.rows[0]?.minutes || 0, 10);
+    // ✅ Study time from ALL sources
+    const { totalMinutes: studyTimeMinutes, breakdown: studyTimeBreakdown } =
+      await computeStudyTime(userId);
 
-    // 3. Composite progress
+    // Composite progress
     const { progressPercent, breakdown } = await computeProgress(userId);
 
-    // 4. Compute level progress
+    // Level progress
     const xpProgress = (user.xp || 0) % 500;
     const level = Math.floor((user.xp || 0) / 500) + 1;
     const xpPercent = Math.round((xpProgress / 500) * 100);
 
-    // 5. Counts for quick stats
+    // Counts
     const countsRes = await pool.query(
       `SELECT
          (SELECT COUNT(*) FROM orbit_sessions WHERE user_id=$1 AND status='completed') AS orbit_count,
@@ -177,7 +209,8 @@ export const getDashboardStats = async (req, res) => {
         educationLevel: user.education_level,
         lastActivityDate: user.last_activity_date,
       },
-      studyTimeMinutes,
+      studyTimeMinutes,          // ✅ aggregated
+      studyTimeBreakdown,        // ✅ { focus, orbit, practice, library }
       progressPercent,
       progressBreakdown: breakdown,
       totalXP: user.xp || 0,
@@ -201,7 +234,7 @@ export const getDashboard = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
-    const [userRes, goalsRes, badgesRes, xpHistRes, activityRes] = await Promise.all([
+    const [userRes, goalsRes, badgesRes, xpHistRes] = await Promise.all([
       pool.query('SELECT xp, level, streak_days, last_activity_date FROM users WHERE id=$1', [userId]),
       pool.query(`
         SELECT category, COUNT(*) FILTER (WHERE status='active') as active,
@@ -218,30 +251,19 @@ export const getDashboard = async (req, res, next) => {
         FROM xp_history WHERE user_id=$1 AND created_at > NOW() - INTERVAL '7 days'
         GROUP BY DATE(created_at) ORDER BY date
       `, [userId]),
-      pool.query(`
-        SELECT
-          COALESCE((SELECT COUNT(*) FROM tasks WHERE user_id=$1 AND is_completed=true), 0) AS tasks_done,
-          COALESCE((SELECT COUNT(*) FROM orbit_sessions WHERE user_id=$1 AND status='completed'), 0) AS orbit_sessions,
-          COALESCE((SELECT COUNT(*) FROM posts WHERE user_id=$1), 0) AS posts,
-          COALESCE((SELECT COUNT(*) FROM user_skills WHERE user_id=$1), 0) AS skill_updates,
-          COALESCE((SELECT COALESCE(SUM(duration),0) FROM focus_sessions WHERE user_id=$1 AND completed=true), 0) AS study_minutes,
-          COALESCE((SELECT COUNT(*) FROM tasks WHERE user_id=$1 AND is_completed=false AND due_date < NOW()), 0) AS overdue_tasks
-      `, [userId])
     ]);
 
     const user = userRes.rows[0];
     const xpProgress = user.xp % 500;
     const level = Math.floor(user.xp / 500) + 1;
 
-    const activity = activityRes.rows[0];
     const { progressPercent, breakdown } = await computeProgress(userId);
+    const { totalMinutes: studyTimeMinutes, breakdown: studyTimeBreakdown } =
+      await computeStudyTime(userId);
 
     let mood = 'neutral';
-    if (activity.tasks_done > 2 || activity.orbit_sessions > 1) mood = 'happy';
-    else if (activity.orbit_sessions > 0 || activity.posts > 0) mood = 'calm';
-    else if (activity.overdue_tasks > 0) mood = 'stressed';
-    else if (user.streak_days === 0) mood = 'tired';
-    else mood = 'neutral';
+    if (user.streak_days > 0) mood = 'calm';
+    if (user.xp > 500) mood = 'happy';
 
     res.json({
       user: {
@@ -253,8 +275,9 @@ export const getDashboard = async (req, res, next) => {
         mood: mood,
         lastActivityDate: user.last_activity_date || null,
       },
-      studyTimeMinutes: activity.study_minutes,
-      progressPercent: progressPercent,
+      studyTimeMinutes,
+      studyTimeBreakdown,
+      progressPercent,
       progressBreakdown: breakdown,
       goalsByCategory: goalsRes.rows,
       recentBadges: badgesRes.rows,
@@ -285,7 +308,7 @@ export const getBadges = async (req, res, next) => {
 };
 
 // ============================================================
-// GET LEADERBOARD (simple version)
+// GET LEADERBOARD
 // ============================================================
 export const getLeaderboard = async (req, res, next) => {
   try {
@@ -368,10 +391,8 @@ export const getFocusRemaining = async (req, res) => {
 };
 
 // ============================================================
-// ✅ TASK FUNCTIONS (fixes ESM import error in routes/index.js)
+// TASK FUNCTIONS
 // ============================================================
-
-// ─── GET TODAY'S TASKS ───────────────────────────────────────
 export const getTodayTasks = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -390,7 +411,6 @@ export const getTodayTasks = async (req, res) => {
   }
 };
 
-// ─── COMPLETE TASK ───────────────────────────────────────────
 export const completeTask = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -410,54 +430,35 @@ export const completeTask = async (req, res) => {
     const xp = task.xp_reward || 30;
 
     if (!alreadyDone) {
-      await pool.query(
-        `UPDATE users SET xp = COALESCE(xp, 0) + $1 WHERE id = $2`,
-        [xp, userId]
-      );
-      await pool.query(
-        `UPDATE users SET level = FLOOR(COALESCE(xp,0) / 500) + 1 WHERE id = $1`,
-        [userId]
-      );
+      await pool.query(`UPDATE users SET xp = COALESCE(xp, 0) + $1 WHERE id = $2`, [xp, userId]);
+      await pool.query(`UPDATE users SET level = FLOOR(COALESCE(xp,0) / 500) + 1 WHERE id = $1`, [userId]);
       await updateUserStreak(userId);
     }
 
     const result = await pool.query(
-      `UPDATE tasks
-       SET is_completed = TRUE, completed_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
+      `UPDATE tasks SET is_completed = TRUE, completed_at = NOW()
+       WHERE id = $1 RETURNING *`,
       [id]
     );
 
-    res.json({
-      success: true,
-      task: result.rows[0],
-      xpAwarded: alreadyDone ? 0 : xp,
-    });
+    res.json({ success: true, task: result.rows[0], xpAwarded: alreadyDone ? 0 : xp });
   } catch (err) {
     console.error('completeTask error:', err);
     res.status(500).json({ error: 'Failed to complete task' });
   }
 };
 
-// ─── CREATE TASK ─────────────────────────────────────────────
 export const createTask = async (req, res) => {
   try {
     const userId = req.user.id;
     const { title, xp_reward, due_date, priority } = req.body;
-
-    if (!title) {
-      return res.status(400).json({ error: 'Title is required' });
-    }
+    if (!title) return res.status(400).json({ error: 'Title is required' });
 
     const result = await pool.query(
-      `INSERT INTO tasks 
-         (user_id, title, xp_reward, due_date, priority, is_completed, created_at)
-       VALUES ($1, $2, $3, $4, $5, false, NOW())
-       RETURNING *`,
+      `INSERT INTO tasks (user_id, title, xp_reward, due_date, priority, is_completed, created_at)
+       VALUES ($1, $2, $3, $4, $5, false, NOW()) RETURNING *`,
       [userId, title, xp_reward || 30, due_date || null, priority || null]
     );
-
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error('createTask error:', err);
@@ -465,21 +466,15 @@ export const createTask = async (req, res) => {
   }
 };
 
-// ─── DELETE TASK ─────────────────────────────────────────────
 export const deleteTask = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-
     const result = await pool.query(
       `DELETE FROM tasks WHERE id = $1 AND user_id = $2 RETURNING id`,
       [id, userId]
     );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
-
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Task not found' });
     res.json({ success: true, deletedId: result.rows[0].id });
   } catch (err) {
     console.error('deleteTask error:', err);
@@ -487,7 +482,6 @@ export const deleteTask = async (req, res) => {
   }
 };
 
-// ─── GET TODAY'S CHALLENGES ─────────────────────────────────
 export const getTodayChallenges = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -505,7 +499,6 @@ export const getTodayChallenges = async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error('getTodayChallenges error:', err);
-    // Graceful fallback – return empty array instead of error
     res.json([]);
   }
 };

@@ -151,7 +151,7 @@ export default function DashboardPage() {
   const [quizResult, setQuizResult] = useState(null);
 
   const [progressPercent, setProgressPercent] = useState(0);
-  const [progressBreakdown, setProgressBreakdown] = useState(null);   // 👈 NEW
+  const [progressBreakdown, setProgressBreakdown] = useState(null);
   const [moodPercent, setMoodPercent] = useState(0);
 
   const [focusRemaining, setFocusRemaining] = useState(4);
@@ -184,6 +184,7 @@ export default function DashboardPage() {
   const [academicAssignments, setAcademicAssignments] = useState([]);
 
   const [studyTime, setStudyTime] = useState(0);
+  const [studyTimeBreakdown, setStudyTimeBreakdown] = useState(null);   // 👈 NEW
   const [brainDump, setBrainDump] = useState(() => localStorage.getItem('brainDump') || '');
   const [showBrainDump, setShowBrainDump] = useState(false);
   const [quickAddType, setQuickAddType] = useState('task');
@@ -274,11 +275,12 @@ export default function DashboardPage() {
 
       setTasks(tasksData || []);
       setStudyTime(statsData.studyTimeMinutes ?? 0);
+      setStudyTimeBreakdown(statsData.studyTimeBreakdown ?? null);   // 👈 NEW
 
       // ─── PROGRESS + CALM MOOD DETECTION ────────────────────
       const newProgress = Math.round(statsData.progressPercent ?? 0);
       setProgressPercent(newProgress);
-      setProgressBreakdown(statsData.progressBreakdown ?? null);   // 👈 store breakdown
+      setProgressBreakdown(statsData.progressBreakdown ?? null);
 
       // Seed baseline on first-ever load
       if (prevProgressRef.current === null) {
@@ -286,7 +288,7 @@ export default function DashboardPage() {
         if (stored !== null) {
           prevProgressRef.current = parseInt(stored, 10);
         } else {
-          prevProgressRef.current = newProgress;  // first load = baseline, no trigger
+          prevProgressRef.current = newProgress;
         }
       }
 
@@ -658,14 +660,28 @@ export default function DashboardPage() {
             <span className="stat-sub">{stats.totalXP} XP</span>
           </div>
         </div>
-        <div className="stat-card study">
+
+        {/* ✅ Study card with breakdown tooltip */}
+        <div
+          className="stat-card study"
+          title={
+            studyTimeBreakdown
+              ? `Focus: ${studyTimeBreakdown.focus}m · Orbit: ${studyTimeBreakdown.orbit}m · Practice: ${studyTimeBreakdown.practice}m · Reading: ${studyTimeBreakdown.library}m`
+              : 'Time spent studying today'
+          }
+        >
           <div className="stat-icon">📚</div>
           <div className="stat-content">
             <span className="stat-label">Study</span>
             <span className="stat-value">{formatStudyTime(studyTime)}</span>
-            <span className="stat-sub">Today</span>
+            <span className="stat-sub">
+              {studyTimeBreakdown
+                ? `Focus ${studyTimeBreakdown.focus}m · Orbit ${studyTimeBreakdown.orbit}m`
+                : 'Today'}
+            </span>
           </div>
         </div>
+
         <div className="stat-card streak">
           <div className="stat-icon">🔥</div>
           <div className="stat-content">
@@ -674,6 +690,7 @@ export default function DashboardPage() {
             <span className="stat-sub">{stats.streakDays > 0 ? 'Keep going!' : 'Start today'}</span>
           </div>
         </div>
+
         <div className="stat-card mood">
           <div className="stat-icon">😊</div>
           <div className="stat-content">
@@ -682,6 +699,7 @@ export default function DashboardPage() {
             <span className="stat-sub">{moodPercent}% Today</span>
           </div>
         </div>
+
         <div
           className="stat-card progress"
           title={
@@ -888,7 +906,7 @@ export default function DashboardPage() {
       {/* ----- MOBILE NAV ----- */}
       <MobileNav active="home" navigate={navigate} />
 
-      {/* ----- MODALS (only edit and quiz remain) ----- */}
+      {/* ----- MODALS ----- */}
       {showEditModal && editingTask && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full">
