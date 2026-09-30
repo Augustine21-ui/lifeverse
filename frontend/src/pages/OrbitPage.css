@@ -780,3 +780,169 @@
     gap: 0.4rem 0.8rem;
   }
 }
+
+/* ============================================================ */
+/* ===== DAY 2 – ORBIT MOBILE POLISH ========================= */
+/* ============================================================ */
+
+@media (max-width: 640px) {
+  .orbit-page {
+    padding: 8px 4px 80px !important;
+  }
+
+  .orbit-header {
+    padding: 12px 8px !important;
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 8px;
+  }
+
+  .orbit-header h1 {
+    font-size: 20px !important;
+  }
+
+  .progress-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 11px !important;
+  }
+
+  .solar-system {
+    min-height: 280px !important;
+    padding: 12px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .orbit-rings {
+    display: none !important; /* Too cluttered on mobile */
+  }
+
+  .life-core {
+    transform: scale(0.8);
+  }
+
+  .planets-container {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    padding: 8px !important;
+  }
+
+  .planet {
+    padding: 10px 6px !important;
+    border-radius: 12px !important;
+    min-height: 90px;
+  }
+
+  .planet .planet-icon {
+    font-size: 26px !important;
+  }
+
+  .planet .planet-label {
+    font-size: 13px !important;
+  }
+
+  .planet .planet-subtitle {
+    font-size: 10px !important;
+    opacity: 0.6;
+  }
+
+  .activity-selection-container {
+    padding: 12px 8px !important;
+  }
+
+  .activity-selection-container .back-btn {
+    font-size: 13px !important;
+    padding: 6px 12px !important;
+  }
+
+  .session-container {
+    padding: 8px !important;
+  }
+
+  .session-content {
+    padding: 14px !important;
+    border-radius: 14px !important;
+  }
+
+  .session-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 8px;
+  }
+
+  .session-header h2 {
+    font-size: 16px !important;
+  }
+
+  .session-header .btn-danger {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .activity-card {
+    padding: 12px !important;
+  }
+
+  .activity-content h3 {
+    font-size: 15px !important;
+  }
+
+  .activity-content p {
+    font-size: 13px !important;
+  }
+
+  .answer-input {
+    font-size: 13px !important;
+    min-height: 60px;
+  }
+
+  .session-summary {
+    padding: 20px 14px !important;
+    border-radius: 16px !important;
+  }
+
+  .session-summary h2 {
+    font-size: 20px !important;
+  }
+
+  .summary-stats {
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .summary-stats .stat-item {
+    flex: 1;
+    min-width: 80px;
+  }
+
+  .summary-stats .stat-value {
+    font-size: 20px !important;
+  }
+
+  .summary-stats .stat-label {
+    font-size: 10px !important;
+  }
+
+  .welcome-section {
+    padding: 12px;
+  }
+
+  .welcome-text {
+    font-size: 13px !important;
+    text-align: center;
+  }
+
+  .feature-grid {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+    margin-top: 12px;
+  }
+
+  .feature-item {
+    padding: 8px !important;
+  }
+}

@@ -1,0 +1,220 @@
+/* ============================================================ */
+/* ===== DAY 2 – MOBILE POLISH ================================ */
+/* ============================================================ */
+
+/* ─── Skills Page Mobile ─────────────────────────────────── */
+@media (max-width: 640px) {
+  .skills-summary-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .skills-summary-card {
+    padding: 12px 8px !important;
+    border-radius: 12px !important;
+  }
+
+  .skills-summary-card .skills-summary-value {
+    font-size: 20px !important;
+  }
+
+  .skills-summary-card .skills-summary-label {
+    font-size: 11px !important;
+  }
+
+  .skills-page {
+    padding: 12px !important;
+  }
+
+  .skills-page h1 {
+    font-size: 22px !important;
+  }
+
+  .skills-page p.skills-sub {
+    font-size: 13px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .skills-section-title {
+    font-size: 15px !important;
+  }
+
+  .skill-chip {
+    font-size: 12px !important;
+    padding: 6px 10px !important;
+  }
+
+  .skill-progress-bar {
+    height: 6px !important;
+  }
+
+  .goal-card {
+    padding: 10px !important;
+  }
+
+  .goal-title {
+    font-size: 14px !important;
+  }
+
+  .goal-meta {
+    font-size: 11px !important;
+    flex-wrap: wrap;
+  }
+
+  .achievements-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .badge-card {
+    padding: 8px !important;
+  }
+
+  .badge-card .badge-icon {
+    font-size: 24px !important;
+  }
+
+  .badge-card .badge-name {
+    font-size: 11px !important;
+  }
+
+  .badge-card .badge-desc {
+    font-size: 9px !important;
+  }
+
+  .rankings-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+  }
+}
+
+/* ─── Orbit Page Mobile ──────────────────────────────────── */
+@media (max-width: 640px) {
+  .orbit-header h1 {
+    font-size: 20px !important;
+  }
+
+  .orbit-header .progress-stats {
+    font-size: 11px !important;
+    flex-wrap: wrap;
+    gap: 6px !important;
+  }
+
+  .solar-system {
+    min-height: 300px !important;
+    padding: 12px !important;
+  }
+
+  .planets-container {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .planet {
+    padding: 12px 8px !important;
+  }
+
+  .planet .planet-icon {
+    font-size: 24px !important;
+  }
+
+  .planet .planet-label {
+    font-size: 13px !important;
+  }
+
+  .planet .planet-subtitle {
+    font-size: 10px !important;
+  }
+
+  .session-content {
+    padding: 12px !important;
+  }
+
+  .session-header h2 {
+    font-size: 16px !important;
+  }
+
+  .activity-card {
+    padding: 12px !important;
+  }
+
+  .answer-input {
+    font-size: 13px !important;
+  }
+
+  .session-summary h2 {
+    font-size: 20px !important;
+  }
+
+  .summary-stats {
+    gap: 12px !important;
+  }
+
+  .summary-stats .stat-value {
+    font-size: 22px !important;
+  }
+
+  .welcome-text {
+    font-size: 14px !important;
+    padding: 0 12px;
+  }
+
+  .feature-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+}
+
+/* ─── Smart Suggestions (dynamic) ────────────────────────── */
+.suggestion-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item .suggestion-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.suggestion-action {
+  color: #a78bfa;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.suggestion-action:hover {
+  text-decoration: underline;
+}
+
+.suggestion-empty {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 13px;
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* ─── Global mobile typography ───────────────────────────── */
+@media (max-width: 640px) {
+  .card h3 {
+    font-size: 14px !important;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    font-size: 13px !important;
+    padding: 8px 14px !important;
+  }
+}

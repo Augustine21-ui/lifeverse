@@ -131,6 +131,83 @@ const MobileNav = ({ active, navigate }) => {
   );
 };
 
+// ─────────────────────────────────────────────────────────────
+// DAY 2 — Dynamic Smart Suggestions (no hardcoded copy)
+// Priority: streak → focus → tasks → weak skill → goal → orbit
+// ─────────────────────────────────────────────────────────────
+const ORBIT_TARGET = 10; // matches composite progress weight
+
+function buildSuggestions({ stats, tasks, goals, focusRemaining, progressBreakdown, orbitSessionCount }) {
+  const out = [];
+
+  // 1. Streak nudge
+  if ((stats?.streakDays ?? 0) === 0) {
+    out.push({
+      id: 'streak',
+      icon: '🔥',
+      text: 'Start a streak today — finish one task or orbit session.',
+      to: '/orbit',
+    });
+  }
+
+  // 2. Focus reminder
+  if (typeof focusRemaining === 'number' && focusRemaining <= 0) {
+    out.push({
+      id: 'focus',
+      icon: '⏱️',
+      text: 'No focus sessions left today. Plan one for tomorrow.',
+      to: '/dashboard',
+    });
+  }
+
+  // 3. Pending tasks
+  const pending = (tasks || []).filter(t => !t.is_completed);
+  if (pending.length > 0) {
+    out.push({
+      id: 'tasks',
+      icon: '✅',
+      text: `You have ${pending.length} task${pending.length > 1 ? 's' : ''} left today.`,
+      to: '/dashboard',
+    });
+  }
+
+  // 4. Weak skill (from progress breakdown)
+  const skillsPct = progressBreakdown?.skills ?? null;
+  if (skillsPct !== null && skillsPct < 50) {
+    out.push({
+      id: 'skill',
+      icon: '📈',
+      text: `Skills at ${skillsPct}% — boost with an Orbit practice session.`,
+      to: '/orbit',
+    });
+  }
+
+  // 5. Active goal (only if goals data is available)
+  const activeGoal = (goals || []).find(g => !g.completed);
+  if (activeGoal) {
+    const pct = Math.round(activeGoal.progress ?? 0);
+    out.push({
+      id: 'goal',
+      icon: '🎯',
+      text: `Goal "${activeGoal.title}" is ${pct}% complete — keep going.`,
+      to: '/skills',
+    });
+  }
+
+  // 6. Orbit volume nudge (only if orbit is the bottleneck)
+  if ((orbitSessionCount ?? 0) < ORBIT_TARGET) {
+    const remaining = ORBIT_TARGET - (orbitSessionCount ?? 0);
+    out.push({
+      id: 'orbit',
+      icon: '🪐',
+      text: `${remaining} more orbit session${remaining > 1 ? 's' : ''} to max out orbit progress.`,
+      to: '/orbit',
+    });
+  }
+
+  return out.slice(0, 5);
+}
+
 export default function DashboardPage() {
   const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
@@ -155,6 +232,9 @@ export default function DashboardPage() {
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressBreakdown, setProgressBreakdown] = useState(null);
   const [moodPercent, setMoodPercent] = useState(0);
+
+  // ✅ DAY 2 — goals state (required by Smart Suggestion #5)
+  const [goals, setGoals] = useState([]);
 
   const [focusRemaining, setFocusRemaining] = useState(4);
   const [selectedDuration, setSelectedDuration] = useState(25);
@@ -277,12 +357,14 @@ export default function DashboardPage() {
 
   const loadDashboard = async () => {
     try {
-      const [statsData, tasksData, timetableData, assignmentsData, subscriptionData] = await Promise.all([
+      const [statsData, tasksData, timetableData, assignmentsData, subscriptionData, goalsData] = await Promise.all([
         api.getDashboardStats(),
         api.getTodayTasks(),
         api.getTimetable().catch(() => []),
         api.getAssignments().catch(() => []),
         api.getSubscriptionStatus().catch(() => null),
+        // ✅ DAY 2 — guarded goals fetch: if getGoals doesn't exist yet, resolves to []
+        api.getGoals ? api.getGoals().catch(() => []) : Promise.resolve([]),
       ]);
 
       const userData = statsData.user || {};
@@ -304,6 +386,9 @@ export default function DashboardPage() {
       setTasks(tasksData || []);
       setStudyTime(statsData.studyTimeMinutes ?? 0);
       setStudyTimeBreakdown(statsData.studyTimeBreakdown ?? null);
+
+      // ✅ DAY 2 — normalize goals array
+      setGoals(goalsData?.goals || goalsData?.data || goalsData || []);
 
       // ─── PROGRESS + CALM MOOD DETECTION ────────────────────
       const newProgress = Math.round(statsData.progressPercent ?? 0);
@@ -555,6 +640,16 @@ export default function DashboardPage() {
   const todayEntries = academicTimetable.filter(entry => entry.day_of_week === today);
   const currentLevel = stats.totalXP > 0 ? Math.floor(stats.totalXP / 500) + 1 : (user?.level || 1);
 
+  // ✅ DAY 2 — dynamic suggestions derived from live state
+  const suggestions = buildSuggestions({
+    stats,
+    tasks,
+    goals,
+    focusRemaining,
+    progressBreakdown,
+    orbitSessionCount,
+  });
+
   const formatStudyTime = (minutes) => {
     if (minutes < 60) return `${minutes}m`;
     const hours = Math.floor(minutes / 60);
@@ -574,7 +669,6 @@ export default function DashboardPage() {
     );
   }
 
-  // ✅ FIX: Use SkeletonDashboard instead of plain text
   if (loading) {
     return <SkeletonDashboard />;
   }
@@ -842,24 +936,38 @@ export default function DashboardPage() {
 
           {/* RIGHT COLUMN (1/3) */}
           <div className="space-y-6">
-            {/* Smart Suggestions */}
+            {/* ✅ DAY 2 — Smart Suggestions (dynamic) */}
             <div className="card">
-              <h3><Brain size={18} className="text-amber-400" /> Smart Suggestions</h3>
-              <div className="space-y-2">
-                <div className="suggestion-item">
-                  <span className="suggestion-dot">•</span>
-                  <span>You haven't studied today. Start a focus session.</span>
-                </div>
-                <div className="suggestion-item">
-                  <span className="suggestion-dot">•</span>
-                  <span>Algebra seems weak – try Orbit Cortex.</span>
-                </div>
-                <div className="suggestion-item">
-                  <span className="suggestion-dot">•</span>
-                  <span>2 tasks are overdue. Complete them now.</span>
-                </div>
+              <div className="flex justify-between items-center mb-3">
+                <h3><Brain size={18} className="text-amber-400" /> Smart Suggestions</h3>
+                <button
+                  onClick={loadDashboard}
+                  className="text-xs text-brand-400 hover:underline"
+                >
+                  Refresh
+                </button>
               </div>
-              <button className="mt-4 text-sm text-brand-400 hover:underline">Refresh</button>
+              <div className="space-y-2">
+                {suggestions.length === 0 ? (
+                  <p className="text-sm text-white/40 text-center py-4">
+                    You're all caught up! 🎉
+                  </p>
+                ) : (
+                  suggestions.map((s) => (
+                    <div
+                      key={s.id}
+                      className="suggestion-item cursor-pointer"
+                      onClick={() => s.to && navigate(s.to)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && s.to && navigate(s.to)}
+                    >
+                      <span className="suggestion-dot">•</span>
+                      <span>{s.icon} {s.text}</span>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
             {/* Your Path */}

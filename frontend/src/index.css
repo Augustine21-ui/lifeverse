@@ -318,7 +318,7 @@ body {
 }
 
 /* ============================================================ */
-/* ===== HOLOGRAPHIC AVATAR ANIMATIONS (added) ================ */
+/* ===== HOLOGRAPHIC AVATAR ANIMATIONS ======================== */
 /* ============================================================ */
 
 /* Floating idle */
@@ -347,7 +347,7 @@ body {
   50% { transform: scaleY(0.95); }
 }
 
-/* Glow pulse (already used inline, but we define it for consistency) */
+/* Glow pulse */
 @keyframes pulse {
   0%, 100% { opacity: 0.7; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.05); }
@@ -395,5 +395,162 @@ body {
   }
 }
 
-/* Override for existing pulse if needed – we keep both */
-/* The avatar uses inline style for pulse, but this class can be used elsewhere */
+/* ============================================================ */
+/* ===== DAY 2 — MOBILE POLISH (GLOBAL) ======================= */
+/* ============================================================ */
+
+/* --- 1. Root safety: prevent horizontal scroll app-wide --------- */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  /* Prevent iOS auto-zoom on rotate */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Use dynamic viewport height so mobile browser chrome doesn't clip content */
+#root {
+  min-height: 100dvh;
+}
+
+/* --- 2. Safe-area insets (iPhone notch / home bar) -------------- */
+:root {
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+}
+
+.safe-top    { padding-top:    var(--safe-top); }
+.safe-bottom { padding-bottom: var(--safe-bottom); }
+.safe-x      { padding-left:   var(--safe-left); padding-right: var(--safe-right); }
+
+/* --- 3. Minimum tap target size (44x44px per Apple HIG) --------- */
+@media (pointer: coarse) {
+  button,
+  .btn-primary,
+  .btn-secondary,
+  .nav-item,
+  a[role="button"] {
+    min-height: 44px;
+  }
+
+  /* Nav items in the sidebar on mobile */
+  .nav-item {
+    min-height: 44px;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+}
+
+/* --- 4. Kill hover-lift on touch devices ------------------------ */
+@media (hover: none) {
+  .card:hover,
+  .btn-primary:hover {
+    transform: none;
+  }
+  .card:hover {
+    box-shadow: var(--card-shadow);
+  }
+}
+
+/* --- 5. Text overflow guards ------------------------------------ */
+.truncate-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.truncate-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* --- 6. Mobile-first breakpoint tweaks (≤ 480px) ---------------- */
+@media (max-width: 480px) {
+  /* Tighter card padding on phones */
+  .card {
+    padding: 0.875rem;
+    border-radius: 0.875rem;
+  }
+
+  /* Slightly smaller primary buttons */
+  .btn-primary,
+  .btn-secondary {
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+  }
+
+  /* Inputs a touch smaller */
+  .input {
+    padding: 0.5rem 0.625rem;
+    font-size: 0.9375rem; /* 15px – avoids iOS auto-zoom on focus */
+  }
+
+  /* Labels a touch tighter */
+  .label {
+    font-size: 0.8125rem;
+  }
+
+  /* Reduce section headings globally within main content */
+  h1 { font-size: 1.375rem; }
+  h2 { font-size: 1.125rem; }
+  h3 { font-size: 1rem; }
+}
+
+/* --- 7. Scroll-snap helper for horizontal card rows ------------- */
+.snap-row {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 0.5rem;
+}
+.snap-row::-webkit-scrollbar {
+  display: none;
+}
+.snap-row > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* --- 8. Skeleton: mobile-safe sizing ---------------------------- */
+@media (max-width: 480px) {
+  /* Keep skeletons compact on narrow screens */
+  .skeleton-pulse {
+    border-radius: 0.75rem;
+  }
+}
+
+/* --- 9. Reduce heavy blur on low-end mobile --------------------- */
+@media (max-width: 480px) {
+  .glass-strong {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}
+
+/* --- 10. Respect reduced motion across the board ---------------- */
+@media (prefers-reduced-motion: reduce) {
+  .animated-bg,
+  .animate-spin-slow,
+  .animate-spin-reverse,
+  .animate-twinkle,
+  .animate-float,
+  .animate-bounce,
+  .animate-walk,
+  .animate-talk,
+  .animate-pulse-glow,
+  .animate-scan {
+    animation: none !important;
+  }
+}
