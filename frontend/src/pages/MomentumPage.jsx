@@ -4,25 +4,28 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
-import NotificationBell from '../components/NotificationBell'; // <-- NEW
-import { 
-  Search, Users, Plus, Filter, BookOpen, MessageCircle, 
-  Crown, Sparkles, Calendar, Grid, List, Heart, 
-  MessageSquare, Share2, MapPin, Clock, UserPlus, 
+import NotificationBell from '../components/NotificationBell';
+import EmptyState from '../components/EmptyState';
+import { SkeletonCard } from '../components/Skeleton';
+import {
+  Search, Users, Plus, Filter, BookOpen, MessageCircle,
+  Crown, Sparkles, Calendar, Grid, List, Heart,
+  MessageSquare, Share2, MapPin, Clock, UserPlus,
   TrendingUp, Star, Hash, Globe, Lock, ChevronRight,
-  Image, Video, Link2, Smile, Send, X, Home, 
+  Image, Video, Link2, Smile, Send, X, Home,
   Book, Calendar as CalendarIcon, Users as UsersIcon,
-  ArrowRight
+  ArrowRight, AlertCircle,
 } from 'lucide-react';
 
 export default function MomentumPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
-  
+
   const [activeTab, setActiveTab] = useState('feed');
   const [loading, setLoading] = useState(true);
-  
+  const [error, setError] = useState(null);   // ✅ Day 3
+
   // Feed states
   const [feedPosts, setFeedPosts] = useState([]);
   const [feedLoading, setFeedLoading] = useState(true);
@@ -33,19 +36,15 @@ export default function MomentumPage() {
   const [commentText, setCommentText] = useState('');
   const [showComments, setShowComments] = useState({});
   const [comments, setComments] = useState({});
-  
+
   // Communities states
   const [communities, setCommunities] = useState([]);
   const [communitiesLoading, setCommunitiesLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('all');
-  const [communitySearch, setCommunitySearch] = useState(''); // renamed to avoid conflict with global search
+  const [communitySearch, setCommunitySearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newCommunity, setNewCommunity] = useState({
-    name: '',
-    description: '',
-    type: 'study_group',
-    category: '',
-    visibility: 'public',
+    name: '', description: '', type: 'study_group', category: '', visibility: 'public',
   });
 
   // Trending communities
@@ -60,20 +59,29 @@ export default function MomentumPage() {
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
 
-  // ─── NEW: Global search states ──────────────────────────────
+  // Global search states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState({ communities: [], posts: [], events: [] });
   const [showSearchResults, setShowSearchResults] = useState(false);
 
-  useEffect(() => {
+  // ✅ Day 3 — single entry point for initial load + retry
+  const loadAll = () => {
+    setError(null);
+    setLoading(true);
+    setFeedLoading(true);
     loadFeed();
     loadCommunities();
     loadTrending();
     loadMyCommunities();
     loadEvents();
+  };
+
+  useEffect(() => {
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ===== FEED FUNCTIONS (unchanged) =====
+  // ===== FEED FUNCTIONS =====
   const loadFeed = async () => {
     setFeedLoading(true);
     try {
@@ -81,6 +89,7 @@ export default function MomentumPage() {
       setFeedPosts(data.posts || data || []);
     } catch (err) {
       showToast('Failed to load feed', 'error');
+      setError(err?.message || 'Failed to load Momentum');
     } finally {
       setFeedLoading(false);
       setLoading(false);
@@ -92,13 +101,9 @@ export default function MomentumPage() {
       showToast('Please add some content', 'error');
       return;
     }
-
     setSubmitting(true);
     try {
-      const data = await api.createPost({
-        content: postContent,
-        post_type: 'text',
-      });
+      await api.createPost({ content: postContent, post_type: 'text' });
       showToast('Post created!', 'success');
       setPostContent('');
       setShowPostModal(false);
@@ -113,8 +118,8 @@ export default function MomentumPage() {
   const handleLike = async (postId) => {
     try {
       const { liked } = await api.toggleLike(postId);
-      setFeedPosts(prev => prev.map(p => 
-        p.id === postId 
+      setFeedPosts(prev => prev.map(p =>
+        p.id === postId
           ? { ...p, likes_count: p.likes_count + (liked ? 1 : -1), user_liked: liked }
           : p
       ));
@@ -127,11 +132,8 @@ export default function MomentumPage() {
     if (!commentText.trim()) return;
     try {
       const data = await api.addComment(postId, commentText);
-      setComments(prev => ({
-        ...prev,
-        [postId]: [...(prev[postId] || []), data]
-      }));
-      setFeedPosts(prev => prev.map(p => 
+      setComments(prev => ({ ...prev, [postId]: [...(prev[postId] || []), data] }));
+      setFeedPosts(prev => prev.map(p =>
         p.id === postId ? { ...p, comments_count: p.comments_count + 1 } : p
       ));
       setCommentText('');
@@ -209,7 +211,6 @@ export default function MomentumPage() {
   const loadEvents = async () => {
     setEventsLoading(true);
     try {
-      // Try to fetch real events if you have an API endpoint, else use mock
       const mockEvents = [
         { id: 1, title: 'KCSE Mathematics Revision', community_name: 'Mathematics Revision Hub', start_time: '2026-09-05T10:00:00', location: 'Online', attending_count: 124, user_rsvped: false },
         { id: 2, title: 'Web Development Workshop', community_name: 'Web Developers Kenya', start_time: '2026-09-06T16:00:00', location: 'Nairobi, Kenya', attending_count: 87, user_rsvped: false },
@@ -229,7 +230,7 @@ export default function MomentumPage() {
     try {
       await api.rsvpEvent(eventId, 'going');
       showToast('You\'re attending!', 'success');
-      setEvents(prev => prev.map(e => 
+      setEvents(prev => prev.map(e =>
         e.id === eventId ? { ...e, user_rsvped: true, attending_count: e.attending_count + 1 } : e
       ));
     } catch (err) {
@@ -240,16 +241,10 @@ export default function MomentumPage() {
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
     try {
-      const data = await api.createCommunity(newCommunity);
+      await api.createCommunity(newCommunity);
       showToast('Community created successfully!', 'success');
       setShowCreateModal(false);
-      setNewCommunity({
-        name: '',
-        description: '',
-        type: 'study_group',
-        category: '',
-        visibility: 'public',
-      });
+      setNewCommunity({ name: '', description: '', type: 'study_group', category: '', visibility: 'public' });
       loadCommunities();
       loadTrending();
     } catch (err) {
@@ -268,7 +263,6 @@ export default function MomentumPage() {
     }
   };
 
-  // ─── NEW: Global search function ──────────────────────────────
   const performSearch = (query) => {
     if (!query.trim()) {
       setShowSearchResults(false);
@@ -289,11 +283,34 @@ export default function MomentumPage() {
     setShowSearchResults(true);
   };
 
-  // ===== RENDER =====
+  // ─── Day 3: loading skeleton ────────────────────────────────
   if (loading) {
     return (
+      <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
+        <div className="p-6 max-w-7xl mx-auto">
+          <div className="h-8 w-48 rounded skeleton-pulse bg-white/10 mb-2" />
+          <div className="h-4 w-64 rounded skeleton-pulse bg-white/10 mb-6" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Day 3: error + retry ───────────────────────────────────
+  if (error) {
+    return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-primary)' }}>
-        <div style={{ color: 'var(--text-primary)' }}>Loading Momentum...</div>
+        <EmptyState
+          icon={<AlertCircle size={40} />}
+          title="Couldn't load Momentum"
+          message={error}
+          actionLabel="Retry"
+          onAction={loadAll}
+        />
       </div>
     );
   }
@@ -301,7 +318,7 @@ export default function MomentumPage() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       <div className="p-6 max-w-7xl mx-auto">
-        {/* ─── Header with search and notification ────────────── */}
+        {/* Header with search and notification */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -312,7 +329,6 @@ export default function MomentumPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* ─── NEW: Global Search bar ───────────────────── */}
             <div className="relative w-64">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
               <input
@@ -327,7 +343,6 @@ export default function MomentumPage() {
                 onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
                 className="w-full input pl-10"
               />
-              {/* ─── Search results dropdown ────────────────── */}
               {showSearchResults && (
                 <div className="absolute left-0 right-0 mt-2 bg-gray-800 rounded-xl shadow-xl border border-white/10 z-50 max-h-80 overflow-y-auto">
                   {searchResults.communities.length === 0 && searchResults.posts.length === 0 && searchResults.events.length === 0 ? (
@@ -370,7 +385,6 @@ export default function MomentumPage() {
               )}
             </div>
 
-            {/* ─── NEW: Notification Bell ────────────────────── */}
             <NotificationBell />
 
             <button
@@ -382,13 +396,13 @@ export default function MomentumPage() {
           </div>
         </div>
 
-        {/* ─── Trending Communities (unchanged) ────────────── */}
+        {/* Trending Communities */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
               🔥 Trending Communities
             </h2>
-            <button 
+            <button
               onClick={() => setActiveTab('communities')}
               className="text-sm text-brand-400 hover:underline flex items-center gap-1"
             >
@@ -425,14 +439,14 @@ export default function MomentumPage() {
           )}
         </div>
 
-        {/* ─── My Communities (unchanged) ──────────────────── */}
+        {/* My Communities */}
         {myCommunities.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 👥 My Communities
               </h2>
-              <button 
+              <button
                 onClick={() => setActiveTab('communities')}
                 className="text-sm text-brand-400 hover:underline flex items-center gap-1"
               >
@@ -463,7 +477,7 @@ export default function MomentumPage() {
           </div>
         )}
 
-        {/* Tabs (unchanged) */}
+        {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-white/10">
           <button
             onClick={() => setActiveTab('feed')}
@@ -500,10 +514,9 @@ export default function MomentumPage() {
           </button>
         </div>
 
-        {/* ===== FEED TAB (unchanged) ===== */}
+        {/* FEED TAB */}
         {activeTab === 'feed' && (
           <div>
-            {/* Create Post Modal – unchanged */}
             {showPostModal && (
               <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
                 <div className="bg-gray-800 rounded-xl p-6 max-w-lg w-full">
@@ -539,23 +552,24 @@ export default function MomentumPage() {
               </div>
             )}
 
-            {/* Feed content – unchanged */}
             {feedLoading ? (
-              <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>Loading posts...</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
             ) : feedPosts.length === 0 ? (
-              <div className="card p-8 text-center" style={{ color: 'var(--text-muted)' }}>
-                <MessageSquare size={48} className="mx-auto mb-3 opacity-30" />
-                <p>No posts yet. Be the first to share!</p>
-                <button
-                  onClick={() => setShowPostModal(true)}
-                  className="mt-3 px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-white text-sm"
-                >
-                  Create First Post
-                </button>
+              <div className="card">
+                <EmptyState
+                  icon={<MessageSquare size={40} />}
+                  title="No posts yet"
+                  message="Be the first to share what you're working on today."
+                  actionLabel="Create First Post"
+                  onAction={() => setShowPostModal(true)}
+                />
               </div>
             ) : (
               <div className="space-y-4">
-                {/* ... post rendering (unchanged) ... */}
                 {feedPosts.map((post) => (
                   <div key={post.id} className="card p-4">
                     <div className="flex items-center gap-3 mb-3">
@@ -646,7 +660,7 @@ export default function MomentumPage() {
           </div>
         )}
 
-        {/* ===== COMMUNITIES TAB (unchanged) ===== */}
+        {/* COMMUNITIES TAB */}
         {activeTab === 'communities' && (
           <div>
             <div className="flex flex-wrap gap-4 mb-6">
@@ -692,14 +706,20 @@ export default function MomentumPage() {
             </div>
 
             {communitiesLoading ? (
-              <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>Loading communities...</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
             ) : communities.length === 0 ? (
-              <div className="card p-12 text-center" style={{ color: 'var(--text-muted)' }}>
-                <Users size={48} className="mx-auto mb-3 opacity-30" />
-                <p>No communities found. Be the first to create one!</p>
-                <button onClick={() => setShowCreateModal(true)} className="mt-3 px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-white">
-                  Create Community
-                </button>
+              <div className="card">
+                <EmptyState
+                  icon={<Users size={40} />}
+                  title="No communities found"
+                  message="Be the first to create a community for your peers."
+                  actionLabel="Create Community"
+                  onAction={() => setShowCreateModal(true)}
+                />
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -709,7 +729,7 @@ export default function MomentumPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-xl">
-                            {community.type === 'study_group' ? '📖' : 
+                            {community.type === 'study_group' ? '📖' :
                              community.type === 'discussion' ? '💬' :
                              community.type === 'club' ? '🏛️' : '🎨'}
                           </span>
@@ -723,7 +743,7 @@ export default function MomentumPage() {
                       </div>
                       {community.is_private && <Lock size={16} className="text-yellow-400 flex-shrink-0" />}
                     </div>
-                    
+
                     <div className="flex items-center gap-4 mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                       <span>👥 {community.member_count || 0} members</span>
                       <span>📝 {community.post_count || 0} posts</span>
@@ -753,16 +773,22 @@ export default function MomentumPage() {
           </div>
         )}
 
-        {/* ===== EVENTS TAB (unchanged) ===== */}
+        {/* EVENTS TAB */}
         {activeTab === 'events' && (
           <div>
             {eventsLoading ? (
-              <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>Loading events...</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
             ) : events.length === 0 ? (
-              <div className="card p-8 text-center" style={{ color: 'var(--text-muted)' }}>
-                <Calendar size={48} className="mx-auto mb-3 opacity-30" />
-                <p>No upcoming events</p>
-                <p className="text-sm mt-1">Stay tuned for community events.</p>
+              <div className="card">
+                <EmptyState
+                  icon={<Calendar size={40} />}
+                  title="No upcoming events"
+                  message="Stay tuned — community events will appear here."
+                />
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -814,7 +840,7 @@ export default function MomentumPage() {
         )}
       </div>
 
-      {/* Create Community Modal (unchanged) */}
+      {/* Create Community Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full">

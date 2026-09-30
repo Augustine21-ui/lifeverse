@@ -5,12 +5,14 @@ import { api } from '../services/api';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp, Target, Award, BarChart3,
-  Loader2, Plus, X, ChevronRight, Play,
-  CheckCircle, Circle
+  Plus, X, ChevronRight, Play,
+  CheckCircle, Circle, AlertCircle,
 } from 'lucide-react';
 import { useMood } from '../context/MoodContext';
 import { useToast } from '../context/ToastContext';
 import ErrorBoundary from '../components/ErrorBoundary';
+import EmptyState from '../components/EmptyState';
+import { SkeletonCard } from '../components/Skeleton';
 import './SkillsPage.css';
 
 const BADGE_DEFINITIONS = [
@@ -34,6 +36,7 @@ export default function SkillsPage() {
   const [achievements, setAchievements] = useState([]);
   const [rankings, setRankings] = useState({ weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedSkill, setSelectedSkill] = useState(null);
 
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -56,9 +59,9 @@ export default function SkillsPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const [summaryRes, goalsRes, userSkillsRes, earnedBadgesRes, rankingsRes] = await Promise.all([
-        // ✅ Guard: swallow any failure (401/404/shape error) so it can't poison the summary
         api.getSkillsSummary ? api.getSkillsSummary().catch(() => null) : Promise.resolve(null),
         api.getGoals().catch(() => []),
         api.getUserSkills().catch(() => []),
@@ -79,14 +82,12 @@ export default function SkillsPage() {
       const liveGoals = Array.isArray(goalsRes) ? goalsRes : (goalsRes?.goals || goalsRes?.data || []);
       const liveEarned = achievementsData.filter(b => b.earned).length;
 
-      // ✅ Derive every number. Prefer backend response, fall back to computed values,
-      //    then to the auth-context user object. Never falls to 0 if data exists anywhere.
       const s = summaryRes?.summary ?? summaryRes ?? {};
       const pick = (...vals) => {
         for (const v of vals) {
           if (v !== undefined && v !== null && v !== '' && !Number.isNaN(Number(v))) {
             const n = Number(v);
-            if (n > 0) return n;   // prefer positive values over accidental 0s
+            if (n > 0) return n;
           }
         }
         return 0;
@@ -106,6 +107,7 @@ export default function SkillsPage() {
       setRankings(rankingsRes || { weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
     } catch (err) {
       console.error('Error loading skills data:', err);
+      setError(err?.message || 'Failed to load skills');
       showToast('Some skills data failed to load', 'error');
     } finally {
       setLoading(false);
@@ -201,8 +203,32 @@ export default function SkillsPage() {
     return Array.isArray(m) ? m : [];
   };
 
+  // ─── Day 3: loading skeleton ────────────────────────────────
   if (loading) {
-    return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-400" size={40} /></div>;
+    return (
+      <div className="skills-page">
+        <div className="grid grid-cols-2 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Day 3: error + retry ───────────────────────────────────
+  if (error) {
+    return (
+      <div className="skills-page">
+        <EmptyState
+          icon={<AlertCircle size={40} />}
+          title="Couldn't load your skills"
+          message={error}
+          actionLabel="Retry"
+          onAction={loadData}
+        />
+      </div>
+    );
   }
 
   return (
@@ -236,20 +262,15 @@ export default function SkillsPage() {
         </div>
 
         {userSkills.length === 0 ? (
-          <div className="card p-8 text-center">
-            <div className="text-6xl mb-4">🚀</div>
-            <h3 className="text-2xl font-semibold text-white">Start building your skills</h3>
-            <p className="text-white/60 max-w-md mx-auto mt-2">
-              Skills are the building blocks of your career. Add your first skill and start tracking your progress.
-            </p>
-            <div className="flex flex-wrap justify-center gap-3 mt-6">
-              <button onClick={() => setShowSkillModal(true)} className="btn-primary px-6 py-2.5 flex items-center gap-2">
-                <Plus size={18} /> Create Your First Skill
-              </button>
-              <button onClick={() => setShowGoalModal(true)} className="btn-secondary px-6 py-2.5 flex items-center gap-2">
-                <Target size={18} /> Set a Goal
-              </button>
-            </div>
+          /* ─── Day 3: empty state (replaces the old rocket block) ─── */
+          <div className="card">
+            <EmptyState
+              icon={<Target size={40} />}
+              title="Start building your skills"
+              message="Skills are the building blocks of your career. Add your first skill and start tracking progress."
+              actionLabel="Create Your First Skill"
+              onAction={() => setShowSkillModal(true)}
+            />
           </div>
         ) : (
           <>

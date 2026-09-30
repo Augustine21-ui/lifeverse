@@ -1,9 +1,12 @@
 // frontend/src/pages/OrbitPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { AlertCircle } from 'lucide-react';
 import orbitApi from '../services/orbitApi';
 import OrbitActivities from '../components/orbit/OrbitActivities';
 import { useMood } from '../context/MoodContext';
 import ErrorBoundary from '../components/ErrorBoundary';
+import EmptyState from '../components/EmptyState';
+import { SkeletonOrbit } from '../components/Skeleton';
 import './OrbitPage.css';
 
 // ========== UNIVERSE BACKGROUND COMPONENTS ==========
@@ -102,7 +105,9 @@ const OrbitPage = () => {
   const [activities, setActivities] = useState([]);
   const [currentActivity, setCurrentActivity] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(null);            // session-level inline error (unchanged)
+  const [initialLoading, setInitialLoading] = useState(true);  // ✅ Day 3
+  const [loadError, setLoadError] = useState(null);            // ✅ Day 3 — page-level load failure
   const [progress, setProgress] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [showActivitySelection, setShowActivitySelection] = useState(false);
@@ -119,37 +124,43 @@ const OrbitPage = () => {
     { id: 'reflex', label: 'Reflex', subtitle: 'Educational Arcade', color: '#FFE66D', icon: '⚡', bg: 'rgba(255, 230, 109, 0.1)' },
   ];
 
-  useEffect(() => {
-    const checkApi = async () => {
-      try {
-        const hasStartSession = typeof orbitApi?.startSession === 'function';
-        const hasGetProgress = typeof orbitApi?.getProgress === 'function';
-
-        if (hasStartSession && hasGetProgress) {
-          setApiReady(true);
-          console.log('✅ Orbit API is ready!');
-          await fetchProgress();
-        } else {
-          console.error('❌ Orbit API is NOT ready!');
-          setError('API not ready. Please refresh the page.');
-        }
-      } catch (err) {
-        console.error('API check failed:', err);
-        setError('Failed to initialize Orbit API');
-      }
-    };
-
-    checkApi();
-  }, []);
-
-  const fetchProgress = async () => {
+  // ✅ Day 3 — extracted to useCallback so retry button can call it
+  const fetchProgress = useCallback(async () => {
     try {
       const data = await orbitApi.getProgress();
       setProgress(data?.progress || null);
     } catch (err) {
       console.warn('⚠️ Could not load progress:', err.message);
     }
-  };
+  }, []);
+
+  // ✅ Day 3 — extracted to useCallback, adds initialLoading + loadError handling
+  const checkApi = useCallback(async () => {
+    setInitialLoading(true);
+    setLoadError(null);
+    try {
+      const hasStartSession = typeof orbitApi?.startSession === 'function';
+      const hasGetProgress = typeof orbitApi?.getProgress === 'function';
+
+      if (hasStartSession && hasGetProgress) {
+        setApiReady(true);
+        console.log('✅ Orbit API is ready!');
+        await fetchProgress();
+      } else {
+        console.error('❌ Orbit API is NOT ready!');
+        setLoadError('Orbit API is not ready. Please retry or refresh the page.');
+      }
+    } catch (err) {
+      console.error('API check failed:', err);
+      setLoadError(err?.message || 'Failed to initialize Orbit API');
+    } finally {
+      setInitialLoading(false);
+    }
+  }, [fetchProgress]);
+
+  useEffect(() => {
+    checkApi();
+  }, [checkApi]);
 
   const handlePlanetClick = useCallback((planet) => {
     if (!apiReady) {
@@ -272,7 +283,6 @@ const OrbitPage = () => {
         }
       }
 
-      // Delay before generating next so user sees feedback
       setTimeout(async () => {
         await handleGenerateNext();
       }, 800);
@@ -334,7 +344,7 @@ const OrbitPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [session, triggerMood]);
+  }, [session, triggerMood, fetchProgress]);
 
   const handleReset = useCallback(() => {
     setSelectedPlanet(null);
@@ -402,6 +412,49 @@ const OrbitPage = () => {
       </div>
     );
   };
+
+  // ─── Day 3: initial-load skeleton (2×2 planets) ────────────
+  if (initialLoading) {
+    return (
+      <ErrorBoundary title="Orbit failed to load">
+        <div className="orbit-page relative min-h-screen bg-transparent">
+          <Starfield />
+          <NebulaOverlay />
+          <div className="relative z-10">
+            <header className="orbit-header">
+              <h1>🚀 Orbit Learning</h1>
+            </header>
+            <div className="grid grid-cols-2 gap-4 p-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <SkeletonOrbit key={i} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </ErrorBoundary>
+    );
+  }
+
+  // ─── Day 3: page-level error + retry ────────────────────────
+  if (loadError) {
+    return (
+      <ErrorBoundary title="Orbit failed to load">
+        <div className="orbit-page relative min-h-screen bg-transparent">
+          <Starfield />
+          <NebulaOverlay />
+          <div className="relative z-10 flex items-center justify-center min-h-screen">
+            <EmptyState
+              icon={<AlertCircle size={40} />}
+              title="Couldn't load Orbit"
+              message={loadError}
+              actionLabel="Retry"
+              onAction={checkApi}
+            />
+          </div>
+        </div>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary
@@ -525,7 +578,6 @@ const OrbitPage = () => {
                         disabled={loading}
                       />
 
-                      {/* Inline feedback instead of alert() */}
                       {lastAnswerCorrect === true && (
                         <p className="text-sm text-green-400 mt-1">✅ Correct!</p>
                       )}

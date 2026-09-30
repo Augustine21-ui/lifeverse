@@ -55,3 +55,25 @@ export function SkeletonDashboard() {
     </div>
   );
 }
+
+/* ─── Day 3 additions ──────────────────────────────────────── */
+
+export function SkeletonOrbit({ className = '' }) {
+  return (
+    <div className={`card skeleton-pulse aspect-square ${className}`} aria-hidden>
+      <div className="h-full w-full rounded-full bg-white/5" />
+    </div>
+  );
+}
+
+export function SkeletonRow({ className = '' }) {
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-xl skeleton-pulse ${className}`} aria-hidden>
+      <div className="h-9 w-9 rounded-full bg-white/10" />
+      <div className="flex-1">
+        <div className="h-3 w-1/2 rounded bg-white/10 mb-2" />
+        <div className="h-3 w-1/3 rounded bg-white/10" />
+      </div>
+    </div>
+  );
+}

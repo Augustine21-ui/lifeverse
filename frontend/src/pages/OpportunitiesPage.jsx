@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useMood } from '../context/MoodContext';
 import { useToast } from '../context/ToastContext';
+import EmptyState from '../components/EmptyState';
+import { SkeletonCard } from '../components/Skeleton';
 
 export default function OpportunitiesPage() {
   const { user } = useAuth();
@@ -22,6 +24,7 @@ export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);   // ✅ Day 3
   const [selectedOpp, setSelectedOpp] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -58,6 +61,7 @@ export default function OpportunitiesPage() {
   // ─── UPDATED loadData with smart fallback ────────────────────────
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
       if (USE_MOCK_ONLY) {
         loadMockData();
@@ -82,7 +86,12 @@ export default function OpportunitiesPage() {
       }
     } catch (err) {
       console.error('Error loading opportunities:', err);
-      loadMockData();
+      try {
+        loadMockData();
+      } catch (mockErr) {
+        // Only surface the error UI if even the mock fallback fails
+        setError(err?.message || 'Failed to load opportunities');
+      }
     } finally {
       setLoading(false);
     }
@@ -442,10 +451,12 @@ export default function OpportunitiesPage() {
         <span className="text-xs text-brand-400">{filtered.length} opportunities</span>
       </div>
       {filtered.length === 0 ? (
-        <div className="card p-8 text-center text-white/40">
-          <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p className="font-medium">No personalized opportunities yet</p>
-          <p className="text-sm">Complete your profile to get better recommendations.</p>
+        <div className="card">
+          <EmptyState
+            icon={<Sparkles size={40} />}
+            title="No personalized opportunities yet"
+            message="Complete your profile to get better recommendations."
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -480,10 +491,14 @@ export default function OpportunitiesPage() {
           ))}
         </div>
         {jobs.length === 0 ? (
-          <div className="card p-8 text-center text-white/40">
-            <Briefcase className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="font-medium">No jobs or internships yet</p>
-            <p className="text-sm">Check back later for opportunities.</p>
+          <div className="card">
+            <EmptyState
+              icon={<Briefcase size={40} />}
+              title="No jobs or internships yet"
+              message="Check back later for new opportunities."
+              actionLabel="Explore Skills"
+              onAction={() => setActiveTab('for-you')}
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -519,10 +534,12 @@ export default function OpportunitiesPage() {
           ))}
         </div>
         {items.length === 0 ? (
-          <div className="card p-8 text-center text-white/40">
-            <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="font-medium">No learning opportunities yet</p>
-            <p className="text-sm">Explore scholarships, bootcamps, and more.</p>
+          <div className="card">
+            <EmptyState
+              icon={<BookOpen size={40} />}
+              title="No learning opportunities yet"
+              message="Explore scholarships, bootcamps, and more as they become available."
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -550,10 +567,12 @@ export default function OpportunitiesPage() {
           <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded-full text-xs">🔥 New</span>
         </div>
         {items.length === 0 ? (
-          <div className="card p-8 text-center text-white/40">
-            <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="font-medium">No challenges available yet</p>
-            <p className="text-sm">Organizations will create challenges for you to solve.</p>
+          <div className="card">
+            <EmptyState
+              icon={<Target size={40} />}
+              title="No challenges available yet"
+              message="Organizations will create challenges for you to solve. Check back soon."
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -580,10 +599,12 @@ export default function OpportunitiesPage() {
           <p className="text-sm text-white/60">Connect with industry professionals for career guidance.</p>
         </div>
         {items.length === 0 ? (
-          <div className="card p-8 text-center text-white/40">
-            <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="font-medium">No mentorship programmes yet</p>
-            <p className="text-sm">Mentors will be available to guide your career.</p>
+          <div className="card">
+            <EmptyState
+              icon={<Users size={40} />}
+              title="No mentorship programmes yet"
+              message="Mentors will be available to guide your career as the platform grows."
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -751,8 +772,34 @@ export default function OpportunitiesPage() {
     );
   };
 
+  // ─── Day 3: loading skeleton ────────────────────────────────
   if (loading) {
-    return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-400" size={40} /></div>;
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="h-8 w-48 rounded bg-white/10 skeleton-pulse mb-2" />
+        <div className="h-4 w-64 rounded bg-white/10 skeleton-pulse mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Day 3: error + retry ───────────────────────────────────
+  if (error) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <EmptyState
+          icon={<AlertCircle size={40} />}
+          title="Couldn't load opportunities"
+          message={error}
+          actionLabel="Retry"
+          onAction={loadData}
+        />
+      </div>
+    );
   }
 
   return (

@@ -1,16 +1,19 @@
 // frontend/src/pages/CommunitiesPage.jsx
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Loader2, Plus, X, MessageCircle } from 'lucide-react';
+import { Loader2, Plus, X, MessageCircle, Users, AlertCircle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { Link } from 'react-router-dom';
 import PageBackground from '../components/PageBackground';
+import EmptyState from '../components/EmptyState';
+import { SkeletonCard } from '../components/Skeleton';
 
 export default function CommunitiesPage() {
   const { showToast } = useToast();
   const [communities, setCommunities] = useState([]);
   const [joinedCommunities, setJoinedCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);   // ✅ Day 3
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -22,11 +25,13 @@ export default function CommunitiesPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const loadCommunities = async () => {
+    setError(null);
     try {
       const data = await api.getCommunities();
       setCommunities(data);
     } catch (err) {
       console.error(err);
+      setError(err?.message || 'Failed to load communities');
       showToast('Failed to load communities', 'error');
     } finally {
       setLoading(false);
@@ -42,9 +47,16 @@ export default function CommunitiesPage() {
     }
   };
 
-  useEffect(() => {
+  // ✅ Day 3 — one entry point for initial load + retry
+  const loadAll = () => {
+    setLoading(true);
     loadCommunities();
     loadJoined();
+  };
+
+  useEffect(() => {
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isJoined = (communityId) => joinedCommunities.some(c => c.id === communityId);
@@ -97,11 +109,34 @@ export default function CommunitiesPage() {
     }
   };
 
+  // ─── Day 3: loading skeleton ────────────────────────────────
   if (loading) {
     return (
       <PageBackground imageUrl="/communities-bg.jpg">
-        <div className="p-6 flex justify-center">
-          <Loader2 className="animate-spin" size={40} />
+        <div className="p-6 max-w-5xl mx-auto">
+          <div className="h-8 w-48 rounded skeleton-pulse bg-white/10 mb-6" />
+          <div className="grid gap-4 md:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
+      </PageBackground>
+    );
+  }
+
+  // ─── Day 3: error + retry ───────────────────────────────────
+  if (error) {
+    return (
+      <PageBackground imageUrl="/communities-bg.jpg">
+        <div className="p-6 max-w-5xl mx-auto">
+          <EmptyState
+            icon={<AlertCircle size={40} />}
+            title="Couldn't load communities"
+            message={error}
+            actionLabel="Retry"
+            onAction={loadAll}
+          />
         </div>
       </PageBackground>
     );
@@ -118,9 +153,14 @@ export default function CommunitiesPage() {
         </div>
 
         {communities.length === 0 ? (
-          <div className="card text-center py-16">
-            <p className="text-white/40 mb-4">No communities yet. Be the first to create one!</p>
-            <button onClick={() => setShowModal(true)} className="btn-primary">Create a community</button>
+          <div className="card">
+            <EmptyState
+              icon={<Users size={40} />}
+              title="No communities yet"
+              message="Be the first to create a community for your peers."
+              actionLabel="Create a community"
+              onAction={() => setShowModal(true)}
+            />
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
