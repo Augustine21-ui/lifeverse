@@ -58,11 +58,12 @@ export default function SkillsPage() {
     setLoading(true);
     try {
       const [summaryRes, goalsRes, userSkillsRes, earnedBadgesRes, rankingsRes] = await Promise.all([
-        api.getSkillsSummary(),
-        api.getGoals(),
-        api.getUserSkills(),
-        api.getUserBadges(),
-        api.getLeaderboard ? api.getLeaderboard() : Promise.resolve({ weekly: { rank: 0 } })
+        // ✅ Guard: swallow any failure (401/404/shape error) so it can't poison the summary
+        api.getSkillsSummary ? api.getSkillsSummary().catch(() => null) : Promise.resolve(null),
+        api.getGoals().catch(() => []),
+        api.getUserSkills().catch(() => []),
+        api.getUserBadges().catch(() => []),
+        api.getLeaderboard ? api.getLeaderboard().catch(() => ({ weekly: { rank: 0 } })) : Promise.resolve({ weekly: { rank: 0 } }),
       ]);
 
       const rawSkills = Array.isArray(userSkillsRes) ? userSkillsRes : (userSkillsRes?.userSkills || userSkillsRes?.data || []);
@@ -75,13 +76,37 @@ export default function SkillsPage() {
       const earnedIds = (earnedBadgesRes || []).map(b => b.id);
       const achievementsData = BADGE_DEFINITIONS.map(b => ({ ...b, earned: earnedIds.includes(b.id) }));
 
-      setSummary(summaryRes?.summary || summaryRes || { level: 1, xp: 0, goalsCount: 0, skillsCount: 0, achievementsCount: 0 });
-      setGoals(Array.isArray(goalsRes) ? goalsRes : (goalsRes?.goals || goalsRes?.data || []));
+      const liveGoals = Array.isArray(goalsRes) ? goalsRes : (goalsRes?.goals || goalsRes?.data || []);
+      const liveEarned = achievementsData.filter(b => b.earned).length;
+
+      // ✅ Derive every number. Prefer backend response, fall back to computed values,
+      //    then to the auth-context user object. Never falls to 0 if data exists anywhere.
+      const s = summaryRes?.summary ?? summaryRes ?? {};
+      const pick = (...vals) => {
+        for (const v of vals) {
+          if (v !== undefined && v !== null && v !== '' && !Number.isNaN(Number(v))) {
+            const n = Number(v);
+            if (n > 0) return n;   // prefer positive values over accidental 0s
+          }
+        }
+        return 0;
+      };
+
+      setSummary({
+        level:             pick(s.level, s.userLevel, summaryRes?.level, user?.level, 1) || 1,
+        xp:                pick(s.xp, s.totalXP, s.total_xp, summaryRes?.xp, summaryRes?.totalXP, user?.xp, 0),
+        goalsCount:        pick(s.goalsCount, s.goals, summaryRes?.goalsCount, liveGoals.length),
+        skillsCount:       pick(s.skillsCount, s.skills, summaryRes?.skillsCount, uniqueSkills.length),
+        achievementsCount: pick(s.achievementsCount, s.achievements, summaryRes?.achievementsCount, liveEarned),
+      });
+
+      setGoals(liveGoals);
       setUserSkills(uniqueSkills);
       setAchievements(achievementsData);
       setRankings(rankingsRes || { weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
     } catch (err) {
       console.error('Error loading skills data:', err);
+      showToast('Some skills data failed to load', 'error');
     } finally {
       setLoading(false);
     }
@@ -409,7 +434,7 @@ export default function SkillsPage() {
           </>
         )}
 
-        {/* Modals – same as before, no change */}
+        {/* Modals */}
         {showGoalModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && setShowGoalModal(false)}>
             <div className="w-full max-w-md card p-6">
