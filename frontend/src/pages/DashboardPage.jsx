@@ -10,15 +10,29 @@ import FocusSession from '../components/FocusSession';
 import HolographicAvatar from '../components/HolographicAvatar';
 import {
   Play, BookOpen, Target, Compass, Rocket, CheckCircle, Calendar, ArrowRight,
-  Home, Users, User,
+  Home, Users, User, BarChart, Clock, Flame, Smile, Sparkles
 } from 'lucide-react';
+
+// ─────────────────────────────────────────────────────────────
+// Quote logic
+// ─────────────────────────────────────────────────────────────
+const QUOTES = [
+  "Success is the sum of small efforts repeated every day.",
+  "Small progress every day leads to big success.",
+  "Believe you can and you're halfway there.",
+  "The only way to do great work is to love what you do.",
+  "Don't watch the clock; do what it does. Keep going.",
+  "The secret of getting ahead is getting started.",
+  "Strive for progress, not perfection.",
+];
+const getDailyQuote = () => QUOTES[new Date().getDate() % QUOTES.length];
 
 // ─────────────────────────────────────────────────────────────
 // State detection (§4.F, §5) — deterministic, no AI
 // ─────────────────────────────────────────────────────────────
 function isReturningLearner({ stats, tasks, timetable, assignments, orbitCount, lessonProgress }) {
   const hasLessons = Number(lessonProgress?.lessons_started ?? 0) > 0;
-  const hasTks) && tasks.length > 0;
+  const hasTasks = Array.isArray(tasks) && tasks.length > 0;
   const hasTimetable = Array.isArray(timetable) && timetable.length > 0;
   const hasAssignments = Array.isArray(assignments) && assignments.length > 0;
   const orbits = typeof orbitCount === 'number' ? orbitCount : (orbitCount?.count ?? 0);
@@ -33,48 +47,138 @@ function isReturningLearner({ stats, tasks, timetable, assignments, orbitCount, 
 
 function WelcomeHeader({ user, returning, focusRemaining = 0, onStartFocus }) {
   const firstName = (user?.full_name || user?.username || 'Learner').split(' ')[0];
+  const dailyQuote = getDailyQuote();
+  const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
-    <header className="flex flex-col gap-5 mb-8 mt-4 text-left w-full">
+    <header className="flex flex-col gap-5 mb-6 mt-4 text-left w-full">
       
-      {/* Top Row: Avatar (Left) & Focus Button (Right) */}
-      <div className="flex items-start justify-between w-full pl-2">
-        
-        {/* Avatar Badge - Large, glowing, safely offset from sidebar */}
-        <div className="relative p-[3px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#3b82f6] shadow-[0_0_25px_rgba(139,92,246,0.4)] shrink-0">
-          <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full overflow-hidden bg-[#1a1a20] flex items-center justify-center relative">
-            <HolographicAvatar size={returning ? 80 : 96} />
-            {/* Subtle inner ring to unify edges */}
+      {/* Top Row: Avatar & Focus Button */}
+      <div className="flex items-start justify-between w-full pl-1">
+        <div className="relative p-[2px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#3b82f6] shadow-[0_0_20px_rgba(139,92,246,0.3)] shrink-0">
+          <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-full overflow-hidden bg-[#1a1a20] flex items-center justify-center relative">
+            <HolographicAvatar size={returning ? 64 : 80} />
             <div className="absolute inset-0 rounded-full ring-1 ring-inset ring-white/20 pointer-events-none" />
           </div>
         </div>
 
-        {/* Focus Button */}
         {returning && focusRemaining > 0 && (
           <button
             type="button"
             onClick={onStartFocus}
-            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-[14px] lg:text-base font-medium hover:border-[var(--accent)] transition-colors shadow-sm"
+            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-[13px] lg:text-sm font-medium hover:border-[var(--accent)] transition-colors"
           >
-            <Play size={16} className="text-[var(--accent)]" />
+            <Play size={14} className="text-[var(--accent)]" />
             <span>Focus</span>
-            <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[12px] font-semibold">
+            <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[11px] font-semibold">
               {focusRemaining}
             </span>
           </button>
         )}
       </div>
 
-      {/* Bottom Row: Greeting Text */}
-      <div className="flex flex-col min-w-0 pl-2">
-        <h1 className="text-3xl lg:text-4xl font-bold text-[var(--text-primary)] truncate leading-tight m-0">
+      {/* Bottom Row: Greeting & Quote */}
+      <div className="flex flex-col min-w-0 pl-1">
+        <h1 className="text-[26px] lg:text-3xl font-bold text-[var(--text-primary)] truncate leading-tight m-0">
           {returning ? `Welcome back, ${firstName}` : `Hi ${firstName}.`}
         </h1>
-        <p className="text-[15px] lg:text-lg text-[var(--text-secondary)] truncate mt-1.5 m-0">
+        <p className="text-[14px] lg:text-base text-[var(--text-secondary)] truncate mt-1 m-0">
           {returning ? 'Pick up where you left off.' : 'What would you like to learn today?'}
         </p>
+        <div className="flex flex-wrap items-center gap-2 mt-2.5 text-[11px] lg:text-xs text-[var(--text-muted)]">
+          <span className="flex items-center gap-1"><Calendar size={12}/> {dateStr}</span>
+          <span className="hidden sm:inline">•</span>
+          <span className="italic truncate max-w-full">"{dailyQuote}"</span>
+        </div>
       </div>
     </header>
+  );
+}
+
+function StatsRow({ stats, user }) {
+  const studyMins = stats?.studyTimeMinutes ?? 0;
+  const displayStudy = studyMins >= 60 ? `${Math.floor(studyMins/60)}h ${studyMins%60}m` : `${studyMins}m`;
+  const level = Math.floor((stats?.xp ?? stats?.user?.xp ?? 0) / 100) || 1;
+  
+  return (
+    <div className="flex overflow-x-auto gap-3 pb-3 mb-2 -mx-4 px-4 snap-x" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      {/* Level */}
+      <div className="snap-start shrink-0 w-[85px] bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 flex flex-col items-center">
+        <BarChart size={16} className="text-[#8b5cf6] mb-1.5" />
+        <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--text-muted)] mb-0.5">Level</span>
+        <span className="text-lg font-bold text-[var(--text-primary)] leading-none">{level}</span>
+      </div>
+      {/* Study */}
+      <div className="snap-start shrink-0 w-[85px] bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 flex flex-col items-center">
+        <Clock size={16} className="text-cyan-400 mb-1.5" />
+        <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--text-muted)] mb-0.5">Study</span>
+        <span className="text-lg font-bold text-[var(--text-primary)] leading-none">{displayStudy}</span>
+      </div>
+      {/* Streak */}
+      <div className="snap-start shrink-0 w-[85px] bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 flex flex-col items-center">
+        <Flame size={16} className="text-orange-400 mb-1.5" />
+        <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--text-muted)] mb-0.5">Streak</span>
+        <span className="text-lg font-bold text-[var(--text-primary)] leading-none">{stats?.streakDays ?? 0}</span>
+      </div>
+      {/* Mood */}
+      <div className="snap-start shrink-0 w-[85px] bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 flex flex-col items-center">
+        <Smile size={16} className="text-yellow-400 mb-1.5" />
+        <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--text-muted)] mb-0.5">Mood</span>
+        <span className="text-sm font-bold text-[var(--text-primary)] leading-none truncate w-full text-center mt-1 capitalize">{user?.mood || 'Neutral'}</span>
+      </div>
+    </div>
+  );
+}
+
+function FocusSessionCard({ onStart }) {
+  const [duration, setDuration] = useState(25);
+  const [topic, setTopic] = useState('');
+
+  const handleStart = () => {
+    if (!topic.trim()) return;
+    onStart(topic, duration);
+  };
+
+  return (
+    <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 mb-4">
+      <h2 className="text-[15px] font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-4">
+        <Clock size={18} className="text-cyan-400" /> Focus Session
+      </h2>
+      
+      <div className="flex gap-2 mb-3">
+        {[10, 25, 45].map((mins) => (
+          <button
+            key={mins}
+            onClick={() => setDuration(mins)}
+            className={`flex-1 py-2 text-[13px] rounded-xl font-medium transition-colors border ${
+              duration === mins
+                ? 'bg-[rgba(139,92,246,0.15)] border-[#8b5cf6] text-[#c084fc]'
+                : 'bg-transparent border-[var(--border)] text-[var(--text-secondary)] hover:bg-white/5'
+            }`}
+          >
+            {mins}m
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input
+          type="text"
+          className="flex-1 bg-[#121218] text-[var(--text-primary)] text-[13px] rounded-xl px-4 py-3 placeholder-[var(--text-muted)] outline-none border border-[var(--border)] focus:border-[var(--accent)] transition-colors"
+          placeholder="What to focus on?"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleStart()}
+        />
+        <button
+          onClick={handleStart}
+          disabled={!topic.trim()}
+          className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-white text-[13px] font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0"
+        >
+          <Play size={14} /> Start
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -114,11 +218,61 @@ function PhilosophyStrip() {
   );
 }
 
+function ReturningDashboard({ stackedSuggestions }) {
+  const navigate = useNavigate();
+
+  const challenge = Array.isArray(stackedSuggestions) && stackedSuggestions.length > 0 ? stackedSuggestions[0] : null;
+
+  return (
+    <section className="flex flex-col gap-4">
+      {/* Suggested for you */}
+      {challenge && (
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2 transition-colors">
+          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <Rocket size={16} className="text-[#8b5cf6]" /> <span>Suggested for you</span>
+          </header>
+          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 line-clamp-2">
+            {challenge.title || 'Practical challenge'}
+          </h3>
+          <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] m-0 line-clamp-2">
+            {challenge.reason || challenge.text || 'Practise a real problem in Orbit.'}
+          </p>
+          <button
+            onClick={() => navigate('/orbit')}
+            className="inline-flex items-center gap-1.5 self-start mt-2 px-3.5 py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-[13px] lg:text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
+          >
+            Open Orbit <ArrowRight size={14} />
+          </button>
+        </article>
+      )}
+
+      {/* Next Useful Action - Distinct from Orbit */}
+      <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2 transition-colors">
+        <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+          <Target size={16} className="text-cyan-400" /> <span>Next useful action</span>
+        </header>
+        <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 truncate">
+          Review your Study Hub
+        </h3>
+        <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] m-0 line-clamp-2">
+          Check your recent lessons and track your academic momentum.
+        </p>
+        <button
+          onClick={() => navigate('/studysphere')}
+          className="inline-flex items-center gap-1.5 self-start mt-2 px-3.5 py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-[13px] lg:text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
+        >
+          Open Study <ArrowRight size={14} />
+        </button>
+      </article>
+    </section>
+  );
+}
+
 function FirstTimeDashboard() {
   const navigate = useNavigate();
 
   return (
-    <section className="flex flex-col gap-3 lg:gap-4">
+    <section className="flex flex-col gap-4">
       <div className="bg-gradient-to-br from-[rgba(139,92,246,0.10)] to-[rgba(99,102,241,0.05)] border border-[var(--border)] rounded-2xl p-6 lg:p-9 text-center shadow-md">
         <div className="w-12 h-12 lg:w-14 lg:h-14 mx-auto mb-3 lg:mb-4 flex items-center justify-center rounded-2xl bg-[rgba(139,92,246,0.15)] text-[var(--accent)]">
           <BookOpen size={24} className="lg:w-7 lg:h-7" />
@@ -137,143 +291,6 @@ function FirstTimeDashboard() {
           Open Academic Hub <ArrowRight size={16} />
         </button>
       </div>
-
-      <button
-        type="button"
-        onClick={() => navigate('/orbit')}
-        className="flex items-center gap-3 p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] text-left hover:border-[var(--accent)] transition-colors min-h-[68px]"
-      >
-        <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.10)] text-[var(--accent)] shrink-0">
-          <Rocket size={18} />
-        </div>
-        <div className="flex flex-col flex-1 min-w-0">
-          <span className="font-semibold text-[14px] lg:text-[15px] text-[var(--text-primary)]">Explore a practical challenge</span>
-          <span className="text-xs lg:text-sm text-[var(--text-secondary)] mt-0.5">Practice real problems in Orbit</span>
-        </div>
-        <ArrowRight size={16} className="text-[var(--text-muted)] shrink-0" />
-      </button>
-    </section>
-  );
-}
-
-function ReturningDashboard({ tasks, timetable, assignments, orbitCount, stackedSuggestions, lessonProgress, onCompleteTask }) {
-  const navigate = useNavigate();
-
-  const lesson = pickUnfinishedLesson(lessonProgress);
-  const openTask = Array.isArray(tasks) ? tasks.find(t => !t.is_completed) : null;
-  const upcoming = pickUpcoming(timetable, assignments);
-  const challenge = Array.isArray(stackedSuggestions) && stackedSuggestions.length > 0 ? stackedSuggestions[0] : null;
-  const orbits = typeof orbitCount === 'number' ? orbitCount : (orbitCount?.count ?? 0);
-  const next = pickNextAction({ lesson, openTask, upcoming, orbits });
-
-  const hasAny = lesson || openTask || upcoming || challenge;
-  if (!hasAny) {
-    return (
-      <section className="my-6">
-        <button onClick={() => navigate('/studysphere')} className="btn-primary inline-flex items-center gap-2">
-          Open Academic Hub <ArrowRight size={16} />
-        </button>
-      </section>
-    );
-  }
-
-  return (
-    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-      {lesson && (
-        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 lg:p-5 flex flex-col gap-2 hover:border-[rgba(139,92,246,0.35)] transition-colors">
-          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-            <BookOpen size={16} /> <span>Continue learning</span>
-          </header>
-          <h3 className="text-[15px] lg:text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 truncate">{lesson.title}</h3>
-          <p className="text-xs lg:text-sm text-[var(--text-secondary)] m-0 truncate">{lesson.subject}</p>
-          <div className="flex items-center gap-2.5 my-1">
-            <div className="flex-1 h-1.5 bg-[rgba(255,255,255,0.08)] rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-[var(--accent)] to-[#c084fc] rounded-full" style={{ width: `${lesson.progress}%` }} />
-            </div>
-            <span className="text-[11px] lg:text-xs font-semibold text-[var(--text-secondary)] min-w-[30px] text-right">{lesson.progress}%</span>
-          </div>
-          <button
-            onClick={() => navigate(lesson.href)}
-            className="inline-flex items-center gap-1.5 self-start mt-1 px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs lg:text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
-          >
-            Resume lesson <ArrowRight size={14} />
-          </button>
-        </article>
-      )}
-
-      {openTask && (
-        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 lg:p-5 flex flex-col gap-2 hover:border-[rgba(139,92,246,0.35)] transition-colors">
-          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-            <CheckCircle size={16} /> <span>Today's task</span>
-          </header>
-          <h3 className="text-[15px] lg:text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 line-clamp-2">{openTask.title}</h3>
-          {openTask.due_date && (
-            <p className="text-xs lg:text-sm text-[var(--text-secondary)] m-0">
-              Due {new Date(openTask.due_date).toLocaleDateString()}
-            </p>
-          )}
-          <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px] text-sm text-[var(--text-secondary)] mt-1">
-            <input
-              type="checkbox"
-              onChange={() => onCompleteTask(openTask)}
-              className="w-4 h-4 accent-[var(--accent)]"
-            />
-            <span className="text-xs lg:text-sm">Mark as done</span>
-          </label>
-        </article>
-      )}
-
-      {upcoming && (
-        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 lg:p-5 flex flex-col gap-2 hover:border-[rgba(139,92,246,0.35)] transition-colors">
-          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-            <Calendar size={16} /> <span>Coming up</span>
-          </header>
-          <h3 className="text-[15px] lg:text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 truncate">{upcoming.title}</h3>
-          <p className="text-xs lg:text-sm text-[var(--text-secondary)] m-0 line-clamp-2">{upcoming.when}</p>
-          <button
-            onClick={() => navigate(upcoming.href)}
-            className="inline-flex items-center gap-1.5 self-start mt-1 px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs lg:text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
-          >
-            Open <ArrowRight size={14} />
-          </button>
-        </article>
-      )}
-
-      {challenge && (
-        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 lg:p-5 flex flex-col gap-2 hover:border-[rgba(139,92,246,0.35)] transition-colors">
-          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-            <Rocket size={16} /> <span>Suggested for you</span>
-          </header>
-          <h3 className="text-[15px] lg:text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 line-clamp-2">
-            {challenge.title || 'Practical challenge'}
-          </h3>
-          <p className="text-xs lg:text-sm text-[var(--text-secondary)] m-0 line-clamp-2">
-            {challenge.reason || challenge.text || 'Practise a real problem in Orbit.'}
-          </p>
-          <button
-            onClick={() => navigate('/orbit')}
-            className="inline-flex items-center gap-1.5 self-start mt-1 px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs lg:text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
-          >
-            Open Orbit <ArrowRight size={14} />
-          </button>
-        </article>
-      )}
-
-      {next && (
-        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 lg:p-5 flex flex-col gap-2 hover:border-[rgba(139,92,246,0.35)] transition-colors">
-          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-            <Target size={16} /> <span>Next useful action</span>
-          </header>
-          <h3 className="text-[15px] lg:text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 truncate">{next.title}</h3>
-          <p className="text-xs lg:text-sm text-[var(--text-secondary)] m-0 line-clamp-2">{next.reason}</p>
-          <button
-            onClick={() => navigate(next.href)}
-            className="inline-flex items-center gap-1.5 self-start mt-1 px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs lg:text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
-          >
-            {next.cta} <ArrowRight size={14} />
-          </button>
-        </article>
-      )}
     </section>
   );
 }
@@ -311,63 +328,6 @@ function MobileNav({ active, navigate }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────
-
-function pickUnfinishedLesson(lp) {
-  if (!lp) return null;
-  const raw = lp.current ?? lp.unfinished ?? lp.in_progress;
-  if (!raw) return null;
-  const progress = Number(raw.progress_percent ?? raw.progress ?? 0);
-  if (progress <= 0 || progress >= 100) return null;
-  return {
-    title: raw.lesson_title || raw.title || 'Unfinished lesson',
-    subject: raw.subject || raw.course || 'Academic',
-    progress: Math.round(progress),
-    href: raw.href || `/studysphere?lesson=${raw.id ?? ''}`,
-  };
-}
-
-function pickUpcoming(timetable, assignments) {
-  const now = Date.now();
-  const cands = [];
-  (Array.isArray(assignments) ? assignments : []).forEach(a => {
-    const when = a.due_date || a.due_at || a.deadline;
-    if (!when) return;
-    const t = new Date(when).getTime();
-    if (Number.isNaN(t) || t < now) return;
-    cands.push({
-      title: a.title || a.name || 'Assignment',
-      when: `Due ${new Date(when).toLocaleString()}`,
-      time: t,
-      href: `/studysphere?assignment=${a.id ?? ''}`,
-    });
-  });
-  (Array.isArray(timetable) ? timetable : []).forEach(e => {
-    const when = e.starts_at || e.start_time;
-    if (!when) return;
-    const t = new Date(when).getTime();
-    if (Number.isNaN(t) || t < now) return;
-    cands.push({
-      title: e.subject_name || e.title || 'Class',
-      when: `Starts ${new Date(when).toLocaleString()}`,
-      time: t,
-      href: `/studysphere?timetable=${e.id ?? ''}`,
-    });
-  });
-  cands.sort((a, b) => a.time - b.time);
-  return cands[0] ?? null;
-}
-
-function pickNextAction({ lesson, openTask, upcoming, orbits }) {
-  if (lesson || openTask || upcoming) return null;
-  if (orbits > 0) {
-    return { title: 'Practise in Orbit', reason: 'Keep your learning active with a short session.', cta: 'Open Orbit', href: '/orbit' };
-  }
-  return { title: 'Start a lesson', reason: 'Pick a subject in the Academic Hub to begin.', cta: 'Open Academic Hub', href: '/studysphere' };
-}
-
-// ─────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────
 
@@ -388,7 +348,8 @@ export default function DashboardPage() {
 
   const [focusMode, setFocusMode] = useState(false);
   const [focusRemaining, setFocusRemaining] = useState(0);
-  const [focusDuration] = useState(25);
+  const [focusDuration, setFocusDuration] = useState(25);
+  const [focusTopic, setFocusTopic] = useState('');
 
   const prevProgressRef = useRef(null);
 
@@ -443,24 +404,13 @@ export default function DashboardPage() {
     loadDashboard();
   }, [loadDashboard]);
 
-  const handleCompleteTask = async (task) => {
-    try {
-      await api.completeTask(task.id);
-      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_completed: true } : t));
-      triggerMood?.('task-complete');
-      showToast?.(`Task completed +${task.xp_reward || 30} XP`);
-      await loadDashboard();
-      await refreshUser?.();
-    } catch (err) {
-      showToast?.(err.message || 'Failed to complete task', 'error');
-    }
-  };
-
-  const startFocusSession = () => {
+  const handleStartFocus = (topic, duration) => {
     if (focusRemaining <= 0) {
       showToast?.('No focus sessions left today', 'error');
       return;
     }
+    setFocusTopic(topic);
+    setFocusDuration(duration);
     setFocusMode(true);
   };
 
@@ -482,7 +432,7 @@ export default function DashboardPage() {
   if (focusMode) {
     return (
       <FocusSession
-        topic="Focus Session"
+        topic={focusTopic}
         duration={focusDuration}
         onEnd={handleFocusEnd}
         onCancel={cancelFocus}
@@ -512,22 +462,18 @@ export default function DashboardPage() {
         <WelcomeHeader
           user={user}
           returning={returning}
-          onStartFocus={startFocusSession}
+          onStartFocus={() => document.querySelector('input[placeholder="What to focus on?"]')?.focus()}
           focusRemaining={focusRemaining}
         />
       </ErrorBoundary>
 
+      <StatsRow stats={stats} user={user} />
+      
+      <FocusSessionCard onStart={handleStartFocus} />
+
       {returning ? (
         <ErrorBoundary title="Some dashboard sections failed to load">
-          <ReturningDashboard
-            tasks={tasks}
-            timetable={timetable}
-            assignments={assignments}
-            orbitCount={orbitCount}
-            stackedSuggestions={stackedSuggestions}
-            lessonProgress={lessonProgress}
-            onCompleteTask={handleCompleteTask}
-          />
+          <ReturningDashboard stackedSuggestions={stackedSuggestions} />
         </ErrorBoundary>
       ) : (
         <ErrorBoundary title="Dashboard failed to load">
