@@ -547,4 +547,4 @@ export default function DashboardPage() {
       <MobileNav active="home" navigate={navigate} />
     </div>
   );
-}
+} 
