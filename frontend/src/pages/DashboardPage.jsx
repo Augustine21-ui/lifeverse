@@ -581,4 +581,5 @@ export default function DashboardPage() {
     setEditXp(task.xp_reward || 30);
     setEditDueDate(task.due_date || '');
     setEditReminder(task.reminder || '');
-    setEditPriority(task.priority || 
+    setEditPriority(task.priority || '');
+}
