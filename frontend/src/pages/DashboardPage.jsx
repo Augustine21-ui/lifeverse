@@ -35,46 +35,46 @@ function WelcomeHeader({ user, returning, focusRemaining = 0, onStartFocus }) {
   const firstName = (user?.full_name || user?.username || 'Learner').split(' ')[0];
 
   return (
-    <header className={`flex items-start lg:items-center justify-between gap-3 mb-6 ${returning ? 'mt-2' : 'mt-6'}`}>
+    <header className={`flex items-center gap-3 lg:gap-4 mb-6 ${returning ? 'mt-2' : 'mt-6'}`}>
       
-      {/* Avatar Container - FORCED clipping */}
-      <div className="relative w-12 h-12 lg:w-14 lg:h-14 rounded-full overflow-hidden shrink-0 ring-2 ring-[var(--border)] bg-[#1a1a20] flex items-center justify-center">
-        <HolographicAvatar size={48} />
+      {/* Avatar Container - Slightly larger, explicitly clipped to circle */}
+      <div className="relative w-14 h-14 lg:w-16 lg:h-16 rounded-full overflow-hidden shrink-0 ring-2 ring-[rgba(139,92,246,0.3)] bg-[#1a1a20] shadow-[0_0_15px_rgba(139,92,246,0.2)]">
+        <HolographicAvatar size={returning ? 56 : 64} />
       </div>
 
-      {/* Text Container - flex-1 ensures it takes available space, min-w-0 allows truncation */}
-      <div className="flex-1 min-w-0 pt-1">
+      {/* Text Container - text-left forces it next to the avatar */}
+      <div className="flex flex-col flex-1 min-w-0 text-left">
         {returning ? (
           <>
-            <h1 className="text-[17px] lg:text-xl font-bold text-[var(--text-primary)] truncate leading-tight">
+            <h1 className="text-[17px] lg:text-xl font-bold text-[var(--text-primary)] truncate leading-tight m-0">
               Welcome back, {firstName}
             </h1>
-            <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] truncate mt-0.5">
+            <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] truncate mt-1 m-0">
               Pick up where you left off.
             </p>
           </>
         ) : (
           <>
-            <h1 className="text-xl lg:text-2xl font-bold text-[var(--text-primary)] truncate leading-tight">
+            <h1 className="text-xl lg:text-2xl font-bold text-[var(--text-primary)] truncate leading-tight m-0">
               Hi {firstName}.
             </h1>
-            <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] truncate mt-0.5">
+            <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] truncate mt-1 m-0">
               What would you like to learn today?
             </p>
           </>
         )}
       </div>
 
-      {/* Focus Button - Pushed to the right, doesn't squish text */}
+      {/* Focus Button - ml-auto pushes it to the far right, away from text */}
       {returning && focusRemaining > 0 && (
         <button
           type="button"
           onClick={onStartFocus}
-          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 lg:px-4 lg:py-2 mt-1 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-[13px] lg:text-sm font-medium hover:border-[var(--accent)] transition-colors"
+          className="ml-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 lg:px-4 lg:py-2 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-[13px] lg:text-sm font-medium hover:border-[var(--accent)] transition-colors"
         >
           <Play size={14} className="text-[var(--accent)]" />
           <span className="hidden sm:inline">Focus</span>
-          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[10px] lg:text-[11px] font-semibold">
+          <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[11px] font-semibold">
             {focusRemaining}
           </span>
         </button>
@@ -91,27 +91,27 @@ function PhilosophyStrip() {
   ];
 
   return (
-    <section className="mt-8 p-5 rounded-2xl bg-gradient-to-br from-[rgba(139,92,246,0.05)] to-[rgba(99,102,241,0.02)] border border-[var(--border)]">
-      <p className="text-[11px] lg:text-[12px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-4">
+    <section className="mt-6 lg:mt-8 p-4 lg:p-5 rounded-2xl bg-gradient-to-br from-[rgba(139,92,246,0.05)] to-[rgba(99,102,241,0.02)] border border-[var(--border)]">
+      <p className="text-[10px] lg:text-[12px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-3 lg:mb-4">
         How KUA connects your journey
       </p>
-      <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-3">
         {nodes.map((n, i) => (
           <div key={n.label} className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.12)] text-[var(--accent)] shrink-0">
-              <n.icon size={18} />
+            <div className="w-8 h-8 lg:w-10 lg:h-10 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.12)] text-[var(--accent)] shrink-0">
+              <n.icon size={16} className="lg:w-[18px] lg:h-[18px]" />
             </div>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-[14px] lg:text-sm font-semibold text-[var(--text-primary)]">{n.label}</span>
-              <span className="text-[12px] lg:text-xs text-[var(--text-muted)] mt-0.5">{n.sub}</span>
+              <span className="text-[13px] lg:text-sm font-semibold text-[var(--text-primary)]">{n.label}</span>
+              <span className="text-[11px] lg:text-xs text-[var(--text-muted)] mt-0.5">{n.sub}</span>
             </div>
             {i < nodes.length - 1 && (
-              <span className="hidden lg:block text-[var(--text-muted)] text-base px-2" aria-hidden>→</span>
+              <span className="hidden lg:block text-[var(--text-muted)] text-base px-1.5" aria-hidden>→</span>
             )}
           </div>
         ))}
       </div>
-      <p className="mt-5 pt-4 border-t border-[var(--border)] text-[11px] lg:text-xs leading-relaxed text-[var(--text-muted)] m-0">
+      <p className="mt-4 pt-3 border-t border-[var(--border)] text-[11px] lg:text-xs leading-relaxed text-[var(--text-muted)] m-0">
         Learning does not automatically prove capability, and capability does not guarantee opportunity.
         KUA helps you connect these over time.
       </p>
