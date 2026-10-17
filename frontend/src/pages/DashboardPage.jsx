@@ -35,15 +35,15 @@ function WelcomeHeader({ user, returning, focusRemaining = 0, onStartFocus }) {
   const firstName = (user?.full_name || user?.username || 'Learner').split(' ')[0];
 
   return (
-    <header className="flex flex-col gap-4 mb-6 mt-2 text-left">
+    <header className="flex flex-col gap-5 mb-8 mt-4 text-left w-full">
       
-      {/* Top Row: Avatar and Focus Button */}
-      <div className="flex items-start justify-between w-full">
+      {/* Top Row: Avatar (Left) & Focus Button (Right) */}
+      <div className="flex items-start justify-between w-full pl-2">
         
-        {/* Avatar Badge - Large, glowing, impossible to clip */}
-        <div className="relative p-[2px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#3b82f6] shadow-[0_0_20px_rgba(139,92,246,0.3)] shrink-0">
-          <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-full overflow-hidden bg-[#1a1a20] flex items-center justify-center relative">
-            <HolographicAvatar size={returning ? 64 : 80} />
+        {/* Avatar Badge - Large, glowing, safely offset from sidebar */}
+        <div className="relative p-[3px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#3b82f6] shadow-[0_0_25px_rgba(139,92,246,0.4)] shrink-0">
+          <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-full overflow-hidden bg-[#1a1a20] flex items-center justify-center relative">
+            <HolographicAvatar size={returning ? 80 : 96} />
             {/* Subtle inner ring to unify edges */}
             <div className="absolute inset-0 rounded-full ring-1 ring-inset ring-white/20 pointer-events-none" />
           </div>
@@ -54,23 +54,23 @@ function WelcomeHeader({ user, returning, focusRemaining = 0, onStartFocus }) {
           <button
             type="button"
             onClick={onStartFocus}
-            className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-[13px] lg:text-sm font-medium hover:border-[var(--accent)] transition-colors"
+            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-[14px] lg:text-base font-medium hover:border-[var(--accent)] transition-colors shadow-sm"
           >
-            <Play size={14} className="text-[var(--accent)]" />
+            <Play size={16} className="text-[var(--accent)]" />
             <span>Focus</span>
-            <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[11px] font-semibold">
+            <span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[12px] font-semibold">
               {focusRemaining}
             </span>
           </button>
         )}
       </div>
 
-      {/* Bottom Row: Greeting */}
-      <div className="flex flex-col min-w-0">
-        <h1 className="text-2xl lg:text-3xl font-bold text-[var(--text-primary)] truncate leading-tight m-0">
+      {/* Bottom Row: Greeting Text */}
+      <div className="flex flex-col min-w-0 pl-2">
+        <h1 className="text-3xl lg:text-4xl font-bold text-[var(--text-primary)] truncate leading-tight m-0">
           {returning ? `Welcome back, ${firstName}` : `Hi ${firstName}.`}
         </h1>
-        <p className="text-sm lg:text-base text-[var(--text-secondary)] truncate mt-1 m-0">
+        <p className="text-[15px] lg:text-lg text-[var(--text-secondary)] truncate mt-1.5 m-0">
           {returning ? 'Pick up where you left off.' : 'What would you like to learn today?'}
         </p>
       </div>
