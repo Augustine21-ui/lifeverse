@@ -35,43 +35,44 @@ function WelcomeHeader({ user, returning, focusRemaining = 0, onStartFocus }) {
   const firstName = (user?.full_name || user?.username || 'Learner').split(' ')[0];
 
   return (
-    <header className={`flex items-center gap-3 lg:gap-4 ${returning ? 'mb-6' : 'mb-8'}`}>
-      {/* Avatar Container - Constrained size prevents bleeding */}
-      <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-full overflow-hidden ring-2 ring-[var(--border)] bg-black flex-shrink-0">
-        <HolographicAvatar size={returning ? 48 : 56} />
+    <header className={`flex items-start lg:items-center justify-between gap-3 mb-6 ${returning ? 'mt-2' : 'mt-6'}`}>
+      
+      {/* Avatar Container - FORCED clipping */}
+      <div className="relative w-12 h-12 lg:w-14 lg:h-14 rounded-full overflow-hidden shrink-0 ring-2 ring-[var(--border)] bg-[#1a1a20] flex items-center justify-center">
+        <HolographicAvatar size={48} />
       </div>
 
-      {/* Text Container - Truncates cleanly */}
-      <div className="flex-1 min-w-0">
+      {/* Text Container - flex-1 ensures it takes available space, min-w-0 allows truncation */}
+      <div className="flex-1 min-w-0 pt-1">
         {returning ? (
           <>
-            <h1 className="text-lg lg:text-xl font-bold text-[var(--text-primary)] truncate">
+            <h1 className="text-[17px] lg:text-xl font-bold text-[var(--text-primary)] truncate leading-tight">
               Welcome back, {firstName}
             </h1>
-            <p className="text-sm text-[var(--text-secondary)] truncate">
+            <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] truncate mt-0.5">
               Pick up where you left off.
             </p>
           </>
         ) : (
           <>
-            <h1 className="text-xl lg:text-2xl font-bold text-[var(--text-primary)] truncate">
+            <h1 className="text-xl lg:text-2xl font-bold text-[var(--text-primary)] truncate leading-tight">
               Hi {firstName}.
             </h1>
-            <p className="text-sm text-[var(--text-secondary)] truncate">
+            <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] truncate mt-0.5">
               What would you like to learn today?
             </p>
           </>
         )}
       </div>
 
-      {/* Focus Button - Doesn't crush the text on mobile */}
+      {/* Focus Button - Pushed to the right, doesn't squish text */}
       {returning && focusRemaining > 0 && (
         <button
           type="button"
           onClick={onStartFocus}
-          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 lg:px-4 lg:py-2 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-xs lg:text-sm font-medium hover:border-[var(--accent)] transition-colors"
+          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 lg:px-4 lg:py-2 mt-1 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-[13px] lg:text-sm font-medium hover:border-[var(--accent)] transition-colors"
         >
-          <Play size={14} />
+          <Play size={14} className="text-[var(--accent)]" />
           <span className="hidden sm:inline">Focus</span>
           <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[10px] lg:text-[11px] font-semibold">
             {focusRemaining}
@@ -94,23 +95,23 @@ function PhilosophyStrip() {
       <p className="text-[11px] lg:text-[12px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-4">
         How KUA connects your journey
       </p>
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-3">
         {nodes.map((n, i) => (
           <div key={n.label} className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.12)] text-[var(--accent)] flex-shrink-0">
-              <n.icon size={16} />
+            <div className="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.12)] text-[var(--accent)] shrink-0">
+              <n.icon size={18} />
             </div>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-sm font-semibold text-[var(--text-primary)]">{n.label}</span>
-              <span className="text-xs text-[var(--text-muted)]">{n.sub}</span>
+              <span className="text-[14px] lg:text-sm font-semibold text-[var(--text-primary)]">{n.label}</span>
+              <span className="text-[12px] lg:text-xs text-[var(--text-muted)] mt-0.5">{n.sub}</span>
             </div>
             {i < nodes.length - 1 && (
-              <span className="hidden lg:block text-[var(--text-muted)] text-base px-1.5" aria-hidden>→</span>
+              <span className="hidden lg:block text-[var(--text-muted)] text-base px-2" aria-hidden>→</span>
             )}
           </div>
         ))}
       </div>
-      <p className="mt-4 pt-3.5 border-t border-[var(--border)] text-[11px] lg:text-xs leading-relaxed text-[var(--text-muted)] m-0">
+      <p className="mt-5 pt-4 border-t border-[var(--border)] text-[11px] lg:text-xs leading-relaxed text-[var(--text-muted)] m-0">
         Learning does not automatically prove capability, and capability does not guarantee opportunity.
         KUA helps you connect these over time.
       </p>
@@ -147,14 +148,14 @@ function FirstTimeDashboard() {
         onClick={() => navigate('/orbit')}
         className="flex items-center gap-3 p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] text-left hover:border-[var(--accent)] transition-colors min-h-[68px]"
       >
-        <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.10)] text-[var(--accent)] flex-shrink-0">
+        <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.10)] text-[var(--accent)] shrink-0">
           <Rocket size={18} />
         </div>
         <div className="flex flex-col flex-1 min-w-0">
           <span className="font-semibold text-[14px] lg:text-[15px] text-[var(--text-primary)]">Explore a practical challenge</span>
           <span className="text-xs lg:text-sm text-[var(--text-secondary)] mt-0.5">Practice real problems in Orbit</span>
         </div>
-        <ArrowRight size={16} className="text-[var(--text-muted)] flex-shrink-0" />
+        <ArrowRight size={16} className="text-[var(--text-muted)] shrink-0" />
       </button>
     </section>
   );
@@ -496,7 +497,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="max-w-[1160px] mx-auto px-4 lg:px-5 py-6 pb-24 lg:pb-12">
+      <div className="max-w-[1160px] mx-auto px-4 lg:px-5 py-6 pb-24 lg:pb-12 pt-16 lg:pt-6">
         <div className="grid gap-4 pt-2">
           <div className="h-7 w-2/5 rounded-lg bg-[var(--bg-card)] skeleton-pulse" />
           <div className="h-4 w-3/5 rounded-md bg-[var(--bg-card)] skeleton-pulse" />
@@ -511,7 +512,7 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="max-w-[1160px] mx-auto px-4 lg:px-5 py-6 pb-24 lg:pb-12">
+    <div className="max-w-[1160px] mx-auto px-4 lg:px-5 py-6 pb-24 lg:pb-12 pt-16 lg:pt-6">
       <ErrorBoundary title="Dashboard header failed">
         <WelcomeHeader
           user={user}
