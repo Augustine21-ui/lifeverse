@@ -28,45 +28,52 @@ function isReturningLearner({ stats, tasks, timetable, assignments, orbitCount, 
 }
 
 // ─────────────────────────────────────────────────────────────
-// Sub-components (Kept in this file to prevent missing-import build errors)
+// Sub-components
 // ─────────────────────────────────────────────────────────────
 
 function WelcomeHeader({ user, returning, focusRemaining = 0, onStartFocus }) {
   const firstName = (user?.full_name || user?.username || 'Learner').split(' ')[0];
 
   return (
-    <header className={`flex flex-wrap items-center justify-between gap-4 ${returning ? 'py-3 mb-3' : 'py-5 mb-5'}`}>
-      <div className="flex items-center gap-3.5 min-w-0">
-        <div className="rounded-full overflow-hidden ring-2 ring-[var(--border)] flex-shrink-0">
-          <HolographicAvatar />
-        </div>
-        <div className="min-w-0">
-          {returning ? (
-            <>
-              <h1 className="text-lg lg:text-xl font-bold text-[var(--text-primary)] tracking-tight m-0 mb-0.5">
-                Welcome back, {firstName}
-              </h1>
-              <p className="text-sm text-[var(--text-secondary)] m-0">Pick up where you left off.</p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-xl lg:text-2xl font-bold text-[var(--text-primary)] tracking-tight m-0 mb-0.5">
-                Hi {firstName}.
-              </h1>
-              <p className="text-sm text-[var(--text-secondary)] m-0">What would you like to learn today?</p>
-            </>
-          )}
-        </div>
+    <header className={`flex items-center gap-3 lg:gap-4 ${returning ? 'mb-6' : 'mb-8'}`}>
+      {/* Avatar Container - Constrained size prevents bleeding */}
+      <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-full overflow-hidden ring-2 ring-[var(--border)] bg-black flex-shrink-0">
+        <HolographicAvatar size={returning ? 48 : 56} />
       </div>
 
+      {/* Text Container - Truncates cleanly */}
+      <div className="flex-1 min-w-0">
+        {returning ? (
+          <>
+            <h1 className="text-lg lg:text-xl font-bold text-[var(--text-primary)] truncate">
+              Welcome back, {firstName}
+            </h1>
+            <p className="text-sm text-[var(--text-secondary)] truncate">
+              Pick up where you left off.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-xl lg:text-2xl font-bold text-[var(--text-primary)] truncate">
+              Hi {firstName}.
+            </h1>
+            <p className="text-sm text-[var(--text-secondary)] truncate">
+              What would you like to learn today?
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Focus Button - Doesn't crush the text on mobile */}
       {returning && focusRemaining > 0 && (
         <button
           type="button"
           onClick={onStartFocus}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-sm font-medium hover:border-[var(--accent)] transition-colors"
+          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 lg:px-4 lg:py-2 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-xs lg:text-sm font-medium hover:border-[var(--accent)] transition-colors"
         >
-          <Play size={14} /> Focus
-          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[11px] font-semibold">
+          <Play size={14} />
+          <span className="hidden sm:inline">Focus</span>
+          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[10px] lg:text-[11px] font-semibold">
             {focusRemaining}
           </span>
         </button>
@@ -83,15 +90,15 @@ function PhilosophyStrip() {
   ];
 
   return (
-    <section className="mt-8 p-5 lg:p-6 rounded-2xl bg-gradient-to-br from-[rgba(139,92,246,0.05)] to-[rgba(99,102,241,0.02)] border border-[var(--border)]">
-      <p className="text-[12px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-4">
+    <section className="mt-8 p-5 rounded-2xl bg-gradient-to-br from-[rgba(139,92,246,0.05)] to-[rgba(99,102,241,0.02)] border border-[var(--border)]">
+      <p className="text-[11px] lg:text-[12px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-4">
         How KUA connects your journey
       </p>
-      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-3">
         {nodes.map((n, i) => (
-          <div key={n.label} className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.12)] text-[var(--accent)] flex-shrink-0">
-              <n.icon size={18} />
+          <div key={n.label} className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-8 h-8 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.12)] text-[var(--accent)] flex-shrink-0">
+              <n.icon size={16} />
             </div>
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-sm font-semibold text-[var(--text-primary)]">{n.label}</span>
@@ -103,7 +110,7 @@ function PhilosophyStrip() {
           </div>
         ))}
       </div>
-      <p className="mt-4 pt-3.5 border-t border-[var(--border)] text-xs leading-relaxed text-[var(--text-muted)] m-0">
+      <p className="mt-4 pt-3.5 border-t border-[var(--border)] text-[11px] lg:text-xs leading-relaxed text-[var(--text-muted)] m-0">
         Learning does not automatically prove capability, and capability does not guarantee opportunity.
         KUA helps you connect these over time.
       </p>
@@ -115,21 +122,21 @@ function FirstTimeDashboard() {
   const navigate = useNavigate();
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="bg-gradient-to-br from-[rgba(139,92,246,0.10)] to-[rgba(99,102,241,0.05)] border border-[var(--border)] rounded-2xl p-7 lg:p-9 text-center shadow-md">
-        <div className="w-14 h-14 mx-auto mb-4 flex items-center justify-center rounded-2xl bg-[rgba(139,92,246,0.15)] text-[var(--accent)]">
-          <BookOpen size={28} />
+    <section className="flex flex-col gap-3 lg:gap-4">
+      <div className="bg-gradient-to-br from-[rgba(139,92,246,0.10)] to-[rgba(99,102,241,0.05)] border border-[var(--border)] rounded-2xl p-6 lg:p-9 text-center shadow-md">
+        <div className="w-12 h-12 lg:w-14 lg:h-14 mx-auto mb-3 lg:mb-4 flex items-center justify-center rounded-2xl bg-[rgba(139,92,246,0.15)] text-[var(--accent)]">
+          <BookOpen size={24} className="lg:w-7 lg:h-7" />
         </div>
-        <h2 className="text-2xl lg:text-[26px] font-bold text-[var(--text-primary)] tracking-tight mb-2">
+        <h2 className="text-xl lg:text-[26px] font-bold text-[var(--text-primary)] tracking-tight mb-2">
           Start learning
         </h2>
-        <p className="text-[15px] text-[var(--text-secondary)] max-w-md mx-auto mb-6 leading-relaxed">
+        <p className="text-sm lg:text-[15px] text-[var(--text-secondary)] max-w-sm mx-auto mb-5 lg:mb-6 leading-relaxed">
           Choose a subject in the Academic Hub and KUA will adapt as you go.
         </p>
         <button
           type="button"
           onClick={() => navigate('/studysphere')}
-          className="btn-primary inline-flex items-center gap-2 px-5 py-3 text-[15px]"
+          className="btn-primary inline-flex items-center justify-center gap-2 px-5 py-2.5 lg:py-3 text-sm lg:text-[15px] w-full sm:w-auto"
         >
           Open Academic Hub <ArrowRight size={16} />
         </button>
@@ -138,14 +145,14 @@ function FirstTimeDashboard() {
       <button
         type="button"
         onClick={() => navigate('/orbit')}
-        className="flex items-center gap-3.5 p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] text-left hover:border-[var(--accent)] transition-colors min-h-[68px]"
+        className="flex items-center gap-3 p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] text-left hover:border-[var(--accent)] transition-colors min-h-[68px]"
       >
         <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.10)] text-[var(--accent)] flex-shrink-0">
-          <Rocket size={20} />
+          <Rocket size={18} />
         </div>
         <div className="flex flex-col flex-1 min-w-0">
-          <span className="font-semibold text-[15px] text-[var(--text-primary)]">Explore a practical challenge</span>
-          <span className="text-sm text-[var(--text-secondary)] mt-0.5">Practice real problems in Orbit</span>
+          <span className="font-semibold text-[14px] lg:text-[15px] text-[var(--text-primary)]">Explore a practical challenge</span>
+          <span className="text-xs lg:text-sm text-[var(--text-secondary)] mt-0.5">Practice real problems in Orbit</span>
         </div>
         <ArrowRight size={16} className="text-[var(--text-muted)] flex-shrink-0" />
       </button>
@@ -175,23 +182,23 @@ function ReturningDashboard({ tasks, timetable, assignments, orbitCount, stacked
   }
 
   return (
-    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
       {lesson && (
-        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2.5 hover:border-[rgba(139,92,246,0.35)] transition-colors">
-          <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 lg:p-5 flex flex-col gap-2 hover:border-[rgba(139,92,246,0.35)] transition-colors">
+          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             <BookOpen size={16} /> <span>Continue learning</span>
           </header>
-          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0">{lesson.title}</h3>
-          <p className="text-sm text-[var(--text-secondary)] m-0">{lesson.subject}</p>
+          <h3 className="text-[15px] lg:text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 truncate">{lesson.title}</h3>
+          <p className="text-xs lg:text-sm text-[var(--text-secondary)] m-0 truncate">{lesson.subject}</p>
           <div className="flex items-center gap-2.5 my-1">
             <div className="flex-1 h-1.5 bg-[rgba(255,255,255,0.08)] rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-[var(--accent)] to-[#c084fc] rounded-full" style={{ width: `${lesson.progress}%` }} />
             </div>
-            <span className="text-xs font-semibold text-[var(--text-secondary)] min-w-[34px] text-right">{lesson.progress}%</span>
+            <span className="text-[11px] lg:text-xs font-semibold text-[var(--text-secondary)] min-w-[30px] text-right">{lesson.progress}%</span>
           </div>
           <button
             onClick={() => navigate(lesson.href)}
-            className="inline-flex items-center gap-1.5 self-start mt-1 px-3.5 py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
+            className="inline-flex items-center gap-1.5 self-start mt-1 px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs lg:text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
           >
             Resume lesson <ArrowRight size={14} />
           </button>
@@ -199,13 +206,13 @@ function ReturningDashboard({ tasks, timetable, assignments, orbitCount, stacked
       )}
 
       {openTask && (
-        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2.5 hover:border-[rgba(139,92,246,0.35)] transition-colors">
-          <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 lg:p-5 flex flex-col gap-2 hover:border-[rgba(139,92,246,0.35)] transition-colors">
+          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             <CheckCircle size={16} /> <span>Today's task</span>
           </header>
-          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0">{openTask.title}</h3>
+          <h3 className="text-[15px] lg:text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 line-clamp-2">{openTask.title}</h3>
           {openTask.due_date && (
-            <p className="text-sm text-[var(--text-secondary)] m-0">
+            <p className="text-xs lg:text-sm text-[var(--text-secondary)] m-0">
               Due {new Date(openTask.due_date).toLocaleDateString()}
             </p>
           )}
@@ -215,21 +222,21 @@ function ReturningDashboard({ tasks, timetable, assignments, orbitCount, stacked
               onChange={() => onCompleteTask(openTask)}
               className="w-4 h-4 accent-[var(--accent)]"
             />
-            <span>Mark as done</span>
+            <span className="text-xs lg:text-sm">Mark as done</span>
           </label>
         </article>
       )}
 
       {upcoming && (
-        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2.5 hover:border-[rgba(139,92,246,0.35)] transition-colors">
-          <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 lg:p-5 flex flex-col gap-2 hover:border-[rgba(139,92,246,0.35)] transition-colors">
+          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             <Calendar size={16} /> <span>Coming up</span>
           </header>
-          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0">{upcoming.title}</h3>
-          <p className="text-sm text-[var(--text-secondary)] m-0">{upcoming.when}</p>
+          <h3 className="text-[15px] lg:text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 truncate">{upcoming.title}</h3>
+          <p className="text-xs lg:text-sm text-[var(--text-secondary)] m-0 line-clamp-2">{upcoming.when}</p>
           <button
             onClick={() => navigate(upcoming.href)}
-            className="inline-flex items-center gap-1.5 self-start mt-1 px-3.5 py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
+            className="inline-flex items-center gap-1.5 self-start mt-1 px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs lg:text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
           >
             Open <ArrowRight size={14} />
           </button>
@@ -237,19 +244,19 @@ function ReturningDashboard({ tasks, timetable, assignments, orbitCount, stacked
       )}
 
       {challenge && (
-        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2.5 hover:border-[rgba(139,92,246,0.35)] transition-colors">
-          <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 lg:p-5 flex flex-col gap-2 hover:border-[rgba(139,92,246,0.35)] transition-colors">
+          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             <Rocket size={16} /> <span>Suggested for you</span>
           </header>
-          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0">
+          <h3 className="text-[15px] lg:text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 line-clamp-2">
             {challenge.title || 'Practical challenge'}
           </h3>
-          <p className="text-sm text-[var(--text-secondary)] m-0">
+          <p className="text-xs lg:text-sm text-[var(--text-secondary)] m-0 line-clamp-2">
             {challenge.reason || challenge.text || 'Practise a real problem in Orbit.'}
           </p>
           <button
             onClick={() => navigate('/orbit')}
-            className="inline-flex items-center gap-1.5 self-start mt-1 px-3.5 py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
+            className="inline-flex items-center gap-1.5 self-start mt-1 px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs lg:text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
           >
             Open Orbit <ArrowRight size={14} />
           </button>
@@ -257,15 +264,15 @@ function ReturningDashboard({ tasks, timetable, assignments, orbitCount, stacked
       )}
 
       {next && (
-        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2.5 hover:border-[rgba(139,92,246,0.35)] transition-colors">
-          <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 lg:p-5 flex flex-col gap-2 hover:border-[rgba(139,92,246,0.35)] transition-colors">
+          <header className="flex items-center gap-2 text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
             <Target size={16} /> <span>Next useful action</span>
           </header>
-          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0">{next.title}</h3>
-          <p className="text-sm text-[var(--text-secondary)] m-0">{next.reason}</p>
+          <h3 className="text-[15px] lg:text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0 truncate">{next.title}</h3>
+          <p className="text-xs lg:text-sm text-[var(--text-secondary)] m-0 line-clamp-2">{next.reason}</p>
           <button
             onClick={() => navigate(next.href)}
-            className="inline-flex items-center gap-1.5 self-start mt-1 px-3.5 py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
+            className="inline-flex items-center gap-1.5 self-start mt-1 px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs lg:text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
           >
             {next.cta} <ArrowRight size={14} />
           </button>
