@@ -18,7 +18,7 @@ import {
 // ─────────────────────────────────────────────────────────────
 function isReturningLearner({ stats, tasks, timetable, assignments, orbitCount, lessonProgress }) {
   const hasLessons = Number(lessonProgress?.lessons_started ?? 0) > 0;
-  const hasTasks = Array.isArray(tasks) && tasks.length > 0;
+  const hasTks) && tasks.length > 0;
   const hasTimetable = Array.isArray(timetable) && timetable.length > 0;
   const hasAssignments = Array.isArray(assignments) && assignments.length > 0;
   const orbits = typeof orbitCount === 'number' ? orbitCount : (orbitCount?.count ?? 0);
