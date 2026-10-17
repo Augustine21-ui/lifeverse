@@ -1,106 +1,282 @@
 // frontend/src/pages/DashboardPage.jsx
-import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
-import {
-  Flame, Calendar, CheckCircle, Clock, Zap, Plus, Trash2, Users, Play,
-  Home, User, Rocket, Sparkles, Star, BookOpen, PenTool, Bell, Lightbulb,
-  X, Edit2, Calendar as CalendarIcon, Clock as ClockIcon, Bell as BellIcon,
-  Crown, Gift, MessageSquare, Heart, Award, Coffee, Brain, Smile,
-  TrendingUp, Repeat, Target, BarChart2, Menu, Sun, Moon,
-  ArrowRight
-} from 'lucide-react';
 import { useToast } from '../context/ToastContext';
-import QuizModal from '../components/QuizModal';
-import GlanceTicker from '../components/GlanceTicker';
-import FocusSession from '../components/FocusSession';
-import ActiveStudyGroups from '../components/groups/ActiveStudyGroups';
-import HolographicAvatar from '../components/HolographicAvatar';
-import { useTheme } from '../context/ThemeContext';
 import { useMood } from '../context/MoodContext';
-import OrbitStackedCard from '../components/orbit/OrbitStackedCard';
 import ErrorBoundary from '../components/ErrorBoundary';
-import { SkeletonDashboard } from '../components/Skeleton';
+import FocusSession from '../components/FocusSession';
+import HolographicAvatar from '../components/HolographicAvatar';
+import {
+  Play, BookOpen, Target, Compass, Rocket, CheckCircle, Calendar, ArrowRight,
+  Home, Users, User,
+} from 'lucide-react';
 
-import './DashboardPage.css';
-
-// ---- Confetti (unchanged) ----
-function Confetti({ active, onComplete }) {
-  const canvasRef = useRef(null);
-  const animationRef = useRef(null);
-  useEffect(() => {
-    if (!active) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    const colors = ['#f44336', '#e91e63', '#9c27b0', '#3f51b5', '#2196f3', '#4caf50', '#ffeb3b', '#ff9800'];
-    const particles = [];
-    for (let i = 0; i < 150; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height - canvas.height,
-        size: Math.random() * 6 + 2,
-        speedY: Math.random() * 4 + 2,
-        speedX: (Math.random() - 0.5) * 6,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        rotation: Math.random() * 360,
-        rotationSpeed: (Math.random() - 0.5) * 10,
-        shape: Math.random() > 0.5 ? 'rect' : 'circle',
-      });
-    }
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      let allFinished = true;
-      particles.forEach(p => {
-        p.y += p.speedY;
-        p.x += p.speedX;
-        p.rotation += p.rotationSpeed;
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate((p.rotation * Math.PI) / 180);
-        ctx.fillStyle = p.color;
-        if (p.shape === 'rect') {
-          ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
-        } else {
-          ctx.beginPath();
-          ctx.arc(0, 0, p.size/2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
-        if (p.y < canvas.height + 50) allFinished = false;
-      });
-      if (!allFinished) {
-        animationRef.current = requestAnimationFrame(animate);
-      } else {
-        onComplete && onComplete();
-      }
-    };
-    animate();
-    return () => {
-      cancelAnimationFrame(animationRef.current);
-    };
-  }, [active]);
-  if (!active) return null;
-  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />;
+// ─────────────────────────────────────────────────────────────
+// State detection (§4.F, §5) — deterministic, no AI
+// ─────────────────────────────────────────────────────────────
+function isReturningLearner({ stats, tasks, timetable, assignments, orbitCount, lessonProgress }) {
+  const hasLessons = Number(lessonProgress?.lessons_started ?? 0) > 0;
+  const hasTasks = Array.isArray(tasks) && tasks.length > 0;
+  const hasTimetable = Array.isArray(timetable) && timetable.length > 0;
+  const hasAssignments = Array.isArray(assignments) && assignments.length > 0;
+  const orbits = typeof orbitCount === 'number' ? orbitCount : (orbitCount?.count ?? 0);
+  const hasOrbit = orbits > 0;
+  const hasXp = Number(stats?.xp ?? stats?.user?.xp ?? 0) > 0;
+  return hasLessons || hasTasks || hasTimetable || hasAssignments || hasOrbit || hasXp;
 }
 
-// ---- Daily quotes (unchanged) ----
-const QUOTES = [
-  "Small progress every day leads to big success.",
-  "Success is the sum of small efforts repeated every day.",
-  "Believe you can and you're halfway there.",
-  "The only way to do great work is to love what you do.",
-  "Don't watch the clock; do what it does. Keep going.",
-  "The secret of getting ahead is getting started.",
-  "Strive for progress, not perfection.",
-];
-const getDailyQuote = () => QUOTES[new Date().getDate() % QUOTES.length];
+// ─────────────────────────────────────────────────────────────
+// Sub-components (Kept in this file to prevent missing-import build errors)
+// ─────────────────────────────────────────────────────────────
 
-// ---- Mobile Navigation (unchanged) ----
-const MobileNav = ({ active, navigate }) => {
-  const navItems = [
+function WelcomeHeader({ user, returning, focusRemaining = 0, onStartFocus }) {
+  const firstName = (user?.full_name || user?.username || 'Learner').split(' ')[0];
+
+  return (
+    <header className={`flex flex-wrap items-center justify-between gap-4 ${returning ? 'py-3 mb-3' : 'py-5 mb-5'}`}>
+      <div className="flex items-center gap-3.5 min-w-0">
+        <div className="rounded-full overflow-hidden ring-2 ring-[var(--border)] flex-shrink-0">
+          <HolographicAvatar />
+        </div>
+        <div className="min-w-0">
+          {returning ? (
+            <>
+              <h1 className="text-lg lg:text-xl font-bold text-[var(--text-primary)] tracking-tight m-0 mb-0.5">
+                Welcome back, {firstName}
+              </h1>
+              <p className="text-sm text-[var(--text-secondary)] m-0">Pick up where you left off.</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-xl lg:text-2xl font-bold text-[var(--text-primary)] tracking-tight m-0 mb-0.5">
+                Hi {firstName}.
+              </h1>
+              <p className="text-sm text-[var(--text-secondary)] m-0">What would you like to learn today?</p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {returning && focusRemaining > 0 && (
+        <button
+          type="button"
+          onClick={onStartFocus}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-sm font-medium hover:border-[var(--accent)] transition-colors"
+        >
+          <Play size={14} /> Focus
+          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[11px] font-semibold">
+            {focusRemaining}
+          </span>
+        </button>
+      )}
+    </header>
+  );
+}
+
+function PhilosophyStrip() {
+  const nodes = [
+    { icon: BookOpen, label: 'Learning', sub: 'Academic understanding' },
+    { icon: Target, label: 'Capability', sub: 'Applied through practice' },
+    { icon: Compass, label: 'Opportunity', sub: 'Where it can lead' },
+  ];
+
+  return (
+    <section className="mt-8 p-5 lg:p-6 rounded-2xl bg-gradient-to-br from-[rgba(139,92,246,0.05)] to-[rgba(99,102,241,0.02)] border border-[var(--border)]">
+      <p className="text-[12px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-4">
+        How KUA connects your journey
+      </p>
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+        {nodes.map((n, i) => (
+          <div key={n.label} className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.12)] text-[var(--accent)] flex-shrink-0">
+              <n.icon size={18} />
+            </div>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-sm font-semibold text-[var(--text-primary)]">{n.label}</span>
+              <span className="text-xs text-[var(--text-muted)]">{n.sub}</span>
+            </div>
+            {i < nodes.length - 1 && (
+              <span className="hidden lg:block text-[var(--text-muted)] text-base px-1.5" aria-hidden>→</span>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 pt-3.5 border-t border-[var(--border)] text-xs leading-relaxed text-[var(--text-muted)] m-0">
+        Learning does not automatically prove capability, and capability does not guarantee opportunity.
+        KUA helps you connect these over time.
+      </p>
+    </section>
+  );
+}
+
+function FirstTimeDashboard() {
+  const navigate = useNavigate();
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div className="bg-gradient-to-br from-[rgba(139,92,246,0.10)] to-[rgba(99,102,241,0.05)] border border-[var(--border)] rounded-2xl p-7 lg:p-9 text-center shadow-md">
+        <div className="w-14 h-14 mx-auto mb-4 flex items-center justify-center rounded-2xl bg-[rgba(139,92,246,0.15)] text-[var(--accent)]">
+          <BookOpen size={28} />
+        </div>
+        <h2 className="text-2xl lg:text-[26px] font-bold text-[var(--text-primary)] tracking-tight mb-2">
+          Start learning
+        </h2>
+        <p className="text-[15px] text-[var(--text-secondary)] max-w-md mx-auto mb-6 leading-relaxed">
+          Choose a subject in the Academic Hub and KUA will adapt as you go.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate('/studysphere')}
+          className="btn-primary inline-flex items-center gap-2 px-5 py-3 text-[15px]"
+        >
+          Open Academic Hub <ArrowRight size={16} />
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => navigate('/orbit')}
+        className="flex items-center gap-3.5 p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] text-left hover:border-[var(--accent)] transition-colors min-h-[68px]"
+      >
+        <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-[rgba(139,92,246,0.10)] text-[var(--accent)] flex-shrink-0">
+          <Rocket size={20} />
+        </div>
+        <div className="flex flex-col flex-1 min-w-0">
+          <span className="font-semibold text-[15px] text-[var(--text-primary)]">Explore a practical challenge</span>
+          <span className="text-sm text-[var(--text-secondary)] mt-0.5">Practice real problems in Orbit</span>
+        </div>
+        <ArrowRight size={16} className="text-[var(--text-muted)] flex-shrink-0" />
+      </button>
+    </section>
+  );
+}
+
+function ReturningDashboard({ tasks, timetable, assignments, orbitCount, stackedSuggestions, lessonProgress, onCompleteTask }) {
+  const navigate = useNavigate();
+
+  const lesson = pickUnfinishedLesson(lessonProgress);
+  const openTask = Array.isArray(tasks) ? tasks.find(t => !t.is_completed) : null;
+  const upcoming = pickUpcoming(timetable, assignments);
+  const challenge = Array.isArray(stackedSuggestions) && stackedSuggestions.length > 0 ? stackedSuggestions[0] : null;
+  const orbits = typeof orbitCount === 'number' ? orbitCount : (orbitCount?.count ?? 0);
+  const next = pickNextAction({ lesson, openTask, upcoming, orbits });
+
+  const hasAny = lesson || openTask || upcoming || challenge;
+  if (!hasAny) {
+    return (
+      <section className="my-6">
+        <button onClick={() => navigate('/studysphere')} className="btn-primary inline-flex items-center gap-2">
+          Open Academic Hub <ArrowRight size={16} />
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {lesson && (
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2.5 hover:border-[rgba(139,92,246,0.35)] transition-colors">
+          <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <BookOpen size={16} /> <span>Continue learning</span>
+          </header>
+          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0">{lesson.title}</h3>
+          <p className="text-sm text-[var(--text-secondary)] m-0">{lesson.subject}</p>
+          <div className="flex items-center gap-2.5 my-1">
+            <div className="flex-1 h-1.5 bg-[rgba(255,255,255,0.08)] rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-[var(--accent)] to-[#c084fc] rounded-full" style={{ width: `${lesson.progress}%` }} />
+            </div>
+            <span className="text-xs font-semibold text-[var(--text-secondary)] min-w-[34px] text-right">{lesson.progress}%</span>
+          </div>
+          <button
+            onClick={() => navigate(lesson.href)}
+            className="inline-flex items-center gap-1.5 self-start mt-1 px-3.5 py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
+          >
+            Resume lesson <ArrowRight size={14} />
+          </button>
+        </article>
+      )}
+
+      {openTask && (
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2.5 hover:border-[rgba(139,92,246,0.35)] transition-colors">
+          <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <CheckCircle size={16} /> <span>Today's task</span>
+          </header>
+          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0">{openTask.title}</h3>
+          {openTask.due_date && (
+            <p className="text-sm text-[var(--text-secondary)] m-0">
+              Due {new Date(openTask.due_date).toLocaleDateString()}
+            </p>
+          )}
+          <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px] text-sm text-[var(--text-secondary)] mt-1">
+            <input
+              type="checkbox"
+              onChange={() => onCompleteTask(openTask)}
+              className="w-4 h-4 accent-[var(--accent)]"
+            />
+            <span>Mark as done</span>
+          </label>
+        </article>
+      )}
+
+      {upcoming && (
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2.5 hover:border-[rgba(139,92,246,0.35)] transition-colors">
+          <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <Calendar size={16} /> <span>Coming up</span>
+          </header>
+          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0">{upcoming.title}</h3>
+          <p className="text-sm text-[var(--text-secondary)] m-0">{upcoming.when}</p>
+          <button
+            onClick={() => navigate(upcoming.href)}
+            className="inline-flex items-center gap-1.5 self-start mt-1 px-3.5 py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
+          >
+            Open <ArrowRight size={14} />
+          </button>
+        </article>
+      )}
+
+      {challenge && (
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2.5 hover:border-[rgba(139,92,246,0.35)] transition-colors">
+          <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <Rocket size={16} /> <span>Suggested for you</span>
+          </header>
+          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0">
+            {challenge.title || 'Practical challenge'}
+          </h3>
+          <p className="text-sm text-[var(--text-secondary)] m-0">
+            {challenge.reason || challenge.text || 'Practise a real problem in Orbit.'}
+          </p>
+          <button
+            onClick={() => navigate('/orbit')}
+            className="inline-flex items-center gap-1.5 self-start mt-1 px-3.5 py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
+          >
+            Open Orbit <ArrowRight size={14} />
+          </button>
+        </article>
+      )}
+
+      {next && (
+        <article className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-2.5 hover:border-[rgba(139,92,246,0.35)] transition-colors">
+          <header className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            <Target size={16} /> <span>Next useful action</span>
+          </header>
+          <h3 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight m-0">{next.title}</h3>
+          <p className="text-sm text-[var(--text-secondary)] m-0">{next.reason}</p>
+          <button
+            onClick={() => navigate(next.href)}
+            className="inline-flex items-center gap-1.5 self-start mt-1 px-3.5 py-2 rounded-lg bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-sm font-medium hover:bg-[rgba(139,92,246,0.20)] transition-colors"
+          >
+            {next.cta} <ArrowRight size={14} />
+          </button>
+        </article>
+      )}
+    </section>
+  );
+}
+
+function MobileNav({ active, navigate }) {
+  const items = [
     { id: 'home', icon: Home, label: 'Home', path: '/dashboard' },
     { id: 'orbit', icon: Rocket, label: 'Orbit', path: '/orbit' },
     { id: 'momentum', icon: Users, label: 'Momentum', path: '/momentum' },
@@ -110,14 +286,14 @@ const MobileNav = ({ active, navigate }) => {
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-t border-white/10 safe-bottom">
       <div className="flex justify-around items-center max-w-md mx-auto px-2 py-2">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const isActive = active === item.id;
           return (
             <button
               key={item.id}
               onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all duration-200 ${
+              className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all ${
                 isActive ? 'text-brand-400 scale-105' : 'text-white/40 hover:text-white/70'
               }`}
             >
@@ -129,457 +305,238 @@ const MobileNav = ({ active, navigate }) => {
       </div>
     </div>
   );
-};
-
-// ─────────────────────────────────────────────────────────────
-// DAY 2 — Dynamic Smart Suggestions (no hardcoded copy)
-// Priority: streak → focus → tasks → weak skill → goal → orbit
-// ─────────────────────────────────────────────────────────────
-const ORBIT_TARGET = 10; // matches composite progress weight
-
-function buildSuggestions({ stats, tasks, goals, focusRemaining, progressBreakdown, orbitSessionCount }) {
-  const out = [];
-
-  // 1. Streak nudge
-  if ((stats?.streakDays ?? 0) === 0) {
-    out.push({
-      id: 'streak',
-      icon: '🔥',
-      text: 'Start a streak today — finish one task or orbit session.',
-      to: '/orbit',
-    });
-  }
-
-  // 2. Focus reminder
-  if (typeof focusRemaining === 'number' && focusRemaining <= 0) {
-    out.push({
-      id: 'focus',
-      icon: '⏱️',
-      text: 'No focus sessions left today. Plan one for tomorrow.',
-      to: '/dashboard',
-    });
-  }
-
-  // 3. Pending tasks
-  const pending = (tasks || []).filter(t => !t.is_completed);
-  if (pending.length > 0) {
-    out.push({
-      id: 'tasks',
-      icon: '✅',
-      text: `You have ${pending.length} task${pending.length > 1 ? 's' : ''} left today.`,
-      to: '/dashboard',
-    });
-  }
-
-  // 4. Weak skill (from progress breakdown)
-  const skillsPct = progressBreakdown?.skills ?? null;
-  if (skillsPct !== null && skillsPct < 50) {
-    out.push({
-      id: 'skill',
-      icon: '📈',
-      text: `Skills at ${skillsPct}% — boost with an Orbit practice session.`,
-      to: '/orbit',
-    });
-  }
-
-  // 5. Active goal (only if goals data is available)
-  const activeGoal = (goals || []).find(g => !g.completed);
-  if (activeGoal) {
-    const pct = Math.round(activeGoal.progress ?? 0);
-    out.push({
-      id: 'goal',
-      icon: '🎯',
-      text: `Goal "${activeGoal.title}" is ${pct}% complete — keep going.`,
-      to: '/skills',
-    });
-  }
-
-  // 6. Orbit volume nudge (only if orbit is the bottleneck)
-  if ((orbitSessionCount ?? 0) < ORBIT_TARGET) {
-    const remaining = ORBIT_TARGET - (orbitSessionCount ?? 0);
-    out.push({
-      id: 'orbit',
-      icon: '🪐',
-      text: `${remaining} more orbit session${remaining > 1 ? 's' : ''} to max out orbit progress.`,
-      to: '/orbit',
-    });
-  }
-
-  return out.slice(0, 5);
 }
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
+function pickUnfinishedLesson(lp) {
+  if (!lp) return null;
+  const raw = lp.current ?? lp.unfinished ?? lp.in_progress;
+  if (!raw) return null;
+  const progress = Number(raw.progress_percent ?? raw.progress ?? 0);
+  if (progress <= 0 || progress >= 100) return null;
+  return {
+    title: raw.lesson_title || raw.title || 'Unfinished lesson',
+    subject: raw.subject || raw.course || 'Academic',
+    progress: Math.round(progress),
+    href: raw.href || `/studysphere?lesson=${raw.id ?? ''}`,
+  };
+}
+
+function pickUpcoming(timetable, assignments) {
+  const now = Date.now();
+  const cands = [];
+  (Array.isArray(assignments) ? assignments : []).forEach(a => {
+    const when = a.due_date || a.due_at || a.deadline;
+    if (!when) return;
+    const t = new Date(when).getTime();
+    if (Number.isNaN(t) || t < now) return;
+    cands.push({
+      title: a.title || a.name || 'Assignment',
+      when: `Due ${new Date(when).toLocaleString()}`,
+      time: t,
+      href: `/studysphere?assignment=${a.id ?? ''}`,
+    });
+  });
+  (Array.isArray(timetable) ? timetable : []).forEach(e => {
+    const when = e.starts_at || e.start_time;
+    if (!when) return;
+    const t = new Date(when).getTime();
+    if (Number.isNaN(t) || t < now) return;
+    cands.push({
+      title: e.subject_name || e.title || 'Class',
+      when: `Starts ${new Date(when).toLocaleString()}`,
+      time: t,
+      href: `/studysphere?timetable=${e.id ?? ''}`,
+    });
+  });
+  cands.sort((a, b) => a.time - b.time);
+  return cands[0] ?? null;
+}
+
+function pickNextAction({ lesson, openTask, upcoming, orbits }) {
+  if (lesson || openTask || upcoming) return null;
+  if (orbits > 0) {
+    return { title: 'Practise in Orbit', reason: 'Keep your learning active with a short session.', cta: 'Open Orbit', href: '/orbit' };
+  }
+  return { title: 'Start a lesson', reason: 'Pick a subject in the Academic Hub to begin.', cta: 'Open Academic Hub', href: '/studysphere' };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Main component
+// ─────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { user, refreshUser } = useAuth();
   const { showToast } = useToast();
+  const { triggerMood } = useMood();
   const navigate = useNavigate();
-  const { theme, toggleTheme } = useTheme();
-  const { mood: autoMood, triggerMood } = useMood();
 
-  // ---- State ----
-  const [stats, setStats] = useState({ totalXP: 0, todayXP: 0, streakDays: 0, rank: '#?', completed: 0 });
-  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-
-  const [showQuizModal, setShowQuizModal] = useState(false);
-  const [quizQuestions, setQuizQuestions] = useState([]);
-  const [currentTaskId, setCurrentTaskId] = useState(null);
-  const [currentQuizId, setCurrentQuizId] = useState(null);
-  const [quizLoading, setQuizLoading] = useState(false);
-  const [generatingQuiz, setGeneratingQuiz] = useState(false);
-  const [quizResult, setQuizResult] = useState(null);
-
-  const [progressPercent, setProgressPercent] = useState(0);
-  const [progressBreakdown, setProgressBreakdown] = useState(null);
-  const [moodPercent, setMoodPercent] = useState(0);
-
-  // ✅ DAY 2 — goals state (required by Smart Suggestion #5)
-  const [goals, setGoals] = useState([]);
-
-  const [focusRemaining, setFocusRemaining] = useState(4);
-  const [selectedDuration, setSelectedDuration] = useState(25);
-  const [focusTopic, setFocusTopic] = useState('');
-  const [focusMode, setFocusMode] = useState(false);
-  const [focusCompleted, setFocusCompleted] = useState(false);
-
+  const [stats, setStats] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [timetable, setTimetable] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [orbitCount, setOrbitCount] = useState(0);
   const [stackedSuggestions, setStackedSuggestions] = useState([]);
-  const [stackedLoading, setStackedLoading] = useState(true);
+  const [lessonProgress, setLessonProgress] = useState(null);
 
-  const [feedPosts, setFeedPosts] = useState([]);
-  const [feedLoading, setFeedLoading] = useState(true);
-
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskXp, setNewTaskXp] = useState(30);
-
-  const [editingTask, setEditingTask] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
-  const [editXp, setEditXp] = useState(30);
-  const [editDueDate, setEditDueDate] = useState('');
-  const [editReminder, setEditReminder] = useState('');
-  const [editPriority, setEditPriority] = useState(false);
-
-  const [showConfetti, setShowConfetti] = useState(false);
-
-  const [academicTimetable, setAcademicTimetable] = useState([]);
-  const [academicAssignments, setAcademicAssignments] = useState([]);
-
-  const [studyTime, setStudyTime] = useState(0);
-  const [studyTimeBreakdown, setStudyTimeBreakdown] = useState(null);
-  const [brainDump, setBrainDump] = useState(() => localStorage.getItem('brainDump') || '');
-  const [showBrainDump, setShowBrainDump] = useState(false);
-  const [quickAddType, setQuickAddType] = useState('task');
-  const [quickAddText, setQuickAddText] = useState('');
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
-  const [hasPremiumAccess, setHasPremiumAccess] = useState(false);
-
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const dailyQuote = getDailyQuote();
-
-  const [orbitSessionCount, setOrbitSessionCount] = useState(0);
+  const [focusMode, setFocusMode] = useState(false);
+  const [focusRemaining, setFocusRemaining] = useState(0);
+  const [focusDuration] = useState(25);
 
   const prevProgressRef = useRef(null);
 
-  // ---- Image map for avatar ----
-  const avatarImageMap = {
-    happy: '/happy.jpg',
-    excited: '/excited.jpg',
-    thinking: '/thinking.jpg',
-    neutral: '/neutral.jpg',
-    suprised: '/suprised.jpg',
-    celebrating: '/celebrating.jpg',
-    focused: '/focused.jpg',
-    calm: '/calm.jpg',
-  };
-
-  // ---- Effects ----
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const hour = currentTime.getHours();
-  const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening';
-
-  const formattedDate = currentTime.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-  const formattedTime = currentTime.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
-  // ✅ FIX: Feed polling every 90s + pause when tab hidden
-  useEffect(() => {
-    let interval = null;
-
-    const startPolling = () => {
-      if (interval) return;
-      interval = setInterval(() => loadFeed(true), 90000);
-    };
-
-    const stopPolling = () => {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
-      }
-    };
-
-    const onVisibilityChange = () => {
-      if (document.hidden) {
-        stopPolling();
-      } else {
-        loadFeed(true);
-        startPolling();
-      }
-    };
-
-    startPolling();
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      stopPolling();
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    const storedFocus = localStorage.getItem('focusMode');
-    if (storedFocus === 'true') {
-      const topic = localStorage.getItem('focusTopic') || 'Focus';
-      setFocusMode(true);
-      setFocusTopic(topic);
-    }
-  }, []);
-
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
     try {
-      const [statsData, tasksData, timetableData, assignmentsData, subscriptionData, goalsData] = await Promise.all([
-        api.getDashboardStats(),
-        api.getTodayTasks(),
-        api.getTimetable().catch(() => []),
-        api.getAssignments().catch(() => []),
-        api.getSubscriptionStatus().catch(() => null),
-        // ✅ DAY 2 — guarded goals fetch: if getGoals doesn't exist yet, resolves to []
-        api.getGoals ? api.getGoals().catch(() => []) : Promise.resolve([]),
+      const [
+        statsRes, tasksRes, timetableRes, assignmentsRes,
+        orbitRes, suggestionsRes, lessonsRes, focusRes
+      ] = await Promise.all([
+        api.getDashboardStats?.().catch(() => null)     ?? Promise.resolve(null),
+        api.getTodayTasks?.().catch(() => [])           ?? Promise.resolve([]),
+        api.getTimetable?.().catch(() => [])            ?? Promise.resolve([]),
+        api.getAssignments?.().catch(() => [])          ?? Promise.resolve([]),
+        api.getOrbitSessionCount?.().catch(() => null)  ?? Promise.resolve(null),
+        api.getStackedSuggestions?.().catch(() => null) ?? Promise.resolve(null),
+        api.getLessonProgress?.().catch(() => null)     ?? Promise.resolve(null),
+        api.getFocusRemaining?.().catch(() => null)     ?? Promise.resolve(null),
       ]);
 
-      const userData = statsData.user || {};
-      const xp = userData.xp ?? statsData.totalXP ?? user?.xp ?? 0;
-      const level = userData.level ?? statsData.level ?? user?.level ?? 1;
-      const streakDays = userData.streakDays ?? statsData.streakDays ?? user?.streakDays ?? 0;
-      const rank = userData.rank ?? statsData.rank ?? '#?';
-      const todayXP = userData.todayXP ?? statsData.todayXP ?? 0;
-      const completed = userData.completed ?? statsData.completed ?? 0;
+      setStats(statsRes);
+      setTasks(Array.isArray(tasksRes) ? tasksRes : (tasksRes?.tasks ?? []));
+      setTimetable(Array.isArray(timetableRes) ? timetableRes : []);
+      setAssignments(Array.isArray(assignmentsRes) ? assignmentsRes : []);
+      setOrbitCount(typeof orbitRes === 'number' ? orbitRes : (orbitRes?.count ?? 0));
+      setStackedSuggestions(suggestionsRes?.suggestions ?? []);
+      setLessonProgress(lessonsRes ?? null);
 
-      setStats({
-        totalXP: xp,
-        todayXP: todayXP,
-        streakDays: streakDays,
-        rank: rank,
-        completed: completed,
-      });
+      if (focusRes) {
+        setFocusRemaining(typeof focusRes === 'number' ? focusRes : focusRes.remaining ?? 0);
+      }
 
-      setTasks(tasksData || []);
-      setStudyTime(statsData.studyTimeMinutes ?? 0);
-      setStudyTimeBreakdown(statsData.studyTimeBreakdown ?? null);
-
-      // ✅ DAY 2 — normalize goals array
-      setGoals(goalsData?.goals || goalsData?.data || goalsData || []);
-
-      // ─── PROGRESS + CALM MOOD DETECTION ────────────────────
-      const newProgress = Math.round(statsData.progressPercent ?? 0);
-      setProgressPercent(newProgress);
-      setProgressBreakdown(statsData.progressBreakdown ?? null);
-
+      const newProgress = Math.round(statsRes?.progressPercent ?? 0);
       if (prevProgressRef.current === null) {
         const stored = localStorage.getItem('lastProgressPercent');
-        if (stored !== null) {
-          prevProgressRef.current = parseInt(stored, 10);
-        } else {
-          prevProgressRef.current = newProgress;
-        }
+        prevProgressRef.current = stored !== null ? parseInt(stored, 10) : newProgress;
       }
-
-      const lastSeen = prevProgressRef.current;
-      if (lastSeen !== null && newProgress > lastSeen) {
-        console.log(`📈 Progress increased: ${lastSeen}% → ${newProgress}% → calm mood`);
-        triggerMood('progress-visited', {
-          meta: {
-            previous: lastSeen,
-            current: newProgress,
-            delta: newProgress - lastSeen,
-            breakdown: statsData.progressBreakdown,
-          },
-        });
+      if (prevProgressRef.current !== null && newProgress > prevProgressRef.current) {
+        triggerMood?.('progress-visited', { meta: { previous: prevProgressRef.current, current: newProgress } });
       }
-
       prevProgressRef.current = newProgress;
       localStorage.setItem('lastProgressPercent', String(newProgress));
-
-      setMoodPercent(userData.moodPercent ?? 0);
-      setAcademicTimetable(timetableData || []);
-      setAcademicAssignments(assignmentsData || []);
-      if (subscriptionData) {
-        setSubscriptionStatus(subscriptionData);
-        setHasPremiumAccess(subscriptionData.isActive || subscriptionData.isInstitutional);
-      }
-
-      try {
-        let orbitData = null;
-        if (api.getOrbitSessionCount) {
-          orbitData = await api.getOrbitSessionCount();
-        }
-        const count = orbitData?.count || 0;
-        setOrbitSessionCount(count);
-        if (count >= 4) {
-          triggerMood('progress-up');
-        }
-      } catch (e) {
-        console.warn('Could not fetch orbit session count:', e.message);
-        setOrbitSessionCount(0);
-      }
-
-      try {
-        setStackedLoading(true);
-        const stackedData = await api.getStackedSuggestions();
-        setStackedSuggestions(stackedData?.suggestions || []);
-      } catch (e) {
-        console.warn('Could not fetch stacked suggestions:', e.message);
-        setStackedSuggestions([]);
-      } finally {
-        setStackedLoading(false);
-      }
     } catch (err) {
-      console.error(err);
-      showToast('Failed to load dashboard', 'error');
+      console.error('Dashboard load failed:', err);
+      showToast?.('Some dashboard sections failed to load', 'error');
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadFeed = async (silent = false) => {
-    if (!silent) setFeedLoading(true);
-    try {
-      const data = await api.getFeedPosts(20, 0);
-      const uniquePosts = data.posts || data || [];
-      const uniqueMap = new Map();
-      uniquePosts.forEach(post => {
-        if (!uniqueMap.has(post.id)) {
-          uniqueMap.set(post.id, post);
-        }
-      });
-      setFeedPosts(Array.from(uniqueMap.values()));
-    } catch (err) {
-      console.error(err);
-      if (!silent) showToast('Failed to load feed', 'error');
-    } finally {
-      if (!silent) setFeedLoading(false);
-    }
-  };
-
-  const loadFocusRemaining = async () => {
-    try {
-      const data = await api.getFocusRemaining();
-      setFocusRemaining(data.remaining);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  }, [triggerMood, showToast]);
 
   useEffect(() => {
     loadDashboard();
-    loadFeed();
-    loadFocusRemaining();
-  }, []);
+  }, [loadDashboard]);
 
-  // ---- Focus Session ----
-  const startFocusSession = () => {
-    if (!focusTopic.trim() || focusRemaining <= 0) return;
-    setFocusMode(true);
-    setFocusCompleted(false);
-    localStorage.setItem('focusMode', 'true');
-    localStorage.setItem('focusTopic', focusTopic);
-  };
-
-  const cancelFocus = () => {
-    setFocusMode(false);
-    setFocusCompleted(false);
-    localStorage.removeItem('focusMode');
-    localStorage.removeItem('focusTopic');
-  };
-
-  const handleFocusEnd = async () => {
-    setFocusCompleted(true);
-    try {
-      const res = await api.completeFocusSession(selectedDuration);
-      showToast(`+${res.xpAwarded} XP for focus session! ${res.remaining} left today`);
-      setFocusRemaining(res.remaining);
-      setStudyTime(prev => prev + selectedDuration);
-      await loadDashboard();
-      await refreshUser();
-      triggerMood('focus-complete');
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-    setFocusMode(false);
-    localStorage.removeItem('focusMode');
-  };
-
-  const selectDuration = (mins) => setSelectedDuration(mins);
-
-  // ---- Task functions ----
-  const handleAddTask = async (e) => {
-    e.preventDefault();
-    if (!newTaskTitle.trim()) return;
-    setActionLoading(true);
-    try {
-      const newTask = await api.createTask({ title: newTaskTitle, xp_reward: newTaskXp });
-      setTasks(prev => [...prev, { ...newTask, is_completed: false }]);
-      setNewTaskTitle('');
-      setNewTaskXp(30);
-      showToast('Task added!');
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleDeleteTask = async (taskId) => {
-    if (!confirm('Delete this task?')) return;
-    try {
-      await api.deleteTask(taskId);
-      setTasks(prev => prev.filter(t => t.id !== taskId));
-      showToast('Task deleted');
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  };
-
-  const handleTaskComplete = async (task) => {
-    setShowConfetti(true);
+  const handleCompleteTask = async (task) => {
     try {
       await api.completeTask(task.id);
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_completed: true } : t));
-      showToast(`✅ Task completed! +${task.xp_reward || 30} XP`);
+      triggerMood?.('task-complete');
+      showToast?.(`Task completed +${task.xp_reward || 30} XP`);
       await loadDashboard();
-      await refreshUser();
-      triggerMood('task-complete');
+      await refreshUser?.();
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast?.(err.message || 'Failed to complete task', 'error');
     }
-    setTimeout(() => setShowConfetti(false), 3000);
   };
 
-  const openEditModal = (task) => {
-    setEditingTask(task);
-    setEditTitle(task.title);
-    setEditXp(task.xp_reward || 30);
-    setEditDueDate(task.due_date || '');
-    setEditReminder(task.reminder || '');
-    setEditPriority(task.priority || '');
-} 
+  const startFocusSession = () => {
+    if (focusRemaining <= 0) {
+      showToast?.('No focus sessions left today', 'error');
+      return;
+    }
+    setFocusMode(true);
+  };
+
+  const cancelFocus = () => setFocusMode(false);
+
+  const handleFocusEnd = async () => {
+    try {
+      await api.completeFocusSession(focusDuration);
+      triggerMood?.('focus-complete');
+      showToast?.('Focus session complete');
+      await loadDashboard();
+      await refreshUser?.();
+    } catch (err) {
+      showToast?.(err.message || 'Focus session failed', 'error');
+    }
+    setFocusMode(false);
+  };
+
+  if (focusMode) {
+    return (
+      <FocusSession
+        topic="Focus Session"
+        duration={focusDuration}
+        onEnd={handleFocusEnd}
+        onCancel={cancelFocus}
+      />
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-[1160px] mx-auto px-4 lg:px-5 py-6 pb-24 lg:pb-12">
+        <div className="grid gap-4 pt-2">
+          <div className="h-7 w-2/5 rounded-lg bg-[var(--bg-card)] skeleton-pulse" />
+          <div className="h-4 w-3/5 rounded-md bg-[var(--bg-card)] skeleton-pulse" />
+          <div className="h-44 rounded-2xl bg-[var(--bg-card)] skeleton-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  const returning = isReturningLearner({
+    stats, tasks, timetable, assignments, orbitCount, lessonProgress,
+  });
+
+  return (
+    <div className="max-w-[1160px] mx-auto px-4 lg:px-5 py-6 pb-24 lg:pb-12">
+      <ErrorBoundary title="Dashboard header failed">
+        <WelcomeHeader
+          user={user}
+          returning={returning}
+          onStartFocus={startFocusSession}
+          focusRemaining={focusRemaining}
+        />
+      </ErrorBoundary>
+
+      {returning ? (
+        <ErrorBoundary title="Some dashboard sections failed to load">
+          <ReturningDashboard
+            tasks={tasks}
+            timetable={timetable}
+            assignments={assignments}
+            orbitCount={orbitCount}
+            stackedSuggestions={stackedSuggestions}
+            lessonProgress={lessonProgress}
+            onCompleteTask={handleCompleteTask}
+          />
+        </ErrorBoundary>
+      ) : (
+        <ErrorBoundary title="Dashboard failed to load">
+          <FirstTimeDashboard />
+        </ErrorBoundary>
+      )}
+
+      <ErrorBoundary title="Philosophy strip failed">
+        <PhilosophyStrip />
+      </ErrorBoundary>
+
+      <MobileNav active="home" navigate={navigate} />
+    </div>
+  );
+}
