@@ -35,50 +35,41 @@ function WelcomeHeader({ user, returning, focusRemaining = 0, onStartFocus }) {
   const firstName = (user?.full_name || user?.username || 'Learner').split(' ')[0];
 
   return (
-    <header className={`flex items-center gap-3 lg:gap-4 mb-6 ${returning ? 'mt-2' : 'mt-6'}`}>
+    <header className="flex items-start justify-between gap-3 mb-6 mt-2">
       
-      {/* Avatar Container - Slightly larger, explicitly clipped to circle */}
-      <div className="relative w-14 h-14 lg:w-16 lg:h-16 rounded-full overflow-hidden shrink-0 ring-2 ring-[rgba(139,92,246,0.3)] bg-[#1a1a20] shadow-[0_0_15px_rgba(139,92,246,0.2)]">
-        <HolographicAvatar size={returning ? 56 : 64} />
+      {/* Left Column: Left-Aligned Text */}
+      <div className="flex flex-col flex-1 min-w-0 text-left mt-1">
+        <h1 className="text-[18px] lg:text-2xl font-bold text-[var(--text-primary)] truncate leading-tight m-0">
+          {returning ? `Welcome back, ${firstName}` : `Hi ${firstName}.`}
+        </h1>
+        <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] truncate mt-1 m-0">
+          {returning ? 'Pick up where you left off.' : 'What would you like to learn today?'}
+        </p>
       </div>
 
-      {/* Text Container - text-left forces it next to the avatar */}
-      <div className="flex flex-col flex-1 min-w-0 text-left">
-        {returning ? (
-          <>
-            <h1 className="text-[17px] lg:text-xl font-bold text-[var(--text-primary)] truncate leading-tight m-0">
-              Welcome back, {firstName}
-            </h1>
-            <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] truncate mt-1 m-0">
-              Pick up where you left off.
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-xl lg:text-2xl font-bold text-[var(--text-primary)] truncate leading-tight m-0">
-              Hi {firstName}.
-            </h1>
-            <p className="text-[13px] lg:text-sm text-[var(--text-secondary)] truncate mt-1 m-0">
-              What would you like to learn today?
-            </p>
-          </>
+      {/* Right Column: Avatar & Focus Button Stacked */}
+      <div className="flex flex-col items-end gap-2 shrink-0">
+        
+        {/* Avatar Container */}
+        <div className="relative w-12 h-12 lg:w-14 lg:h-14 rounded-full overflow-hidden ring-2 ring-[var(--border)] bg-[#1a1a20] flex items-center justify-center shadow-sm">
+          <HolographicAvatar size={48} />
+        </div>
+
+        {/* Focus Button - Directly below Avatar */}
+        {returning && focusRemaining > 0 && (
+          <button
+            type="button"
+            onClick={onStartFocus}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-[12px] lg:text-sm font-medium hover:border-[var(--accent)] transition-colors"
+          >
+            <Play size={12} className="text-[var(--accent)]" />
+            <span>Focus</span>
+            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[10px] font-semibold">
+              {focusRemaining}
+            </span>
+          </button>
         )}
       </div>
-
-      {/* Focus Button - ml-auto pushes it to the far right, away from text */}
-      {returning && focusRemaining > 0 && (
-        <button
-          type="button"
-          onClick={onStartFocus}
-          className="ml-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 lg:px-4 lg:py-2 rounded-full bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-[13px] lg:text-sm font-medium hover:border-[var(--accent)] transition-colors"
-        >
-          <Play size={14} className="text-[var(--accent)]" />
-          <span className="hidden sm:inline">Focus</span>
-          <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[var(--accent)] text-[11px] font-semibold">
-            {focusRemaining}
-          </span>
-        </button>
-      )}
     </header>
   );
 }
