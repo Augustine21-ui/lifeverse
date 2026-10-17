@@ -1,0 +1,325 @@
+/* ============================================================ */
+/* ===== KUA DASHBOARD — REDESIGN ============================= */
+/* ============================================================ */
+
+.dash-shell {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  position: relative;
+  z-index: 10;
+}
+
+@media (max-width: 640px) {
+  .dash-shell { padding: 16px 14px 96px; }
+}
+
+/* ── Skeleton ── */
+.dash-skeleton { display: grid; gap: 16px; padding-top: 8px; }
+.dash-sk-title { height: 26px; width: 40%; border-radius: 8px; background: var(--bg-card); }
+.dash-sk-sub   { height: 16px; width: 60%; border-radius: 6px; background: var(--bg-card); }
+.dash-sk-card  { height: 180px; border-radius: 16px; background: var(--bg-card); }
+
+/* ── Welcome header ── */
+.welcome-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0 28px;
+  flex-wrap: wrap;
+}
+.welcome-header.compact { padding: 12px 0 20px; }
+
+.welcome-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.welcome-avatar {
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px var(--border), 0 8px 24px rgba(139, 92, 246, 0.18);
+}
+.welcome-text h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 2px;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.welcome-header.compact .welcome-text h1 { font-size: 18px; }
+.welcome-sub { margin: 0; font-size: 14px; color: var(--text-secondary); }
+
+.focus-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .2s ease, transform .15s ease;
+  min-height: 40px;
+}
+.focus-pill:hover { border-color: var(--accent); transform: translateY(-1px); }
+.focus-pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ── First-time dashboard ── */
+.first-time { display: grid; gap: 16px; }
+
+.first-time-hero {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.10), rgba(99, 102, 241, 0.05));
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 32px;
+  text-align: center;
+  box-shadow: var(--card-shadow);
+}
+@media (max-width: 640px) {
+  .first-time-hero { padding: 28px 20px; }
+}
+
+.first-time-hero-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--accent);
+}
+.first-time-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.first-time-lead {
+  font-size: 15px;
+  color: var(--text-secondary);
+  max-width: 420px;
+  margin: 0 auto 24px;
+  line-height: 1.5;
+}
+.first-time-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  font-size: 15px;
+}
+
+.first-time-secondary { display: grid; gap: 12px; }
+.secondary-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .2s ease, transform .15s ease;
+  min-height: 68px;
+}
+.secondary-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.secondary-icon {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.10);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.secondary-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.secondary-title { font-weight: 600; font-size: 15px; }
+.secondary-sub   { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.secondary-chev  { color: var(--text-muted); flex-shrink: 0; }
+
+/* ── Returning dashboard ── */
+.returning { display: grid; gap: 16px; }
+.returning-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+@media (max-width: 640px) {
+  .returning-grid { grid-template-columns: 1fr; gap: 12px; }
+}
+
+.rd-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color .2s ease, transform .15s ease, box-shadow .2s ease;
+}
+.rd-card:hover {
+  border-color: rgba(139, 92, 246, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 30px var(--shadow-color);
+}
+
+.rd-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.rd-title {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+.rd-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.rd-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 2px;
+}
+.rd-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.rd-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #c084fc);
+  border-radius: 999px;
+  transition: width .4s ease;
+}
+.rd-progress-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 34px;
+  text-align: right;
+}
+
+.rd-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--accent);
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .2s ease, transform .15s ease;
+  min-height: 40px;
+}
+.rd-action:hover { background: rgba(139, 92, 246, 0.20); transform: translateX(2px); }
+
+.rd-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  min-height: 44px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.rd-checkbox input { accent-color: var(--accent); width: 18px; height: 18px; }
+
+/* ── Philosophy strip ── */
+.philosophy-strip {
+  margin-top: 32px;
+  padding: 22px 22px 20px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(99, 102, 241, 0.02));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+.philosophy-caption {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+}
+.philosophy-nodes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.philosophy-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 180px;
+}
+.philosophy-icon {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.philosophy-text { display: flex; flex-direction: column; }
+.philosophy-label { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.philosophy-sub   { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+.philosophy-arrow {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 16px;
+  padding: 0 6px;
+}
+.philosophy-note {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+@media (max-width: 640px) {
+  .philosophy-nodes { flex-direction: column; align-items: stretch; gap: 10px; }
+  .philosophy-arrow { display: none; }
+  .philosophy-node { min-width: 0; }
+}
