@@ -582,4 +582,4 @@ export default function DashboardPage() {
     setEditDueDate(task.due_date || '');
     setEditReminder(task.reminder || '');
     setEditPriority(task.priority || '');
-}
+} 
