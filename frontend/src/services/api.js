@@ -1,5 +1,5 @@
 ﻿// frontend/src/services/api.js
-// ✅ Day 1 fix: 401 auto-logout handler
+//  Day 1 fix: 401 auto-logout handler
 // ✅ Cleaned: removed duplicate method definitions (kept the correct ones)
 
 const API_BASE = 'https://lifeverse-1.onrender.com/api';
