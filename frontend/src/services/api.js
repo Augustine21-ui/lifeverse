@@ -1221,9 +1221,13 @@ export const api = {
     headers: authHeaders(),
     body: JSON.stringify({ quizId, answers, userId })
   }).then(handleResponse),
-getSkillsDashboard: () => request('/skills/dashboard'),
-  submitSkillEvidence: (activity_id, response_text) => request('/skills/evidence', {
+  getSkillsDashboard: () => fetch(`${API_BASE}/skills/dashboard`, {
+    headers: authHeaders()
+  }).then(handleResponse),
+
+  submitSkillEvidence: (activity_id, response_text) => fetch(`${API_BASE}/skills/evidence`, {
     method: 'POST',
+    headers: authHeaders(),
     body: JSON.stringify({ activity_id, response_text })
-  }),
+  }).then(handleResponse),
 };
