@@ -1221,4 +1221,9 @@ export const api = {
     headers: authHeaders(),
     body: JSON.stringify({ quizId, answers, userId })
   }).then(handleResponse),
+getSkillsDashboard: () => request('/skills/dashboard'),
+  submitSkillEvidence: (activity_id, response_text) => request('/skills/evidence', {
+    method: 'POST',
+    body: JSON.stringify({ activity_id, response_text })
+  }),
 };
