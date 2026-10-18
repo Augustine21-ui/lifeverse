@@ -1,3 +1,4 @@
+// Use the exact import path and variable name your project uses
 import db from '../config/db.js';
 
 export async function getSkillsDashboard(req, res, next) {
@@ -5,7 +6,7 @@ export async function getSkillsDashboard(req, res, next) {
     const userId = req.user.id;
 
     // 1. Get user's skills
-    const skillsRes = await pool.query(
+    const skillsRes = await db.query(
       `SELECT s.id, s.name, s.icon 
        FROM user_skills us 
        JOIN skills s ON us.skill_id = s.id 
@@ -14,13 +15,13 @@ export async function getSkillsDashboard(req, res, next) {
     );
 
     // 2. Get all activities for these skills
-    const actRes = await pool.query(
+    const actRes = await db.query(
       `SELECT * FROM skill_activities WHERE skill_id = ANY($1::int[])`,
       [skillsRes.rows.map(s => s.id)]
     );
 
     // 3. Get user's submissions
-    const subRes = await pool.query(
+    const subRes = await db.query(
       `SELECT sub.id, a.title, a.context, a.activity_kind, s.name as skill_name, sub.response_text, sub.saved_at
        FROM skill_activity_submissions sub
        JOIN skill_activities a ON sub.activity_id = a.id
@@ -66,7 +67,7 @@ export async function submitEvidence(req, res, next) {
       return res.status(400).json({ error: 'Activity ID and response text are required' });
     }
 
-    const insert = await pool.query(
+    const insert = await db.query(
       `INSERT INTO skill_activity_submissions (user_id, activity_id, response_text)
        VALUES ($1, $2, $3) RETURNING *`,
       [userId, activity_id, response_text]
