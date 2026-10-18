@@ -79,8 +79,6 @@ import {
 } from '../controllers/momentumController.js';
 
 import { getSkillsDashboard, submitEvidence } from '../controllers/skillActivitiesController.js';
-import { authenticate } from '../middleware/auth.js'; // Adjust path if needed
-
 
 const router = express.Router();
 
