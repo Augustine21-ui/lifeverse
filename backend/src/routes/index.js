@@ -78,6 +78,10 @@ import {
   getNotifications
 } from '../controllers/momentumController.js';
 
+import { getSkillsDashboard, submitEvidence } from '../controllers/skillActivitiesController.js';
+import { authenticate } from '../middleware/auth.js'; // Adjust path if needed
+
+
 const router = express.Router();
 
 // =============================================================
@@ -290,5 +294,8 @@ router.get('/notifications', authenticate, getNotifications);
 //  ROOT
 // =============================================================
 router.get('/', (req, res) => res.json({ message: 'API root' }));
+
+router.get('/skills/dashboard', authenticate, getSkillsDashboard);
+router.post('/skills/evidence', authenticate, submitEvidence);
 
 export default router;
