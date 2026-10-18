@@ -1,534 +1,368 @@
 // frontend/src/pages/SkillsPage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
-import { Link } from 'react-router-dom';
-import {
-  TrendingUp, Target, Award, BarChart3,
-  Plus, X, ChevronRight, Play,
-  CheckCircle, Circle, AlertCircle,
-} from 'lucide-react';
-import { useMood } from '../context/MoodContext';
 import { useToast } from '../context/ToastContext';
 import ErrorBoundary from '../components/ErrorBoundary';
-import EmptyState from '../components/EmptyState';
-import { SkeletonCard } from '../components/Skeleton';
-import './SkillsPage.css';
+import {
+  BookOpen, Target, Home, Users, ArrowRight, X, Clock, 
+  Briefcase, Sparkles, CheckCircle, Compass, AlertCircle
+} from 'lucide-react';
 
-const BADGE_DEFINITIONS = [
-  { id: 1, name: 'First Challenge', icon: '🏅', description: 'Completed your first challenge' },
-  { id: 2, name: 'Consistent Learner', icon: '📚', description: '7-day learning streak' },
-  { id: 3, name: 'Study Group Contributor', icon: '👥', description: 'Helped in a study group' },
-  { id: 4, name: 'Community Builder', icon: '🏗️', description: 'Created a community' },
-  { id: 5, name: 'Mathematics Mastery', icon: '📐', description: 'Mastered a math topic' },
-  { id: 6, name: 'Coding Explorer', icon: '💻', description: 'Completed a coding project' },
-  { id: 7, name: 'Project Creator', icon: '🚀', description: 'Created a project' },
-];
+// ─────────────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────────────
+
+const ContextIcon = ({ context }) => {
+  if (context === 'everyday') return <Home size={18} />;
+  if (context === 'school') return <BookOpen size={18} />;
+  return <Users size={18} />;
+};
+
+const ContextLabel = ({ context }) => {
+  if (context === 'everyday') return 'Everyday Life';
+  if (context === 'school') return 'School';
+  return 'Community';
+};
+
+function ActivityModal({ activity, onClose, onSubmit }) {
+  const [response, setResponse] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!response.trim()) return;
+    setSubmitting(true);
+    await onSubmit(activity, response);
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-[#0a0a0f] border border-[var(--border)] rounded-t-3xl sm:rounded-3xl p-6 flex flex-col max-h-[90vh] shadow-2xl">
+        
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--accent)] uppercase tracking-wider mb-1">
+              <ContextIcon context={activity.context} /> {ContextLabel({ context: activity.context })}
+            </div>
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">{activity.title}</h2>
+          </div>
+          <button onClick={onClose} className="p-2 -mr-2 text-[var(--text-muted)] hover:text-white rounded-full hover:bg-white/10 transition">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] p-4 rounded-xl mb-4 text-sm text-[var(--text-secondary)] leading-relaxed">
+          {activity.prompt}
+        </div>
+
+        <div className="flex-1 overflow-y-auto mb-4">
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+            Your Evidence / Answer
+          </label>
+          <textarea
+            className="w-full bg-[#121218] text-[var(--text-primary)] text-sm rounded-xl px-4 py-3 placeholder-[var(--text-muted)] outline-none border border-[var(--border)] focus:border-[var(--accent)] transition-colors min-h-[120px] resize-y"
+            placeholder="Explain your approach or write your solution here..."
+            value={response}
+            onChange={(e) => setResponse(e.target.value)}
+          />
+          <p className="text-[11px] text-[var(--text-muted)] mt-2">
+            KUA does not automatically grade this. You are saving this to your profile as proof of your work.
+          </p>
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={!response.trim() || submitting}
+          className="w-full py-3.5 bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-white font-semibold rounded-xl hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+        >
+          {submitting ? 'Saving...' : 'Submit Evidence'} <ArrowRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────
 
 export default function SkillsPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { triggerMood } = useMood();
+  const navigate = useNavigate();
 
-  const [summary, setSummary] = useState({ level: 1, xp: 0, goalsCount: 0, skillsCount: 0, achievementsCount: 0 });
-  const [goals, setGoals] = useState([]);
-  const [userSkills, setUserSkills] = useState([]);
-  const [achievements, setAchievements] = useState([]);
-  const [rankings, setRankings] = useState({ weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
+  const [skills, setSkills] = useState([]);
+  const [activeSkill, setActiveSkill] = useState(null);
+  const [activities, setActivities] = useState({});
+  const [submissions, setSubmissions] = useState([]);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedSkill, setSelectedSkill] = useState(null);
+  const [selectedActivity, setSelectedActivity] = useState(null);
 
-  const [showGoalModal, setShowGoalModal] = useState(false);
-  const [goalForm, setGoalForm] = useState({
-    title: '', description: '', category: 'academic', target_date: '', metadata: {}
-  });
-  const [submittingGoal, setSubmittingGoal] = useState(false);
-
-  const [showSkillModal, setShowSkillModal] = useState(false);
-  const [skillName, setSkillName] = useState('');
-  const [skillCategory, setSkillCategory] = useState('');
-  const [submittingSkill, setSubmittingSkill] = useState(false);
-
-  const [togglingMilestone, setTogglingMilestone] = useState(null);
-  const [expandedGoalId, setExpandedGoalId] = useState(null);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [summaryRes, goalsRes, userSkillsRes, earnedBadgesRes, rankingsRes] = await Promise.all([
-        api.getSkillsSummary ? api.getSkillsSummary().catch(() => null) : Promise.resolve(null),
-        api.getGoals().catch(() => []),
-        api.getUserSkills().catch(() => []),
-        api.getUserBadges().catch(() => []),
-        api.getLeaderboard ? api.getLeaderboard().catch(() => ({ weekly: { rank: 0 } })) : Promise.resolve({ weekly: { rank: 0 } }),
-      ]);
-
-      const rawSkills = Array.isArray(userSkillsRes) ? userSkillsRes : (userSkillsRes?.userSkills || userSkillsRes?.data || []);
-      const uniqueSkills = rawSkills.reduce((acc, skill) => {
-        const name = skill.name || skill.skill_name;
-        if (!acc.some(s => (s.name || s.skill_name) === name)) acc.push(skill);
-        return acc;
-      }, []);
-
-      const earnedIds = (earnedBadgesRes || []).map(b => b.id);
-      const achievementsData = BADGE_DEFINITIONS.map(b => ({ ...b, earned: earnedIds.includes(b.id) }));
-
-      const liveGoals = Array.isArray(goalsRes) ? goalsRes : (goalsRes?.goals || goalsRes?.data || []);
-      const liveEarned = achievementsData.filter(b => b.earned).length;
-
-      const s = summaryRes?.summary ?? summaryRes ?? {};
-      const pick = (...vals) => {
-        for (const v of vals) {
-          if (v !== undefined && v !== null && v !== '' && !Number.isNaN(Number(v))) {
-            const n = Number(v);
-            if (n > 0) return n;
-          }
-        }
-        return 0;
-      };
-
-      // ✅ FIX: derive level from XP (spec: level = floor(xp / 500) + 1).
-      // The /skills-summary endpoint returns a stale level (always 1), so we
-      // compute it locally from the authoritative XP source.
-      const resolvedXp = pick(
-        user?.xp,                                   // sidebar source, most authoritative
-        s.xp, s.totalXP, s.total_xp,
-        summaryRes?.xp, summaryRes?.totalXP,
-        0
-      );
-      const derivedLevel = resolvedXp > 0 ? Math.floor(resolvedXp / 500) + 1 : 1;
-      const endpointLevel = pick(s.level, s.userLevel, summaryRes?.level, user?.level, 0);
-      const resolvedLevel = Math.max(derivedLevel, endpointLevel) || 1;
-
-      setSummary({
-        level:             resolvedLevel,
-        xp:                resolvedXp,
-        goalsCount:        pick(s.goalsCount, s.goals, summaryRes?.goalsCount, liveGoals.length),
-        skillsCount:       pick(s.skillsCount, s.skills, summaryRes?.skillsCount, uniqueSkills.length),
-        achievementsCount: pick(s.achievementsCount, s.achievements, summaryRes?.achievementsCount, liveEarned),
-      });
-
-      setGoals(liveGoals);
-      setUserSkills(uniqueSkills);
-      setAchievements(achievementsData);
-      setRankings(rankingsRes || { weekly: { rank: 0 }, school: { rank: 0 }, challenge: { rank: 0 }, overall: { rank: 0 } });
+      const data = await api.getSkillsDashboard();
+      
+      setSkills(data.skills || []);
+      setActivities(data.activities || {});
+      setSubmissions(data.submissions || []);
+      
+      if (data.skills && data.skills.length > 0) {
+        setActiveSkill(data.skills[0]);
+      }
     } catch (err) {
-      console.error('Error loading skills data:', err);
-      setError(err?.message || 'Failed to load skills');
-      showToast('Some skills data failed to load', 'error');
+      console.error('Failed to load skills:', err);
+      setError(err?.message || 'Failed to load skills data');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleCreateGoal = async (e) => {
-    e.preventDefault();
-    setSubmittingGoal(true);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleActivitySubmit = async (activity, responseText) => {
     try {
-      await api.createGoal({
-        title: goalForm.title,
-        description: goalForm.description,
-        category: goalForm.category,
-        target_date: goalForm.target_date || null,
-        metadata: goalForm.metadata || {}
-      });
-      setShowGoalModal(false);
-      setGoalForm({ title: '', description: '', category: 'academic', target_date: '', metadata: {} });
-      await loadData();
-      showToast('Goal created!');
+      await api.submitSkillEvidence(activity.id, responseText);
+      
+      const newSubmission = {
+        id: Date.now(),
+        skill_name: activeSkill.name,
+        context: activity.context,
+        title: activity.title,
+        response_text: responseText,
+        saved_at: new Date().toISOString()
+      };
+
+      setSubmissions(prev => [newSubmission, ...prev]);
+      setSelectedActivity(null);
+      showToast('Evidence saved to your profile!');
     } catch (err) {
-      showToast('Failed to create goal: ' + (err.error || err.message), 'error');
-    } finally {
-      setSubmittingGoal(false);
+      showToast(err.message || 'Failed to save evidence', 'error');
     }
   };
 
-  const handleCreateSkill = async (e) => {
-    e.preventDefault();
-    if (!skillName.trim()) return;
-    setSubmittingSkill(true);
-    try {
-      await api.createSkill({ name: skillName.trim(), category: skillCategory.trim() || undefined });
-      setShowSkillModal(false);
-      setSkillName('');
-      setSkillCategory('');
-      await loadData();
-      showToast('Skill added!');
-    } catch (err) {
-      showToast('Failed to create skill: ' + (err.error || err.message), 'error');
-    } finally {
-      setSubmittingSkill(false);
-    }
-  };
-
-  const handleToggleMilestone = async (goalId, milestoneId) => {
-    try {
-      setTogglingMilestone(milestoneId);
-      const res = await api.toggleMilestone(goalId, milestoneId);
-      if (res?.moodEvent) {
-        triggerMood(res.moodEvent, { meta: { goalId, progress: res.progress, xpAwarded: res.xpAwarded } });
-      }
-      if (res?.xpAwarded > 0) showToast(`🎉 Goal complete! +${res.xpAwarded} XP`);
-      else if (res?.allComplete) showToast('🎉 All milestones complete!');
-      await loadData();
-    } catch (err) {
-      showToast(err.message || 'Failed to toggle milestone', 'error');
-    } finally {
-      setTogglingMilestone(null);
-    }
-  };
-
-  const handleSubmitPractice = async (skillId, score = 80) => {
-    try {
-      const numericSkillId = parseInt(skillId, 10);
-      if (isNaN(numericSkillId)) return showToast('Invalid skill ID', 'error');
-      const res = await api.submitPracticeResult({ skillId: numericSkillId, score: Number(score) || 80, timeSpent: 60 });
-      if (res?.moodEvent) {
-        triggerMood(res.moodEvent, { meta: { skillId: numericSkillId, progressPercent: res.progressPercent } });
-      }
-      showToast(`+5 XP • Progress: ${res?.progressPercent || 0}%`);
-      await loadData();
-    } catch (err) {
-      showToast(err.message || 'Failed to submit practice', 'error');
-    }
-  };
-
-  const handleCompleteGoal = async (goalId) => {
-    try {
-      const res = await api.completeGoal(goalId);
-      if (res?.moodEvent) triggerMood(res.moodEvent);
-      if (res?.xpAwarded > 0) showToast(`🎉 Goal complete! +${res.xpAwarded} XP`);
-      await loadData();
-    } catch (err) {
-      showToast(err.message || 'Failed to complete goal', 'error');
-    }
-  };
-
-  const parseMilestones = (goal) => {
-    let m = goal.milestones;
-    if (typeof m === 'string') { try { m = JSON.parse(m); } catch { m = []; } }
-    return Array.isArray(m) ? m : [];
-  };
-
-  // ─── Day 3: loading skeleton ────────────────────────────────
   if (loading) {
     return (
-      <div className="skills-page">
-        <div className="grid grid-cols-2 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
+      <div className="p-6 max-w-[1000px] mx-auto pt-20 lg:pt-8">
+        <div className="h-8 w-1/3 bg-[var(--bg-card)] rounded-lg skeleton-pulse mb-4" />
+        <div className="flex gap-2 mb-8">
+          <div className="h-10 w-24 bg-[var(--bg-card)] rounded-full skeleton-pulse" />
+          <div className="h-10 w-24 bg-[var(--bg-card)] rounded-full skeleton-pulse" />
         </div>
+        <div className="h-48 bg-[var(--bg-card)] rounded-2xl skeleton-pulse mb-4" />
       </div>
     );
   }
 
-  // ─── Day 3: error + retry ───────────────────────────────────
   if (error) {
     return (
-      <div className="skills-page">
-        <EmptyState
-          icon={<AlertCircle size={40} />}
-          title="Couldn't load your skills"
-          message={error}
-          actionLabel="Retry"
-          onAction={loadData}
-        />
+      <div className="p-6 max-w-[1000px] mx-auto pt-20 text-center">
+        <AlertCircle size={40} className="text-red-400 mx-auto mb-3" />
+        <h2 className="text-lg font-bold text-white mb-2">Couldn't load Skills</h2>
+        <p className="text-gray-400 mb-4">{error}</p>
+        <button onClick={loadData} className="px-4 py-2 bg-[var(--accent)] text-white rounded-xl">
+          Try Again
+        </button>
       </div>
     );
   }
+
+  if (skills.length === 0) {
+    return (
+      <div className="p-6 max-w-[1000px] mx-auto pt-20 text-center">
+        <Target size={40} className="text-[var(--text-muted)] mx-auto mb-3 opacity-50" />
+        <h2 className="text-lg font-bold text-white mb-2">No skills available yet</h2>
+        <p className="text-gray-400 mb-4">Go to the Academic Hub to start learning and unlock skills.</p>
+        <button onClick={() => navigate('/studysphere')} className="px-4 py-2 bg-[var(--accent)] text-white rounded-xl">
+          Open Academic Hub
+        </button>
+      </div>
+    );
+  }
+
+  const currentActivities = activeSkill ? activities[activeSkill.name] : null;
+  
+  // New Learner Check (No evidence submitted yet)
+  const isNewLearner = submissions.length === 0;
+  
+  // Follow-up unlock logic
+  const hasCompletedPractice = submissions.some(s => s.skill_name === activeSkill?.name && currentActivities?.followup && s.title !== currentActivities.followup.title);
+  const hasCompletedFollowup = currentActivities?.followup && submissions.some(s => s.title === currentActivities.followup.title);
 
   return (
     <ErrorBoundary title="Skills page failed to load">
-      <div className="skills-page">
-        <h1>📈 My Skills</h1>
-        <p className="skills-sub">Build skills. Track progress. Reach your goals.</p>
+      <div className="max-w-[1000px] mx-auto px-4 lg:px-6 py-8 pb-24 pt-16 lg:pt-8">
+        
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl lg:text-3xl font-bold text-[var(--text-primary)] tracking-tight">Skills & Capability</h1>
+          <p className="text-[15px] text-[var(--text-secondary)] mt-1 max-w-2xl leading-relaxed">
+            KUA helps you apply what you learn in school to real-life situations. Choose a skill, complete a short activity, and save your evidence.
+          </p>
+        </div>
 
-        {/* Summary Cards */}
-        <div className="skills-summary-grid">
-          <div className="skills-summary-card">
-            <div className="skills-summary-value">{summary?.level || 1}</div>
-            <div className="skills-summary-label">Level</div>
-          </div>
-          <div className="skills-summary-card">
-            <div className="skills-summary-value">{summary?.xp || 0}</div>
-            <div className="skills-summary-label">XP</div>
-          </div>
-          <div className="skills-summary-card">
-            <div className="skills-summary-value">{summary?.goalsCount || 0}</div>
-            <div className="skills-summary-label">Goals</div>
-          </div>
-          <div className="skills-summary-card">
-            <div className="skills-summary-value">{summary?.skillsCount || 0}</div>
-            <div className="skills-summary-label">Skills</div>
-          </div>
-          <div className="skills-summary-card">
-            <div className="skills-summary-value">{summary?.achievementsCount || 0}</div>
-            <div className="skills-summary-label">Achievements</div>
+        {/* My Skills (Horizontal Scroll) */}
+        <div className="mb-8">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+            <Compass size={16} className="text-[var(--accent)]" /> Select a Skill
+          </h2>
+          <div className="flex overflow-x-auto gap-2 pb-2 -mx-4 px-4 snap-x" style={{ scrollbarWidth: 'none' }}>
+            {skills.map(skill => {
+              const isActive = activeSkill?.id === skill.id;
+              return (
+                <button
+                  key={skill.id}
+                  onClick={() => setActiveSkill(skill)}
+                  className={`snap-start shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all ${
+                    isActive 
+                      ? 'bg-[rgba(139,92,246,0.15)] border-[#8b5cf6] text-[#c084fc] shadow-[0_0_15px_rgba(139,92,246,0.15)]' 
+                      : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--text-muted)]'
+                  }`}
+                >
+                  <span className="text-lg">{skill.icon}</span>
+                  <span className="font-medium text-sm capitalize">{skill.name}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {userSkills.length === 0 ? (
-          /* ─── Day 3: empty state (replaces the old rocket block) ─── */
-          <div className="card">
-            <EmptyState
-              icon={<Target size={40} />}
-              title="Start building your skills"
-              message="Skills are the building blocks of your career. Add your first skill and start tracking progress."
-              actionLabel="Create Your First Skill"
-              onAction={() => setShowSkillModal(true)}
-            />
-          </div>
-        ) : (
-          <>
-            {/* Skill Growth */}
-            <div className="card mb-6">
-              <h2 className="skills-section-title">
-                <TrendingUp size={20} className="text-brand-400" /> Skill Growth
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {userSkills.map(skill => {
-                  const skillId = skill.id || skill.skill_id;
-                  const sName = skill.name || skill.skill_name;
-                  const isActive = selectedSkill?.id === skillId || selectedSkill?.skill_id === skillId;
+        {activeSkill && currentActivities && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            
+            {/* FEATURE 1: Put a Skill to Use */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                  <Target size={16} className="text-[var(--accent)]" /> Put "{activeSkill.name}" to use
+                </h2>
+                <span className="text-xs text-[var(--text-muted)]">Choose a context</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {['everyday', 'school', 'community'].map(ctx => {
+                  const activity = currentActivities.practice?.[ctx];
+                  if (!activity) return null;
+                  
+                  const isCompleted = submissions.some(s => s.title === activity.title);
+                  
                   return (
                     <button
-                      key={skillId}
-                      onClick={() => setSelectedSkill(skill)}
-                      className={`skill-chip ${isActive ? 'active' : ''}`}
+                      key={ctx}
+                      onClick={() => setSelectedActivity(activity)}
+                      className={`bg-[var(--bg-card)] border rounded-2xl p-5 text-left transition-all group flex flex-col h-full relative ${
+                        isCompleted ? 'border-green-500/30' : 'border-[var(--border)] hover:border-[var(--accent)]'
+                      }`}
                     >
-                      {sName}
-                      <span className="text-xs opacity-60">({Math.round(skill.progress_percent || 0)}%)</span>
+                      {isCompleted && (
+                        <div className="absolute top-4 right-4 text-green-400">
+                          <CheckCircle size={18} />
+                        </div>
+                      )}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform ${isCompleted ? 'bg-green-500/10 text-green-400' : 'bg-[rgba(139,92,246,0.1)] text-[var(--accent)]'}`}>
+                        <ContextIcon context={ctx} />
+                      </div>
+                      <h3 className="font-semibold text-[var(--text-primary)] text-[15px] mb-1">{activity.title}</h3>
+                      <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed flex-1">
+                        {ContextLabel({ context: ctx })} application
+                      </p>
+                      <div className={`mt-4 text-xs font-medium flex items-center gap-1 ${isCompleted ? 'text-green-400' : 'text-[var(--accent)]'}`}>
+                        {isCompleted ? 'View / Edit Evidence' : 'Start activity'} <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
                     </button>
                   );
                 })}
               </div>
-              {selectedSkill && (
-                <div className="mt-4 p-4 bg-white/5 rounded-lg">
-                  <div className="flex justify-between items-center flex-wrap gap-2">
-                    <div>
-                      <h3 className="font-medium text-white">{selectedSkill.name || selectedSkill.skill_name}</h3>
-                      <p className="text-xs text-white/40">Progress: {Math.round(selectedSkill.progress_percent || 0)}%</p>
+            </div>
+
+            {/* FEATURE 3: Continue Practicing (Follow-up) */}
+            {currentActivities.followup && (
+              <div className="mb-8">
+                <div className={`border rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-colors ${
+                  hasCompletedPractice ? 'bg-gradient-to-r from-[rgba(139,92,246,0.08)] to-transparent border-[var(--accent)] shadow-[0_0_20px_rgba(139,92,246,0.05)]' : 'bg-[var(--bg-card)] border-[var(--border)] opacity-60'
+                }`}>
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1">
+                      <Sparkles size={14} /> Continue Practicing
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleSubmitPractice(selectedSkill.id || selectedSkill.skill_id, 80)}
-                        className="text-xs px-3 py-1.5 bg-brand-500/20 hover:bg-brand-500/30 text-brand-300 rounded-lg flex items-center gap-1"
-                      >
-                        <Play size={12} /> Practice
-                      </button>
-                      <Link
-                        to={`/skill/${selectedSkill.id || selectedSkill.skill_id}`}
-                        className="text-brand-400 hover:underline text-sm flex items-center gap-1"
-                      >
-                        View Full <ChevronRight size={14} />
-                      </Link>
-                    </div>
+                    <h3 className="font-semibold text-[var(--text-primary)] text-[15px]">
+                      {hasCompletedPractice ? currentActivities.followup.title : 'Complete an activity above to unlock'}
+                    </h3>
+                    <p className="text-[13px] text-[var(--text-secondary)] mt-1 max-w-xl">
+                      Apply this skill in a slightly different situation to prove you can transfer your knowledge.
+                    </p>
                   </div>
-                  <div className="skill-progress-bar">
-                    <div className="skill-progress-fill" style={{ width: `${selectedSkill.progress_percent || 0}%` }} />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Goals */}
-            <div className="card mb-6">
-              <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
-                <h2 className="skills-section-title mb-0">
-                  <Target size={20} className="text-brand-400" /> Goals
-                </h2>
-                <button onClick={() => setShowGoalModal(true)} className="btn-primary text-sm flex items-center gap-1">
-                  <Plus size={16} /> New Goal
-                </button>
-              </div>
-              {goals.length === 0 ? (
-                <p className="text-white/40 text-sm">No goals yet. Create one to start your journey!</p>
-              ) : (
-                <div>
-                  {goals.slice(0, 5).map(goal => {
-                    const milestones = parseMilestones(goal);
-                    const isExpanded = expandedGoalId === goal.id;
-                    return (
-                      <div key={goal.id} className="goal-card">
-                        <div
-                          className="flex items-center justify-between cursor-pointer flex-wrap gap-2"
-                          onClick={() => setExpandedGoalId(isExpanded ? null : goal.id)}
-                        >
-                          <div className="flex-1 min-w-[150px]">
-                            <p className="goal-title">{goal.title}</p>
-                            <div className="goal-meta">
-                              <span className={`px-1.5 py-0.5 rounded ${
-                                goal.category === 'academic' ? 'bg-blue-500/20 text-blue-400' :
-                                goal.category === 'skill' ? 'bg-green-500/20 text-green-400' :
-                                goal.category === 'career' ? 'bg-purple-500/20 text-purple-400' :
-                                'bg-orange-500/20 text-orange-400'
-                              }`}>{goal.category}</span>
-                              <span>Progress: {goal.progress || 0}%</span>
-                              {goal.target_date && <span>• {new Date(goal.target_date).toLocaleDateString()}</span>}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded text-xs ${goal.completed ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                              {goal.completed ? '✅' : 'Active'}
-                            </span>
-                            {!goal.completed && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleCompleteGoal(goal.id); }}
-                                className="text-xs px-2 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded"
-                              >
-                                Complete
-                              </button>
-                            )}
-                            <ChevronRight size={16} className={`text-white/30 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                          </div>
-                        </div>
-                        <div className="w-full h-1 bg-white/10 rounded-full mt-2">
-                          <div className="skill-progress-fill" style={{ width: `${goal.progress || 0}%` }} />
-                        </div>
-                        {isExpanded && milestones.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-white/10 space-y-1.5">
-                            {milestones.map((m, idx) => {
-                              const mid = m.id || idx;
-                              return (
-                                <button
-                                  key={mid}
-                                  onClick={() => handleToggleMilestone(goal.id, mid)}
-                                  disabled={togglingMilestone === mid}
-                                  className="w-full flex items-center gap-2 p-1.5 rounded hover:bg-white/5 transition text-left"
-                                >
-                                  {m.completed ? <CheckCircle size={16} className="text-green-400 flex-shrink-0" /> : <Circle size={16} className="text-white/30 flex-shrink-0" />}
-                                  <span className={`text-sm ${m.completed ? 'text-white/40 line-through' : 'text-white/80'}`}>
-                                    {m.title || m.name || `Milestone ${idx + 1}`}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Achievements */}
-            <div className="card mb-6">
-              <h2 className="skills-section-title">
-                <Award size={20} className="text-yellow-400" /> Achievements
-                <span className="ml-auto text-xs font-normal text-white/40">
-                  {achievements.filter(b => b.earned).length} / {achievements.length}
-                </span>
-              </h2>
-              <div className="achievements-grid">
-                {achievements.map(badge => (
-                  <div key={badge.id} className={`badge-card ${badge.earned ? 'earned' : 'locked'}`}>
-                    <div className="badge-icon">{badge.icon || '🏅'}</div>
-                    <p className="badge-name">{badge.name}</p>
-                    <p className="badge-desc">{badge.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Rankings */}
-            <div className="card">
-              <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
-                <h2 className="skills-section-title mb-0">
-                  <BarChart3 size={20} className="text-purple-400" /> My Ranking
-                </h2>
-                <Link to="/leaderboard" className="text-sm text-brand-400 hover:underline">View Rankings →</Link>
-              </div>
-              <div className="rankings-grid">
-                <div className="rank-card">
-                  <div className="rank-label">Weekly</div>
-                  <div className="rank-value">#{rankings?.weekly?.rank || '—'}</div>
-                </div>
-                <div className="rank-card">
-                  <div className="rank-label">School</div>
-                  <div className="rank-value">#{rankings?.school?.rank || '—'}</div>
-                </div>
-                <div className="rank-card">
-                  <div className="rank-label">Challenge</div>
-                  <div className="rank-value">#{rankings?.challenge?.rank || '—'}</div>
-                </div>
-                <div className="rank-card">
-                  <div className="rank-label">Overall</div>
-                  <div className="rank-value">#{rankings?.overall?.rank || '—'}</div>
+                  <button
+                    onClick={() => setSelectedActivity(currentActivities.followup)}
+                    disabled={!hasCompletedPractice}
+                    className={`shrink-0 px-4 py-2 border rounded-xl text-sm font-medium transition-colors ${
+                      hasCompletedPractice 
+                        ? 'bg-[#1e1e28] border-[var(--accent)] text-white hover:bg-[#2a2a35]' 
+                        : 'bg-transparent border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
+                    }`}
+                  >
+                    {hasCompletedFollowup ? 'Practice Again' : 'Try Follow-up'}
+                  </button>
                 </div>
               </div>
-            </div>
-          </>
-        )}
-
-        {/* Modals */}
-        {showGoalModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && setShowGoalModal(false)}>
-            <div className="w-full max-w-md card p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Create New Goal</h2>
-                <button onClick={() => setShowGoalModal(false)} className="text-white/40 hover:text-white"><X size={20} /></button>
-              </div>
-              <form onSubmit={handleCreateGoal} className="space-y-3">
-                <div>
-                  <label className="text-sm text-white/60">Title *</label>
-                  <input type="text" className="input w-full" placeholder="e.g., Learn React" value={goalForm.title} onChange={(e) => setGoalForm({...goalForm, title: e.target.value})} required />
-                </div>
-                <div>
-                  <label className="text-sm text-white/60">Description</label>
-                  <textarea className="input w-full resize-none" rows="2" value={goalForm.description} onChange={(e) => setGoalForm({...goalForm, description: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-sm text-white/60">Category</label>
-                  <select className="input w-full" value={goalForm.category} onChange={(e) => setGoalForm({...goalForm, category: e.target.value})}>
-                    <option value="academic">Academic</option>
-                    <option value="skill">Skill</option>
-                    <option value="personal">Personal</option>
-                    <option value="career">Career</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm text-white/60">Target Date (optional)</label>
-                  <input type="date" className="input w-full" value={goalForm.target_date} onChange={(e) => setGoalForm({...goalForm, target_date: e.target.value})} />
-                </div>
-                <button type="submit" disabled={submittingGoal} className="btn-primary w-full">
-                  {submittingGoal ? 'Creating...' : 'Create Goal'}
-                </button>
-              </form>
-            </div>
+            )}
           </div>
         )}
 
-        {showSkillModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && setShowSkillModal(false)}>
-            <div className="w-full max-w-md card p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Add New Skill</h2>
-                <button onClick={() => setShowSkillModal(false)} className="text-white/40 hover:text-white"><X size={20} /></button>
-              </div>
-              <form onSubmit={handleCreateSkill} className="space-y-3">
-                <div>
-                  <label className="text-sm text-white/60">Skill Name *</label>
-                  <input type="text" className="input w-full" placeholder="e.g., Python" value={skillName} onChange={(e) => setSkillName(e.target.value)} required />
-                </div>
-                <div>
-                  <label className="text-sm text-white/60">Category (optional)</label>
-                  <input type="text" className="input w-full" placeholder="e.g., Programming" value={skillCategory} onChange={(e) => setSkillCategory(e.target.value)} />
-                </div>
-                <button type="submit" disabled={submittingSkill} className="btn-primary w-full">
-                  {submittingSkill ? 'Adding...' : 'Add Skill'}
-                </button>
-              </form>
+        {/* FEATURE 2: My Work (Evidence) */}
+        <div className="mt-10 border-t border-[var(--border)] pt-8">
+          <h2 className="text-lg font-bold text-[var(--text-primary)] mb-4">My Work</h2>
+          
+          {isNewLearner ? (
+            <div className="text-center py-12 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl border-dashed">
+              <Briefcase size={32} className="text-[var(--text-muted)] mx-auto mb-3 opacity-50" />
+              <h3 className="text-[var(--text-primary)] font-medium">No evidence saved yet</h3>
+              <p className="text-[var(--text-secondary)] text-sm mt-1 max-w-sm mx-auto">
+                Complete one of the activities above to start building proof of what you can do.
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {submissions.map(sub => (
+                <div key={sub.id} className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/80 capitalize">
+                        {sub.skill_name}
+                      </span>
+                      <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1">
+                        <ContextIcon context={sub.context} /> {ContextLabel({ context: sub.context })}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1">
+                      <Clock size={12} /> {new Date(sub.saved_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <h4 className="font-semibold text-[var(--text-primary)] text-sm mb-2">{sub.title}</h4>
+                  <div className="bg-[#121218] rounded-lg p-3 text-[13px] text-[var(--text-secondary)] line-clamp-3 leading-relaxed">
+                    "{sub.response_text}"
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Modal */}
+        {selectedActivity && (
+          <ActivityModal
+            activity={selectedActivity}
+            onClose={() => setSelectedActivity(null)}
+            onSubmit={handleActivitySubmit}
+          />
         )}
+
       </div>
     </ErrorBoundary>
   );
