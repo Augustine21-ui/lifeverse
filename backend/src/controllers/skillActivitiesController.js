@@ -1,4 +1,4 @@
-import pool from '../config/db.js'; // <-- Change this path
+import db from '../config/db.js';
 
 export async function getSkillsDashboard(req, res, next) {
   try {
