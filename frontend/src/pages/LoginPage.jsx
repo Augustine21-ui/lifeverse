@@ -1,4 +1,4 @@
-// frontend/src/pages/LoginPage.jsx
+// frontend/src/pages/LoginPage.js
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
