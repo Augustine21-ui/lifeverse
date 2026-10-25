@@ -204,8 +204,7 @@ export default function LoginPage() {
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
                 <input
                   type="email"
-                  className="input pl-10"
-                  placeholder="you@example.com"
+                  className="input pl-10
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -219,8 +218,7 @@ export default function LoginPage() {
                 <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className="input pl-10 pr-10"
-                  placeholder="••••••"
+                  className="input pl-10 pr-10
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
