@@ -1,6 +1,8 @@
-﻿import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import AppLayout from "./components/layout/AppLayout";
+
+// Pages
 import ProfilePage from './pages/ProfilePage';
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -36,7 +38,6 @@ import SkillsPage from './pages/SkillsPage';
 import AchievementsPage from './pages/AchievementsPage';
 import SkillDetailPage from "./pages/SkillDetailPage";
 
-
 // ===== NotFound Component =====
 const NotFound = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
@@ -59,82 +60,78 @@ const PublicRoute = ({ children }) => {
   return user ? <Navigate to="/dashboard" replace /> : children;
 };
 
-function RoleBasedRedirect() {
-  const { user } = useAuth();
-  if (user?.role === 'admin') return <Navigate to="/admin" replace />;
-  if (user?.role === 'parent') return <Navigate to="/parent-dashboard" replace />;
-  if (user?.role === 'teacher') return <Navigate to="/teacher-dashboard" replace />;
-  if (user?.role === 'institution_admin') return <Navigate to="/institution-dashboard" replace />;
-  return <Navigate to="/dashboard" replace />;
-}
-
 function RequireRole({ allowedRoles, children }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
+  
   if (!allowedRoles.includes(user.role)) {
-    return <Navigate to={user.role === 'parent' ? '/parent-dashboard' : user.role === 'teacher' ? '/teacher-dashboard' : '/dashboard'} replace />;
+    if (user.role === 'admin') return <Navigate to="/admin" replace />;
+    if (user.role === 'parent') return <Navigate to="/parent-dashboard" replace />;
+    if (user.role === 'teacher') return <Navigate to="/teacher-dashboard" replace />;
+    if (user.role === 'institution_admin') return <Navigate to="/institution-dashboard" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return children;
 }
 
 export default function App() {
-  console.log('🔥 App is rendering');
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/LandingPage" element={<LandingPage />} />
+      {/* 1. PUBLIC ROUTES (No Auth Required) */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
       <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
 
-      {/* Protected layout */}
+      {/* 2. PROTECTED ROUTES (Require Login) */}
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-        <Route index element={<RoleBasedRedirect />} />
+        
+        {/* Dashboards (Role-Based) */}
         <Route path="dashboard" element={
           <RequireRole allowedRoles={['student']}>
             <DashboardPage />
           </RequireRole>
         } />
+        <Route path="admin" element={<RequireRole allowedRoles={['admin']}><AdminDashboard /></RequireRole>} />
+        <Route path="parent-dashboard" element={<RequireRole allowedRoles={['parent']}><ParentDashboard /></RequireRole>} />
+        <Route path="teacher-dashboard" element={<RequireRole allowedRoles={['teacher']}><TeacherDashboard /></RequireRole>} />
+        <Route path="institution-dashboard" element={<RequireRole allowedRoles={['institution_admin']}><InstitutionDashboard /></RequireRole>} />
+
+        {/* Student / General Features */}
+        <Route path="skills" element={<SkillsPage />} />
+        <Route path="skill/:subjectId" element={<SkillDetailPage />} />
+        <Route path="achievements" element={<AchievementsPage />} />
         <Route path="goals" element={<GoalsPage />} />
-        <Route path="studysphere" element={<StudySpherePage />} />
+        <Route path="orbit" element={<OrbitPage />} />
         <Route path="challenges" element={<ChallengesPage />} />
         <Route path="opportunities" element={<OpportunitiesPage />} />
+        <Route path="leaderboard" element={<LeaderboardPage />} />
+        <Route path="ai-tutor" element={<AiTutorPage />} />
+        
+        {/* Academic / Study */}
+        <Route path="studysphere" element={<AcademicHubPage />} />
+        <Route path="studysphere/subject/:subjectId" element={<SubjectDetailPage />} />
+        <Route path="academic-onboarding" element={<AcademicOnboarding />} />
+        <Route path="study-groups" element={<StudyGroupsPage />} />
+        <Route path="study-groups/:id" element={<StudyGroupDetail />} />
+        
+        {/* Social / Community */}
+        <Route path="momentum" element={<MomentumPage />} />
+        <Route path="momentum/community/:id" element={<CommunityDetailPage />} />
         <Route path="communities" element={<CommunitiesPage />} />
         <Route path="communities/:id" element={<CommunityDetailPage />} />
-        <Route path="leaderboard" element={<LeaderboardPage />} />
-        <Route path="/study-groups" element={<StudyGroupsPage />} />
-        <Route path="ai-tutor" element={<AiTutorPage />} />
-        <Route path="study-groups/:id" element={<StudyGroupDetail />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="bridge" element={<BridgePage />} />
-        <Route path="momentum" element={<MomentumPage />} />
-        <Route path="/subscription-required" element={<SubscriptionRequired />} />
-        <Route path="parent-dashboard" element={<ParentDashboard />} />
-        <Route path="teacher-dashboard" element={<TeacherDashboard />} />
-        <Route path="/orbit" element={<ProtectedRoute><OrbitPage /></ProtectedRoute>} />
-        <Route path="/settings/subscription" element={<SubscriptionPage />} />
         <Route path="community-chat/:id" element={<CommunityChatPage />} />
-        <Route path="/studysphere" element={<AcademicHubPage />} />
-        <Route path="/studysphere/subject/:subjectId" element={<SubjectDetailPage />} />
-        <Route path="/momentum" element={<MomentumPage />} />
-        <Route path="/momentum/community/:id" element={<CommunityDetailPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="institution-dashboard" element={<InstitutionDashboard />} />
-        <Route path="skills" element={<SkillsPage />} />
-        <Route path="skills" element={<SkillsPage />} />
-        <Route path="skill/:subjectId" element={<SkillDetailPage />} />   {/* 👈 ADD THIS */}
-        <Route path="/academic-onboarding" element={<AcademicOnboarding />} />
-        <Route path="/achievements" element={<AchievementsPage />} />
-        <Route path="admin" element={
-          <RequireRole allowedRoles={['admin']}>
-            <AdminDashboard />
-          </RequireRole>
-        } />
+        
+        {/* Account / Settings */}
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="bridge" element={<BridgePage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="settings/subscription" element={<SubscriptionPage />} />
+        <Route path="subscription-required" element={<SubscriptionRequired />} />
       </Route>
 
-      {/* ✅ Catch‑all 404 – must be last */}
+      {/* 3. CATCH-ALL 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
