@@ -1,4 +1,3 @@
-// Use the exact import path and variable name your project uses
 import db from '../config/db.js';
 
 export async function getSkillsDashboard(req, res, next) {
@@ -13,6 +12,16 @@ export async function getSkillsDashboard(req, res, next) {
        WHERE us.user_id = $1`,
       [userId]
     );
+
+    // ✅ FIX: If a new user has no skills, return clean empty arrays immediately
+    // This prevents the `ANY($1::int[])` query from running on an empty array.
+    if (skillsRes.rows.length === 0) {
+      return res.json({ 
+        skills: [], 
+        activities: {}, 
+        submissions: [] 
+      });
+    }
 
     // 2. Get all activities for these skills
     const actRes = await db.query(
@@ -36,11 +45,11 @@ export async function getSkillsDashboard(req, res, next) {
     actRes.rows.forEach(act => {
       const skill = skillsRes.rows.find(s => s.id === act.skill_id);
       if (!skill) return;
-      
+
       if (!activities[skill.name]) {
         activities[skill.name] = { practice: {}, followup: null };
       }
-      
+
       if (act.activity_kind === 'followup') {
         activities[skill.name].followup = act;
       } else {
@@ -54,6 +63,7 @@ export async function getSkillsDashboard(req, res, next) {
       submissions: subRes.rows
     });
   } catch (err) {
+    console.error("Error in getSkillsDashboard:", err);
     next(err);
   }
 }
@@ -75,6 +85,7 @@ export async function submitEvidence(req, res, next) {
 
     res.status(201).json({ submission: insert.rows[0] });
   } catch (err) {
+    console.error("Error in submitEvidence:", err);
     next(err);
   }
 }
