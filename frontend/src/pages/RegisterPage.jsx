@@ -1,10 +1,11 @@
+// frontend/src/pages/RegisterPage.jsx
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, Mail, Lock, User, AlertCircle, Building, GraduationCap, Users, Eye, EyeOff, Plus, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
-import { api } from '../services/api'; // ← needed for verify/resend
+import { api } from '../services/api';
 
 // Kenyan curriculum education levels
 const educationLevels = [
@@ -77,6 +78,14 @@ export default function RegisterPage() {
   const [newSchool, setNewSchool] = useState('');
 
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+
+  // ✅ CUSTOM HANDLER: For manual date typing
+  const handleDateChange = (e) => {
+    let val = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    if (val.length > 4) val = `${val.slice(0, 4)}-${val.slice(4)}`;
+    if (val.length > 7) val = `${val.slice(0, 7)}-${val.slice(7)}`;
+    setForm(prev => ({ ...prev, dateOfBirth: val }));
+  };
 
   const handleRoleChange = (e) => {
     const role = e.target.value;
@@ -172,13 +181,11 @@ export default function RegisterPage() {
 
     try {
       const data = await register(payload);
-      // If the backend indicates verification is required
       if (data.requiresVerification) {
         setRegisteredEmail(data.email);
         setShowVerification(true);
         showToast('Verification code sent to your email.', 'success');
       } else {
-        // Fallback (should not happen with new flow)
         showToast('Account created! Welcome to KUA 🎉', 'success');
         navigate('/dashboard');
       }
@@ -200,7 +207,6 @@ export default function RegisterPage() {
     setError('');
     try {
       const data = await api.verifyEmail(registeredEmail, verificationCode);
-      // data contains token and user
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       showToast('Email verified! Welcome to KUA 🎉', 'success');
@@ -354,22 +360,24 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Date of Birth */}
+            {/* ✅ UPDATED: Manual Date of Birth Input */}
             <div>
               <label className="label" style={{ color: 'var(--text-secondary)' }}>Date of Birth</label>
               <input
-                type="date"
+                type="text"
                 className="input"
                 style={{
                   background: 'var(--bg-secondary)',
                   color: 'var(--text-primary)',
                   borderColor: 'var(--border)'
                 }}
+                placeholder="YYYY-MM-DD"
+                maxLength={10}
                 value={form.dateOfBirth}
-                onChange={set('dateOfBirth')}
+                onChange={handleDateChange}
                 required
-                max={new Date().toISOString().split('T')[0]}
               />
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Format: YYYY-MM-DD (e.g., 2010-05-20)</p>
             </div>
 
             <div>
@@ -535,4 +543,90 @@ export default function RegisterPage() {
                     type="text"
                     className="input flex-1"
                     style={{ 
-                      background: 'var(--bg-sec
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      borderColor: 'var(--border)'
+                    }}
+                    placeholder="e.g., Mathematics"
+                    value={newCourse}
+                    onChange={(e) => setNewCourse(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCourse())}
+                  />
+                  <button type="button" onClick={handleAddCourse} className="btn-primary" style={{ padding: '0 16px' }}>
+                    <Plus size={18} />
+                  </button>
+                </div>
+                {form.teacherCourses.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {form.teacherCourses.map(c => (
+                      <span key={c} className="badge bg-brand-500/20 text-brand-300 flex items-center gap-1">
+                        {c}
+                        <button type="button" onClick={() => handleRemoveCourse(c)} className="hover:text-red-400"><X size={12} /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {form.role === 'parent' && (
+              <div>
+                <label className="label" style={{ color: 'var(--text-secondary)' }}>Schools your child attends *</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    className="input flex-1"
+                    style={{ 
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      borderColor: 'var(--border)'
+                    }}
+                    placeholder="e.g., Nairobi Academy"
+                    value={newSchool}
+                    onChange={(e) => setNewSchool(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSchool())}
+                  />
+                  <button type="button" onClick={handleAddSchool} className="btn-primary" style={{ padding: '0 16px' }}>
+                    <Plus size={18} />
+                  </button>
+                </div>
+                {form.parentSchools.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {form.parentSchools.map(s => (
+                      <span key={s} className="badge bg-brand-500/20 text-brand-300 flex items-center gap-1">
+                        {s}
+                        <button type="button" onClick={() => handleRemoveSchool(s)} className="hover:text-red-400"><X size={12} /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading} className="btn-primary w-full mt-2" style={{ padding: '12px' }}>
+              {loading ? 'Creating account...' : 'Create account'}
+            </button>
+          </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t" style={{ borderColor: 'var(--border)' }} />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-2" style={{ background: 'var(--bg-card)', color: 'var(--text-muted)' }}>or continue with</span>
+            </div>
+          </div>
+
+          <GoogleSignInButton mode="register" />
+
+          <p className="text-center mt-6 text-sm" style={{ color: 'var(--text-muted)' }}>
+            Already have an account?{' '}
+            <Link to="/login" style={{ color: 'var(--accent)' }} className="font-medium">
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
