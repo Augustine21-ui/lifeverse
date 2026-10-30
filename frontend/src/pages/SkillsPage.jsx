@@ -6,7 +6,7 @@ import { useToast } from '../context/ToastContext';
 import ErrorBoundary from '../components/ErrorBoundary';
 import {
   Home, BookOpen, Users, ArrowRight, X, CheckCircle, 
-  Sparkles, Briefcase, ChevronDown, Award, Compass, Plus
+  Sparkles, Briefcase, Compass, Plus, ArrowLeft
 } from 'lucide-react';
 
 // High-quality placeholder images for the contexts
@@ -15,6 +15,16 @@ const CONTEXT_IMAGES = {
   school: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&q=80&w=400&h=250',
   community: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&q=80&w=400&h=250',
 };
+
+// Fallback generator if DB is empty
+const getFallbackActivities = (skillName) => ({
+  practice: {
+    everyday: { id: 'f1', context: 'everyday', title: 'Practical Application', prompt: `How would you apply ${skillName} in your daily life? Describe a scenario and your solution.` },
+    school: { id: 'f2', context: 'school', title: 'Classroom Scenario', prompt: `How would you use ${skillName} to solve a problem at school or in your studies?` },
+    community: { id: 'f3', context: 'community', title: 'Community Impact', prompt: `How could ${skillName} be used to improve something in your local community?` },
+  },
+  followup: { id: 'f4', context: 'school', title: 'Transfer Challenge', prompt: `Now try to apply ${skillName} in a completely different subject or situation.` }
+});
 
 // ─── Activity Modal (Mimics Mobile Flow) ──────────────────────
 function ActivityModal({ activity, onClose, onSubmit }) {
@@ -33,76 +43,66 @@ function ActivityModal({ activity, onClose, onSubmit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-white rounded-3xl flex flex-col overflow-hidden shadow-2xl h-[85vh] sm:h-auto sm:max-h-[90vh]">
+      <div className="w-full max-w-lg bg-[var(--bg-card)] border border-[var(--border)] rounded-3xl flex flex-col overflow-hidden shadow-2xl h-[85vh] sm:h-auto sm:max-h-[90vh]">
         
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#4a2c9e] to-[#6b46c1] p-5 text-white flex items-center justify-between shrink-0">
+        <div className="bg-[#1a1a24] p-5 border-b border-[var(--border)] text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <button onClick={step === 1 ? onClose : () => setStep(1)} className="p-1 hover:bg-white/20 rounded-full transition">
-              <ArrowRight size={20} className="rotate-180" />
+            <button onClick={step === 1 ? onClose : () => setStep(1)} className="p-1.5 hover:bg-white/10 rounded-full transition text-white/70">
+              <ArrowLeft size={20} />
             </button>
             <div>
-              <p className="text-xs font-medium text-white/80 uppercase tracking-wider">
+              <p className="text-[11px] font-semibold text-[var(--accent)] uppercase tracking-wider mb-0.5">
                 {activity.context === 'everyday' ? 'Everyday Life' : activity.context}
               </p>
-              <h2 className="text-lg font-bold">{activity.title}</h2>
+              <h2 className="text-lg font-bold leading-tight">{activity.title}</h2>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition">
+          <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-full transition text-white/70">
             <X size={20} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 flex-1 overflow-y-auto bg-gray-50 flex flex-col gap-5">
+        <div className="p-6 flex-1 overflow-y-auto bg-[var(--bg-primary)] flex flex-col gap-5">
           
           {step === 1 ? (
             <>
-              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-2">The Challenge</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">{activity.prompt}</p>
+              <div className="bg-[var(--bg-card)] p-5 rounded-2xl border border-[var(--border)]">
+                <h3 className="font-semibold text-[var(--text-primary)] mb-2">The Challenge</h3>
+                <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{activity.prompt}</p>
               </div>
               
-              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+              <div className="bg-[var(--bg-card)] p-5 rounded-2xl border border-[var(--border)] space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Initial serves</label>
-                  <input type="number" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-900" placeholder="4" />
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Initial thought / input</label>
+                  <input type="text" className="w-full bg-[#121218] border border-[var(--border)] rounded-lg p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition-colors" placeholder="e.g., 4" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">New serves</label>
-                  <input type="number" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-900" placeholder="8" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Orig. flour</label>
-                    <input type="number" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-900" placeholder="2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Final flour</label>
-                    <input type="number" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-900" placeholder="4" />
-                  </div>
+                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Final calculation</label>
+                  <input type="text" className="w-full bg-[#121218] border border-[var(--border)] rounded-lg p-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition-colors" placeholder="e.g., 8" />
                 </div>
               </div>
             </>
           ) : (
             <>
-              <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                <h3 className="font-semibold text-gray-900 mb-2">Show what you did</h3>
-                <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
-                  <span className="w-4 h-4 rounded-full border-2 border-purple-600 flex items-center justify-center">
-                    <span className="w-2 h-2 rounded-full bg-purple-600"></span>
+              <div className="bg-[var(--bg-card)] p-5 rounded-2xl border border-[var(--border)]">
+                <h3 className="font-semibold text-[var(--text-primary)] mb-3">Show what you did</h3>
+                <div className="flex items-center gap-2 mb-4 text-sm text-[var(--text-secondary)]">
+                  <span className="w-4 h-4 rounded-full border-2 border-[var(--accent)] flex items-center justify-center">
+                    <span className="w-2 h-2 rounded-full bg-[var(--accent)]"></span>
                   </span>
                   Your solution explanation
                 </div>
                 <textarea
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-900 min-h-[120px] resize-none focus:ring-2 focus:ring-purple-500 outline-none"
-                  placeholder="How did you use fractions to solve this problem?"
+                  className="w-full bg-[#121218] border border-[var(--border)] rounded-xl p-4 text-sm text-[var(--text-primary)] min-h-[120px] resize-none focus:border-[var(--accent)] outline-none"
+                  placeholder="How did you solve this problem?"
                   value={response}
                   onChange={(e) => setResponse(e.target.value)}
                 />
               </div>
               
-              <div className="border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-gray-500 bg-gray-50 cursor-pointer hover:bg-gray-100 transition">
+              <div className="border-2 border-dashed border-[var(--border)] rounded-2xl p-6 flex flex-col items-center justify-center text-[var(--text-muted)] bg-[var(--bg-card)] cursor-pointer hover:bg-white/5 transition">
                 <Plus size={24} className="mb-2" />
                 <span className="text-sm font-medium">Add photo of calculation</span>
               </div>
@@ -111,11 +111,11 @@ function ActivityModal({ activity, onClose, onSubmit }) {
         </div>
 
         {/* Footer */}
-        <div className="p-5 bg-white border-t border-gray-100 shrink-0">
+        <div className="p-5 bg-[#1a1a24] border-t border-[var(--border)] shrink-0">
           <button
             onClick={step === 1 ? handleNext : handleSubmit}
             disabled={step === 2 && (!response.trim() || submitting)}
-            className="w-full py-3.5 bg-[#4a2c9e] text-white font-semibold rounded-xl hover:bg-[#3a1c7e] transition-colors disabled:opacity-50"
+            className="w-full py-3.5 bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-50"
           >
             {step === 1 ? 'Submit' : submitting ? 'Saving...' : 'Save to My Evidence'}
           </button>
@@ -127,7 +127,6 @@ function ActivityModal({ activity, onClose, onSubmit }) {
 
 // ─── Main Component ─────────────────────────────────────────────
 export default function SkillsPage() {
-  const navigate = useNavigate();
   const { showToast } = useToast();
 
   const [skills, setSkills] = useState([]);
@@ -157,7 +156,13 @@ export default function SkillsPage() {
 
   const handleActivitySubmit = async (activity, responseText) => {
     try {
-      await api.submitSkillEvidence(activity.id, responseText);
+      // If it's a fallback activity (ID is a string like 'f1'), skip API
+      if (typeof activity.id !== 'number') {
+        await new Promise(r => setTimeout(r, 600)); // Simulate API
+      } else {
+        await api.submitSkillEvidence(activity.id, responseText);
+      }
+      
       const newSubmission = {
         id: Date.now(),
         skill_name: activeSkill.name,
@@ -175,43 +180,47 @@ export default function SkillsPage() {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-white">Loading...</div>;
+    return <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center text-white">Loading...</div>;
   }
 
-  const currentActivities = activeSkill ? activities[activeSkill.name] : null;
+  // Determine activities: use DB if available, else use fallback so UI never breaks
+  const currentActivities = activeSkill 
+    ? (activities[activeSkill.name] || getFallbackActivities(activeSkill.name))
+    : null;
+
   const recentSubmission = submissions[0];
   const hasCompletedPractice = submissions.some(s => s.skill_name === activeSkill?.name);
 
   return (
     <ErrorBoundary title="Skills page failed to load">
-      <div className="min-h-screen bg-[#f8f9fc] pb-24 font-sans">
+      <div className="min-h-screen bg-[var(--bg-primary)] pb-24 font-sans text-[var(--text-primary)]">
         
         {/* ─── HERO SECTION ─────────────────────────────────────── */}
-        <div className="bg-gradient-to-br from-[#1e1b4b] via-[#4c1d95] to-[#312e81] pt-20 pb-32 px-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/20 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
+        <div className="bg-gradient-to-b from-[#2e1065] to-[var(--bg-primary)] pt-16 pb-8 px-4 sm:px-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 blur-3xl rounded-full translate-x-1/3 -translate-y-1/3" />
           <div className="max-w-5xl mx-auto relative z-10">
-            <h1 className="text-3xl md:text-5xl font-bold text-white tracking-tight mb-4">
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-3">
               Skills in Real Life
             </h1>
-            <p className="text-lg text-purple-200 max-w-xl">
+            <p className="text-base md:text-lg text-[var(--text-secondary)] max-w-xl">
               Discover what you can do. Put your skills into action.
             </p>
           </div>
         </div>
 
         {/* ─── MAIN CONTENT ─────────────────────────────────────── */}
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-20 relative z-20 space-y-6">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 space-y-8">
           
           {/* Skill Selector Tabs */}
-          <div className="flex overflow-x-auto gap-3 pb-2 hide-scrollbar">
+          <div className="flex overflow-x-auto gap-3 pb-2" style={{ scrollbarWidth: 'none' }}>
             {skills.map(skill => (
               <button
                 key={skill.id}
                 onClick={() => setActiveSkill(skill)}
-                className={`px-5 py-2.5 rounded-full font-semibold text-sm transition-all whitespace-nowrap shadow-sm ${
+                className={`px-5 py-2.5 rounded-full font-semibold text-sm transition-all whitespace-nowrap border ${
                   activeSkill?.id === skill.id 
-                    ? 'bg-[#4a2c9e] text-white shadow-md scale-105' 
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                    ? 'bg-[var(--bg-card)] text-[var(--accent)] border-[var(--accent)] shadow-[0_0_15px_rgba(139,92,246,0.15)]' 
+                    : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--text-muted)]'
                 }`}
               >
                 {skill.name}
@@ -221,17 +230,17 @@ export default function SkillsPage() {
 
           {/* ─── ONE SKILL, THREE REAL-LIFE CHOICES ─────────────── */}
           {activeSkill && currentActivities && (
-            <div className="bg-white rounded-[2rem] p-6 sm:p-10 shadow-xl shadow-purple-900/5 border border-gray-100">
-              <div className="text-center mb-10 relative">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">One Skill, Three Real-Life Choices</h2>
-                <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-[#eef2ff] text-[#4a2c9e] font-semibold border border-[#c7d2fe] relative z-10">
-                  <Award size={18} /> {activeSkill.name}
+            <div className="bg-[var(--bg-card)] rounded-[2rem] p-5 sm:p-8 border border-[var(--border)] shadow-lg">
+              <div className="text-center mb-8 relative">
+                <h2 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] mb-3">One Skill, Three Real-Life Choices</h2>
+                <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-[rgba(139,92,246,0.1)] text-[var(--accent)] font-semibold border border-[rgba(139,92,246,0.3)] relative z-10">
+                  <Sparkles size={16} /> {activeSkill.name}
                 </div>
                 {/* Decorative connecting lines (Desktop) */}
-                <div className="hidden md:block absolute top-[70px] left-1/4 right-1/4 h-px bg-gray-200" />
+                <div className="hidden md:block absolute top-[60px] left-1/4 right-1/4 h-px bg-[var(--border)]" />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 relative">
                 {['everyday', 'school', 'community'].map((ctx) => {
                   const activity = currentActivities.practice?.[ctx];
                   if (!activity) return null;
@@ -239,28 +248,29 @@ export default function SkillsPage() {
                   return (
                     <div 
                       key={ctx}
-                      className="bg-white rounded-2xl border-2 border-gray-100 overflow-hidden hover:border-[#4a2c9e] transition-all group cursor-pointer flex flex-col relative"
+                      className="bg-[#121218] rounded-2xl border border-[var(--border)] overflow-hidden hover:border-[var(--accent)] transition-all group cursor-pointer flex flex-col relative"
                       onClick={() => setSelectedActivity(activity)}
                     >
-                      <div className="h-40 overflow-hidden relative">
-                        <img src={CONTEXT_IMAGES[ctx]} alt={ctx} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-[#4a2c9e] flex items-center gap-1">
-                          <Compass size={12} /> select
+                      <div className="h-32 sm:h-40 overflow-hidden relative">
+                        <img src={CONTEXT_IMAGES[ctx]} alt={ctx} className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#121218] to-transparent opacity-80" />
+                        <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-white flex items-center gap-1 border border-white/10">
+                          <Compass size={10} /> select
                         </div>
                       </div>
-                      <div className="p-5 flex-1 flex flex-col text-center">
-                        <h3 className="font-bold text-lg text-gray-900 mb-1 capitalize">
+                      <div className="p-4 flex-1 flex flex-col text-center relative z-10 -mt-4">
+                        <h3 className="font-bold text-lg text-white mb-1 capitalize">
                           {ctx === 'everyday' ? 'Everyday Life' : ctx}
                         </h3>
-                        <p className="text-sm text-gray-500 mb-4 flex-1">explore this scenario</p>
+                        <p className="text-xs text-[var(--text-secondary)] mb-4 flex-1">explore this scenario</p>
                         
                         {submissions.some(s => s.title === activity.title) ? (
-                          <div className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-green-600 bg-green-50 py-2 rounded-lg">
-                            <CheckCircle size={16} /> Completed
+                          <div className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-green-400 bg-green-400/10 py-2 rounded-lg border border-green-400/20">
+                            <CheckCircle size={14} /> Completed
                           </div>
                         ) : (
-                          <div className="inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-[#4a2c9e] bg-purple-50 py-2 rounded-lg group-hover:bg-[#4a2c9e] group-hover:text-white transition-colors">
-                            Start Activity <ArrowRight size={16} />
+                          <div className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-[var(--accent)] bg-[rgba(139,92,246,0.1)] py-2 rounded-lg group-hover:bg-[var(--accent)] group-hover:text-white transition-colors">
+                            Start Activity <ArrowRight size={14} />
                           </div>
                         )}
                       </div>
@@ -275,26 +285,26 @@ export default function SkillsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
             
             {/* My Evidence */}
-            <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-lg border border-gray-100 flex flex-col">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">My Evidence</h2>
+            <div className="bg-[var(--bg-card)] rounded-[2rem] p-6 sm:p-8 border border-[var(--border)] shadow-lg flex flex-col min-h-[220px]">
+              <h2 className="text-lg font-bold text-[var(--text-primary)] mb-5">My Evidence</h2>
               {recentSubmission ? (
                 <div className="flex gap-4 items-start">
-                  <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center shrink-0">
-                     <Briefcase size={28} className="text-orange-500" />
+                  <div className="w-14 h-14 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
+                     <Briefcase size={24} className="text-orange-400" />
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900 text-sm leading-relaxed mb-1">
+                  <div className="flex-1">
+                    <p className="font-medium text-[var(--text-secondary)] text-sm leading-relaxed mb-2 line-clamp-3">
                       "{recentSubmission.response_text}"
                     </p>
-                    <button className="text-[#4a2c9e] text-sm font-semibold hover:underline">
+                    <button className="text-[var(--accent)] text-xs font-semibold hover:underline">
                       View full reflection & evidence
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-center py-6 text-gray-400">
-                  <Briefcase size={32} className="mb-3 opacity-50" />
-                  <p className="text-sm">No evidence saved yet.</p>
+                <div className="flex-1 flex flex-col items-center justify-center text-center text-[var(--text-muted)]">
+                  <Briefcase size={32} className="mb-3 opacity-30" />
+                  <p className="text-sm font-medium text-white/70">No evidence saved yet.</p>
                   <p className="text-xs mt-1">Select a context above to start.</p>
                 </div>
               )}
@@ -302,11 +312,13 @@ export default function SkillsPage() {
 
             {/* Try It Somewhere New */}
             {currentActivities?.followup && (
-              <div className={`rounded-[2rem] p-6 sm:p-8 shadow-lg border transition-all flex flex-col ${
-                hasCompletedPractice ? 'bg-gradient-to-br from-[#f5f3ff] to-white border-[#ddd6fe]' : 'bg-gray-50 border-gray-200 opacity-70'
+              <div className={`rounded-[2rem] p-6 sm:p-8 border transition-all flex flex-col min-h-[220px] ${
+                hasCompletedPractice 
+                  ? 'bg-gradient-to-br from-[rgba(139,92,246,0.1)] to-[var(--bg-card)] border-[var(--accent)] shadow-[0_0_30px_rgba(139,92,246,0.1)]' 
+                  : 'bg-[var(--bg-card)] border-[var(--border)] opacity-70'
               }`}>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Try It Somewhere New</h2>
-                <p className="text-sm text-gray-600 mb-6 flex-1">
+                <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Try It Somewhere New</h2>
+                <p className="text-sm text-[var(--text-secondary)] mb-5 flex-1 leading-relaxed">
                   {hasCompletedPractice 
                     ? `New Challenge: ${currentActivities.followup.title}`
                     : 'Complete an activity above to unlock a new challenge.'}
@@ -314,10 +326,10 @@ export default function SkillsPage() {
                 <button
                   onClick={() => setSelectedActivity(currentActivities.followup)}
                   disabled={!hasCompletedPractice}
-                  className={`w-full py-3 rounded-xl font-semibold transition-colors ${
+                  className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors ${
                     hasCompletedPractice 
-                      ? 'bg-[#4a2c9e] text-white hover:bg-[#3a1c7e]' 
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      ? 'bg-[var(--accent)] text-white hover:opacity-90' 
+                      : 'bg-white/5 text-[var(--text-muted)] cursor-not-allowed'
                   }`}
                 >
                   {submissions.some(s => s.title === currentActivities?.followup?.title) 
