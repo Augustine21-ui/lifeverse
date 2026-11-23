@@ -12,7 +12,7 @@ import { useToast } from '../context/ToastContext';
 import { useMood } from '../context/MoodContext';
 import FocusSession from '../components/FocusSession';
 import HolographicAvatar from '../components/HolographicAvatar';
-import { ErrorBoundary } from '../components/ErrorBoundary';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // ─────────────────────────────────────────────────────────────
 // Sub-components
