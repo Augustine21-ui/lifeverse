@@ -43,7 +43,7 @@ function DashboardHeader({ user }) {
           <div>
             <h2 className="text-xl font-bold text-white">{greeting}, {user?.full_name?.split(' ')[0] || 'Learner'}</h2>
             <p className="text-sm text-[var(--text-secondary)] mt-0.5">Ready to make progress today?</p>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">A short, personalised welcome.</p>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5"></p>
           </div>
         </div>
         <button onClick={() => navigate('/settings')} className="p-2 text-[var(--text-muted)] hover:text-white transition">
