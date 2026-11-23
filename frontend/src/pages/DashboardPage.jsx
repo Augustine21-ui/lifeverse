@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────
-// Quote logic
+// Quote l
 // ─────────────────────────────────────────────────────────────
 const QUOTES = [
   "Success is the sum of small efforts repeated every day.",
