@@ -126,7 +126,7 @@ export default function AppLayout() {
   const studySphereItems = isStudent ? [
     { to: '/orbit', icon: Rocket, label: 'Orbit' },
     { to: '/opportunities', icon: Briefcase, label: 'Opportunities' },
-    { to: '/communities', icon: Users, label: 'Communities' },
+    { to: '/momentum', icon: Users, label: 'momentum' },
     { to: '/ai-tutor', icon: Bot, label: 'AI Tutor' },
   ] : [];
 
