@@ -142,10 +142,6 @@ function PhilosophyJourney() {
           <span className="text-xs font-medium text-white">Opportunity</span>
         </div>
       </div>
-
-      <p className="text-xs text-center text-[var(--text-muted)] leading-relaxed">
-        Conceptual layout to communicate the direction. These are not live KUA features or real learner records.
-      </p>
     </section>
   );
 }
