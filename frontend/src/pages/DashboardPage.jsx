@@ -1,5 +1,5 @@
 // frontend/src/pages/DashboardPage.jsx
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
@@ -37,13 +37,12 @@ function DashboardHeader({ user }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full border-2 border-indigo-500/50 overflow-hidden shrink-0">
-            {/* Keeping your HolographicAvatar as requested */}
             <HolographicAvatar />
           </div>
           <div>
             <h2 className="text-xl font-bold text-white">{greeting}, {user?.full_name?.split(' ')[0] || 'Learner'}</h2>
             <p className="text-sm text-[var(--text-secondary)] mt-0.5">Ready to make progress today?</p>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5"></p>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">A short, personalised welcome.</p>
           </div>
         </div>
         <button onClick={() => navigate('/settings')} className="p-2 text-[var(--text-muted)] hover:text-white transition">
@@ -90,14 +89,14 @@ function HeroActionCard({ action }) {
   );
 }
 
-function ActionGrid() {
+function ActionGrid({ onStartFocus }) {
   const navigate = useNavigate();
   
   const cards = [
-    { title: "Today's focus", desc: "Your selected learning priority.", icon: Calendar, link: '/studysphere', color: 'text-blue-400' },
-    { title: "Revision", desc: "Topics due for another look.", icon: RotateCcw, link: '/orbit', color: 'text-indigo-400' },
-    { title: "Apply your knowledge", desc: "A relevant practical challenge.", icon: Lightbulb, link: '/orbit', color: 'text-amber-400' },
-    { title: "Coming up", desc: "Real deadlines and commitments.", icon: CalendarCheck, link: '/studysphere', color: 'text-cyan-400' },
+    { title: "Today's focus", desc: "Your selected learning priority.", icon: Calendar, onClick: onStartFocus, color: 'text-blue-400' },
+    { title: "Revision", desc: "Topics due for another look.", icon: RotateCcw, onClick: () => navigate('/orbit'), color: 'text-indigo-400' },
+    { title: "Apply your knowledge", desc: "A relevant practical challenge.", icon: Lightbulb, onClick: () => navigate('/orbit'), color: 'text-amber-400' },
+    { title: "Coming up", desc: "Real deadlines and commitments.", icon: CalendarCheck, onClick: () => navigate('/studysphere'), color: 'text-cyan-400' },
   ];
 
   return (
@@ -107,7 +106,7 @@ function ActionGrid() {
         return (
           <div 
             key={idx} 
-            onClick={() => navigate(card.link)}
+            onClick={card.onClick}
             className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-5 cursor-pointer hover:border-white/20 transition"
           >
             <Icon size={20} className={`${card.color} mb-3`} />
@@ -199,6 +198,11 @@ export default function DashboardPage() {
   const [orbitCount, setOrbitCount] = useState(0);
   const [focusRemaining, setFocusRemaining] = useState(0);
 
+  // Focus Mode State
+  const [focusMode, setFocusMode] = useState(false);
+  const [focusDuration, setFocusDuration] = useState(25);
+  const [focusTopic, setFocusTopic] = useState('Deep Work');
+
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
@@ -228,6 +232,40 @@ export default function DashboardPage() {
     loadDashboard();
   }, [loadDashboard]);
 
+  // Focus Session Handlers
+  const handleStartFocus = () => {
+    if (focusRemaining <= 0) {
+      showToast?.('No focus sessions left today', 'error');
+      return;
+    }
+    setFocusMode(true);
+  };
+
+  const handleFocusEnd = async () => {
+    try {
+      await api.completeFocusSession(focusDuration);
+      triggerMood?.('focus-complete');
+      showToast?.('Focus session complete');
+      await loadDashboard();
+      await refreshUser?.();
+    } catch (err) {
+      showToast?.(err.message || 'Focus session failed', 'error');
+    }
+    setFocusMode(false);
+  };
+
+  // If Focus Mode is active, render the overlay
+  if (focusMode) {
+    return (
+      <FocusSession 
+        topic={focusTopic} 
+        duration={focusDuration} 
+        onEnd={handleFocusEnd} 
+        onCancel={() => setFocusMode(false)} 
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div className="max-w-[800px] mx-auto px-4 py-6 pb-24 pt-16">
@@ -251,7 +289,7 @@ export default function DashboardPage() {
     nextAction = { 
       title: `Complete: ${pendingTask.title}`, 
       desc: 'You have a pending task for today. Finish it to keep your momentum.', 
-      link: '/dashboard', // Or wherever tasks are managed
+      link: '/dashboard', 
       btnText: 'Finish Task' 
     };
   } else if (orbitCount === 0) {
@@ -282,7 +320,7 @@ export default function DashboardPage() {
       </ErrorBoundary>
 
       <ErrorBoundary title="Action grid failed to load">
-        <ActionGrid />
+        <ActionGrid onStartFocus={handleStartFocus} />
       </ErrorBoundary>
 
       <ErrorBoundary title="Philosophy strip failed">
